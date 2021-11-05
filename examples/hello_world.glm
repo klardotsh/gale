@@ -1,0 +1,5 @@
+import std.io
+
+export main = |_| do
+	std.io.println "hello, world!"
+end

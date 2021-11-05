@@ -1,0 +1,50 @@
+import std.array as arr
+import std.io.{ println, eprintln }
+import std.random
+
+maybe_something = do
+	std.random.bool!.optionally "body once told me"
+end
+
+--- A silly statistics-defying method that tries to build an array of 10 Some("body
+--- once told me") values randomly. It will almost certainly return an error, but
+--- on the off chance that RNGesus smiles upon you, it may return an ok.
+--- Regardless, it makes for a nice silly example of the Result and Option types in
+--- one swing.
+get_ten_somes = do
+	arr.new_with_capacity 10
+		|> arr.map maybe_something
+		|> arr.find |ele| do ele.is_some! end
+		-- at this point we have an Option, either Some(ele) or None. % is a
+		-- pipeline-specific operator referring to whatever the inbound object is,
+		-- and is purely provided for creature comfort reasons (and to allow
+		-- "point-free" development - the desugared version of this would have
+		-- ended the pipe here, assigned our Option to some variable (x, why not),
+		-- and then called x.must_not
+		|> %.must_not
+			"against all odds, the array is all Somes"
+			"as expected, at least one None found"
+end
+
+export main = |_| do
+	-- match is a keyword, but since it's a keyword that takes just one
+	-- argument, a limited form of UFCS
+	-- (https://en.wikipedia.org/wiki/Uniform_Function_Call_Syntax) is supported
+	-- here
+	get_ten_somes!.match do
+		-- the : sugar here should not be confused with Ruby/Elixir/etc.'s
+		-- symbols, it's a shorthand for `core.` to reduce the number of keywords
+		-- in the language (`ok` thus isn't reserved, but provided in `Prelude`, known
+		-- to gluumy applications as `core`)
+		:ok(msg) do
+			println msg
+		end
+
+		:err(msg) do
+			eprintln msg
+		end
+	end
+
+	-- the above could have instead been written as
+	get_ten_somes!.handle_with println eprintln
+end
