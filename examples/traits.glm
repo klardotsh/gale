@@ -81,7 +81,6 @@ Song =>
 		-- in the future, though, so generally "is" is encouraged.
 		repr { (num total) } -> :string.format "Track %d/%d" num total
 
-
 	repr { (title artist album_artist) } ->
 		:string.format
 			"%s by %s"
