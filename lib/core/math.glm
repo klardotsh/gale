@@ -1,0 +1,106 @@
+-- gluumy is copyfree software with no warranty, released under the CC0-1.0
+-- public-domain-esque dedication found in COPYING in gluumy's source tree, or
+-- at https://creativecommons.org/publicdomain/zero/1.0/
+
+. ./error DivideByZeroError
+. ./primitive Number
+. ./result Result
+
+-- re-export for convenience
+DivideByZeroError = DivideByZeroError
+
+add { Number Number } -> Number
+add { a(Number) b(Number } !->
+	return a + b
+add { Number Number Number } -> Number
+add { a(Number) b(Number) c(Number) } !->
+	return a + b + c
+add { Number Number Number Number } -> Number
+add { a(Number) b(Number) c(Number) d(Number) } !->
+	return a + b + c + d
+add { Number Number Number Number Number } -> Number
+add { a(Number) b(Number) c(Number) d(Number) e(Number) } !->
+	return a + b + c + d + e
+add { Number Number Number Number Number Number } -> Number
+add { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } !->
+	return a + b + c + d + e + f
+add { args(...Number 7) } !->
+	ret = 0
+	for i = 1, #args do
+		ret = ret + args[i]
+	end
+	return ret
+
+sub { Number Number } -> Number
+sub { a(Number) b(Number } !->
+	return a - b
+sub { Number Number Number } -> Number
+sub { a(Number) b(Number) c(Number) } !->
+	return a - b - c
+sub { Number Number Number Number } -> Number
+sub { a(Number) b(Number) c(Number) d(Number) } !->
+	return a - b - c - d
+sub { Number Number Number Number Number } -> Number
+sub { a(Number) b(Number) c(Number) d(Number) e(Number) } !->
+	return a - b - c - d - e
+sub { Number Number Number Number Number Number } -> Number
+sub { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } !->
+	return a - b - c - d - e - f
+sub { args(...Number 7) } !->
+	ret = args[1]
+	for i = 1, #args-1 do
+		ret = ret - args[i + 1]
+	end
+	return ret
+
+div { Number Number } -> Number
+div { a(Number) b(Number } !->
+	return a / b
+div { Number Number Number } -> Number
+div { a(Number) b(Number) c(Number) } !->
+	return a / b / c
+div { Number Number Number Number } -> Number
+div { a(Number) b(Number) c(Number) d(Number) } !->
+	return a / b / c / d
+div { Number Number Number Number Number } -> Number
+div { a(Number) b(Number) c(Number) d(Number) e(Number) } !->
+	return a / b / c / d / e
+div { Number Number Number Number Number Number } -> Number
+div { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } !->
+	return a / b / c / d / e / f
+div { args(...Number 7) } !->
+	ret = args[1]
+	for i = 1, #args-1 do
+		ret = ret / args[i + 1]
+	end
+	return ret
+
+mul { Number Number } -> Number
+mul { a(Number) b(Number } !->
+	return a * b
+mul { Number Number Number } -> Number
+mul { a(Number) b(Number) c(Number) } !->
+	return a * b * c
+mul { Number Number Number Number } -> Number
+mul { a(Number) b(Number) c(Number) d(Number) } !->
+	return a * b * c * d
+mul { Number Number Number Number Number } -> Number
+mul { a(Number) b(Number) c(Number) d(Number) e(Number) } !->
+	return a * b * c * d * e
+mul { Number Number Number Number Number Number } -> Number
+mul { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } !->
+	return a * b * c * d * e * f
+mul { args(...Number 7) } !->
+	ret = args[1]
+	for i = 1, #args-1 do
+		ret = ret * args[i + 1]
+	end
+	return ret
+
+mod { Number Number } -> Result Number DivideByZeroError
+mod { Number 0 } -> DivideByZeroError! |> Result.Err
+mod { it mod_by } -> _mod_impl it mod_by |> Result.Ok
+
+_mod_impl { Number Number } -> Number
+_mod_impl { it(Number) mod_by(Number) } !->
+	return it % mod_by

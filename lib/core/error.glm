@@ -1,0 +1,17 @@
+-- gluumy is copyfree software with no warranty, released under the CC0-1.0
+-- public-domain-esque dedication found in COPYING in gluumy's source tree, or
+-- at https://creativecommons.org/publicdomain/zero/1.0/
+
+. ./string Printable DebugPrintable format
+. ./primitive String
+
+Error =>
+	<= Printable
+	<= DebugPrintable
+
+	message = String
+
+	repr { self } ->
+
+DivideByZeroError = Error <=>
+	message = "impossible to divide by zero"

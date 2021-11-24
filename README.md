@@ -1,69 +1,106 @@
-# gluumy: a type-safe, semi-minimal, and hackable language targeting Lua-ish
+# gluumy: a type-safe, minimal-ish, and hackable language targeting Lua
 
-> it's pronounced "gloomy", and is spelled in lowercase, always
+> it's pronounced "gloomy" (or maybe "glue me"), and is spelled in lowercase,
+> always
 
-gluumy is an intentionally "good enough for lots of things, excellent probably
-at only a few things" language designed by and for @klardotsh, which takes
-influence from languages such as [Gleam](https://gleam.run/),
-[TypeScript](https://www.typescriptlang.org/),
-[LiveScript](https://livescript.net/), and to a more limited degree,
-[Rust](https://www.rust-lang.org/) and [Zig](https://ziglang.org/). It's
-suitable as a type-safe scripting language, a language for reasonably-scoped
-command line tools, and can probably take a decent stab at small-scale
-networked utilities. However, gluumy is an intentionally small language
-designed to be understandable (and, crucially, buildable) by a single human (or
-a very, very small group of them), so probably won't have all the creature
-comforts one may be used to from other, beefier languages, and is likely
-entirely unsuited for some domains. That's fine - there's a multitude of
-wonderful languages out there, gluumy will not replace all of them for all
-things.
+```
+ _.    _  |         ._ _       ._  o  _  |_ _|_   |_   _   _  o ._   _
+(_|   (_| | |_| |_| | | | \/   | | | (_| | | |_   |_) (/_ (_| | | | _>
+       _|                 /           _|                   _|
+```
 
-If you're not aforementioned author but still find gluumy appealing and would
-like to use it, note that it's not stable yet, and is currently suited only for
-those willing to get their hands dirty and build the standard library (and
-indeed, much of the compiler and LSP tooling) out themselves.
+gluumy is a small, "fast enough for most day to day stuff", quasi-functional
+(and the rest trait-and-interface-based) language that compiles to Lua, and
+thus should run mostly anywhere Lua 5.1 (plus some compatibility modules, see
+below) can. It probably won't win many benchmarks, it may or may not be most
+appropriate for all or any domains, and it certainly has no basis in academia
+nor a founder with any background in programming language design. What it lacks
+in those departments it tries to make up for in ease of learning,
+understanding, tinkering, and Just Getting Shit Done.
 
-gluumy intends to eventually be "nearly-complete". While the world around us
-will of course change (including the platforms gluumy runs on) and these
-changes may necessitate standard library changes (or in an extreme scenario,
-perhaps even core language spec changes), it is hoped that such changes
-eventually can slow to a bit of a crawl.
+It takes influence from languages like Gleam, Rust, Ruby, and Lua, and aims to
+create a language that is small, understandable in a day or so, easy to hack
+on, safe, and expressive. If you're here for the latest and greatest in
+programming language research or to make use of your degree in theoretical
+mathematics (or even category theory), this is not the project you're looking
+for. If you've ever wanted a subset of the type system of Rust with an offshoot
+of ML-esque syntax and the mental-model simplicity of Lua, you might be in
+the right place.
 
-gluumy code compiles down to what I'll describe as "Lua-ish" - the syntax will
-all be valid Lua 5.1, but it will assume the environment provides the gluumy
-`Prelude`. The `Prelude` is independent of the standard library and is somewhat
-analogous to `core` in Rust, defining various types and structures that are not
-part of the Lua spec. They may be written in the language and style of the
-host's choice: a pure-Lua `Prelude` is provided here, but a more performant
-INSERT IMPLEMENTATION LANGUAGE HERE-based native extension for LuaJIT 2.1 is
-available at INSERT WHERE TO FIND IT HERE.
+Now, to toot gluumy's horn on its awesome traits and features:
 
-For convenience and for interopability with embedded Lua runtimes (perhaps that
-of [Neovim](https://neovim.io/)'s config files, or your favorite moddable video
-game), the pure-Lua `Prelude` can optionally be automatically embedded into the
-output source with `--embedded-prelude`.
+- No exceptions or `nil`, instead offering `Result` and `Option` types,
+  respectively
 
-### A note about Lua versions
+  * It's worth noting that "no exceptions" doesn't mean foreign code wrapped by
+	gluumy's FFI contraptions can't cause runtime panics. FFI is considered
+	inherently unsafe for a reason - gluumy can't save you from things it can't
+	control!
 
-Of note, Lua 5.1 is explicitly targeted for a few reasons: firstly, it's the
-lowest common denominator between PUC Lua, LuaJIT, and Zua (and likely other
-embedded custom Lua implementations), secondly it's philosophically an
-extremely simple version of the language (which helps keep gluumy's code
-generation straightforward to understand), and thirdly, because it's been
-around and battle-tested for ages. If it ain't broke, I don't have time to fix
-it.
+- A small-but-useful standard library that, in general, tries to offer as close
+  to one way to solve a problem as possible. Learn a few patterns and you
+  should be good to go for `core` and `std`.
 
-This policy will remain in place until one of three things happens:
+- A trait-based functional-ish paradigm encouraging free functions accepting as
+  broad of interfaces as possible as opposed to narrow member functions.
 
-- the costs of retaining 5.1 support outweigh the benefits added by some newer
-  version of the language spec
-- there are multiple reasonably-well-used implementations of some newer version
-  of Lua, and gluumy can actually make use of the new language features somehow
-- Lua 5.1 can no longer be reasonably expected to build on modern systems
-  **and** the then-current implementations of Lua have lost
-  backwards-compatibility with Lua 5.1. Both seem unlikely within the next
-  decade, but of course the biggest lesson of the 2020s is that Anything Can
-  Happen, so who knows.
+- To complement said paradigm, a strong type inference system that often
+  eliminates the need for type annotations entirely (indeed, much of the
+  standard library lacks explicit annotations, and instead happily works on any
+  inputs that fit the inferred expected shape).
+
+- Complementing almost all of the above, two pipeline operators (`|>` and
+  `|>>`) to prepend and append (respectively) the results of one function to
+  the arguments of another (those who have used Gleam, Elixir, or F# shuold
+  feel at home with this).
+
+- It all becomes Lua in the end, allowing for easy portability, inspectability,
+  and optimization (by way of alternative Lua implementations such as LuaJIT).
+  Forget about cross-compilation woes from many languages **and** many of the
+  runtime exceptions from many others.
+
+... and as a bonus, the spec, implementation, and standard library are all
+[Copyfree](https://copyfree.org/) software.
+
+This repository contains various components:
+
+- `src/stage0` contains the bootstrapping compiler in dependency-free Lua 5.1.
+  This is an extremely unsafe, raw translator of gluumy source to Lua source.
+  Its output is unoptimized and only debatably readable. It also assumes all
+  input code is type-safe. _Use of `stage0` is not supported for any purpose
+  other than compiling `src/compiler` and any gluumy source files it may
+  reference, notably, `lib/core`. Do not file bugs against `stage0` unless they
+  directly cause broken `src/compiler` builds._ For now, the bootstrapping
+  compiler will be retained such that the only requirement to build the gluumy
+  compiler is a Lua 5.1 build, however there is no promise of how long this
+  will last.
+
+- `src/compiler`, `lib/compile`, `lib/tc`, `lib/lsp`, `lib/lint`, and `lib/fmt`
+  are the actually-safe and as-production-ready-as-feasible gluumy compiler,
+  type-checking engine, [language server](https://langserver.org/), linter, and
+  formatter. They are all implemented in gluumy.
+
+- `lib/core` and `lib/std` define the core (always present and in-scope via `:`
+  sugar) and standard (optional, by import) libraries, each also implemented in
+  gluumy.
+
+> Please note that gluumy is a personal side project, mostly aimed towards
+> developing things I want to build (which generally means command line and/or
+> networked applications, and glue scripts). The standard library is thus only
+> as complete as is necessary to solve those problems (and, of course, to
+> self-host the toolchain). If you find this language interesting and choose to
+> use it, be prepared to have to fill in holes in the standard library and/or
+> to have to write FFI bindings and typedefs to Lua modules, and most of all,
+> don't expect API stability across versions yet.
+
+## Dependencies
+
+- Any Lua compatible with the intersection of the [LuaJIT-defined subset of Lua
+  5.2](https://luajit.org/extensions.html) and
+  [lua-compat-5.2](https://github.com/keplerproject/lua-compat-5.2/). In
+  practical terms, on most Unixes this means LuaJIT, Lua 5.2, Lua 5.1 with
+  `compat52`, or anything else backwards-compatible to those APIs. Clear as
+  mud, thanks Lua fragmentation!
 
 ## Alternatives
 

@@ -1,0 +1,32 @@
+-- gluumy is copyfree software with no warranty, released under the CC0-1.0
+-- public-domain-esque dedication found in COPYING in gluumy's source tree, or
+-- at https://creativecommons.org/publicdomain/zero/1.0/
+
+. ./cmp eq
+. ./error Error
+. ./primitive String Printable DebugPrintable
+. ./result Result (result_from_bool = from_bool)
+
+Printable = Printable
+DebugPrintable = DebugPrintable
+String = String
+
+format { it(!String) args(!...Any 0) } ->
+	!params_expected = _num_format_params it
+	!result_from_bool
+		eq params_expected args.len
+		Error <=>
+			message = "incorrect number of format arguments provided"
+
+	format_unsafe it args
+
+format_unsafe { String (...Any 0) } -> String
+format_unsafe { it args } !-> return string.format(it, args)
+
+_num_format_params { it } -> _num_format_params_inner it |> Result.Ok
+
+-- TODO: pure gluumy implementation once we have an :iter module
+_num_format_params_inner { String } -> Number
+_num_format_params_inner { it } !->
+	-- TODO: implement...
+	return 0

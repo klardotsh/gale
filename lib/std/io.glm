@@ -1,0 +1,19 @@
+-- gluumy is copyfree software with no warranty, released under the CC0-1.0
+-- public-domain-esque dedication found in COPYING in gluumy's source tree, or
+-- at https://creativecommons.org/publicdomain/zero/1.0/
+
+--- Write the Printable representation of `it`, followed by a newline, to
+--- stdout, which is then flushed.
+println { it(:Printable) } -> ()
+println { it(:Printable) } !->
+	io.stdout:write(it:repr())
+	io.stdout:write("\n")
+	io.stdout:flush()
+
+--- Write the Printable representation of `it`, followed by a newline, to
+--- stderr, which is then flushed.
+eprintln { it(:Printable) } -> ()
+eprintln { it(:Printable) } !->
+	io.stderr:write(it:repr())
+	io.stderr:write("\n")
+	io.stderr:flush()
