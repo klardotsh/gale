@@ -102,5 +102,4 @@ mod { Number 0 } -> DivideByZeroError! |> Result.Err
 mod { it mod_by } -> _mod_impl it mod_by |> Result.Ok
 
 _mod_impl { Number Number } -> Number
-_mod_impl { it(Number) mod_by(Number) } !->
-	return it % mod_by
+_mod_impl { it(Number) mod_by(Number) } !-> return it % mod_by

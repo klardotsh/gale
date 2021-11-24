@@ -19,7 +19,6 @@ local SYMBOLS = {
 	-- primitive types that aren't keywords themselves
 	COMMENT = 'COMMENT',
 	DOCSTRING = 'DOCSTRING',
-	VAST_EMPTINESS = 'VAST_EMPTINESS', -- I politely didn't name this "WYOMING", yw
 	EQL = 'EQL',
 	PIPE_SHORT = 'PIPE_SHORT',
 	PIPE_LONG = 'PIPE_LONG',
@@ -29,8 +28,9 @@ local SYMBOLS = {
 	SEMICOLON = 'SEMICOLON',
 	COLON = 'COLON',
 	INT = 'INT',
-	FLOAT = 'FLOAT',
 	DOT = 'DOT',
+	DOTDOT = 'DOTDOT',
+	DOTDOTDOT = 'DOTDOTDOT',
 	EXCLAIM = 'EXCLAIM',
 	NEWLINE = 'NEWLINE',
 	LPRN = 'LPRN',
@@ -85,6 +85,16 @@ local CHARS = {
 	BSLSH = string.byte('\\'),
 	LPRN = string.byte('('),
 	RPRN = string.byte(')'),
+	N0 = string.byte('0'),
+	N1 = string.byte('1'),
+	N2 = string.byte('2'),
+	N3 = string.byte('3'),
+	N4 = string.byte('4'),
+	N5 = string.byte('5'),
+	N6 = string.byte('6'),
+	N7 = string.byte('7'),
+	N8 = string.byte('8'),
+	N9 = string.byte('9'),
 }
 
 function main()
@@ -143,6 +153,31 @@ function main()
 				else
 					die('dash can only be followed by more dashes or >')
 				end
+			elseif is_num(cur) then
+				local num_idx = idx + 1
+				local num_cur = line:byte(num_idx)
+				while num_idx < #line do
+					if not is_num(num_cur) then
+						symbol_print(symbol(
+							SYMBOLS.INT, lineno, idx, num_idx,
+							string.sub(line, idx, num_idx - 1)
+						))
+						idx = num_idx - 1
+						break
+					else
+						num_idx = num_idx + 1
+						str_cur = line:byte(num_idx)
+
+						if num_idx >= #line then
+							symbol_print(symbol(
+								SYMBOLS.INT, lineno, idx, num_idx,
+								string.sub(line, idx, num_idx - 1)
+							))
+							idx = num_idx
+							break
+						end
+					end
+				end
 			elseif cur == CHARS.TILDE then
 				if next == CHARS.GT then
 					symbol_print(symbol(SYMBOLS.SQUIGGLY_ARROW, lineno, idx, idx + 2))
@@ -179,7 +214,17 @@ function main()
 				-- TODO merge consecutive spaces into one entity
 				symbol_print(symbol(SYMBOLS.SPACES, lineno, idx, idx + 1))
 			elseif cur == CHARS.DOT then
-				symbol_print(symbol(SYMBOLS.DOT, lineno, idx, idx + 1))
+				if next == CHARS.DOT then
+					if nextnext == CHARS.DOT then
+						symbol_print(symbol(SYMBOLS.DOTDOTDOT, lineno, idx, idx + 3))
+						idx = idx + 2
+					else
+						symbol_print(symbol(SYMBOLS.DOTDOT, lineno, idx, idx + 2))
+						idx = idx + 1
+					end
+				else
+					symbol_print(symbol(SYMBOLS.DOT, lineno, idx, idx + 1))
+				end
 			elseif cur == CHARS.LCBR then
 				symbol_print(symbol(SYMBOLS.LCBR, lineno, idx, idx + 1))
 			elseif cur == CHARS.RCBR then
@@ -344,6 +389,19 @@ function symbol_print(sym)
 		sym.kind, sym.lineno, sym.col_start, sym.col_end,
 		sym.contents and string.format("; contents = \"%s\"", sym.contents) or ""
 	))
+end
+
+function is_num(byte)
+	return byte == CHARS.N0 or
+		byte == CHARS.N1 or
+		byte == CHARS.N2 or
+		byte == CHARS.N3 or
+		byte == CHARS.N4 or
+		byte == CHARS.N5 or
+		byte == CHARS.N6 or
+		byte == CHARS.N7 or
+		byte == CHARS.N8 or
+		byte == CHARS.N9
 end
 
 function identifier_breaker(byte)
