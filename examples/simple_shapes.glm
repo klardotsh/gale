@@ -1,0 +1,34 @@
+-- gluumy is copyfree software with no warranty, released under the CC0-1.0
+-- public-domain-esque dedication found in COPYING in gluumy's source tree, or
+-- at https://creativecommons.org/publicdomain/zero/1.0/
+
+Track =>
+	num(Number)
+	total(Number)
+
+repr { self(Track) } -> format "Track %d/%d" self.num self.total
+
+Song =>
+	artist(String)
+	album_artist(Option String)
+	title(String)
+
+	track(Option Track)
+
+repr { self(Song) } ->
+	format
+		"%s by %s"
+		self.title
+		or self.album_artist self.artist
+
+-- this prints "Wandering Star by Portishead"
+main { .. } ->
+	Song <=>
+		artist = "Portishead"
+		title = "Wandering Star"
+		track =
+			Option.Some
+			=>
+				num = 5
+				total = 7
+	|> println!

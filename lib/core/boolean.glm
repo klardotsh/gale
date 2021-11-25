@@ -1,0 +1,27 @@
+-- gluumy is copyfree software with no warranty, released under the CC0-1.0
+-- public-domain-esque dedication found in COPYING in gluumy's source tree, or
+-- at https://creativecommons.org/publicdomain/zero/1.0/
+
+<bool> Boolean =>
+	<= Equatable
+	<= Printable
+	<= DebugPrintable
+
+eq { false false } -> true
+eq { false _ } -> false
+eq { true true } -> true
+eq { true _ } -> false
+eq { args(...Boolean 3) } Boolean !->
+	local idx = 2
+	local first = args[1]
+	while ret and idx <= #args do
+		if first != args[idx] then return false end
+		idx = idx + 1
+	end
+	return true
+
+repr { true } -> "true"
+repr { false } -> "false"
+
+repr_debug { true } -> "true"
+repr_debug { false } -> "false"

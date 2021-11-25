@@ -1,0 +1,35 @@
+-- gluumy is copyfree software with no warranty, released under the CC0-1.0
+-- public-domain-esque dedication found in COPYING in gluumy's source tree, or
+-- at https://creativecommons.org/publicdomain/zero/1.0/
+
+<number> Number =>
+	<= Comparable
+	<= Printable
+	<= DebugPrintable
+
+eq { a(Number) b(Number) } Boolean !-> return a == b
+eq { args(...Number 3) } Boolean !->
+	local idx = 2
+	local first = args[1]
+	while ret and idx <= #args do
+		if first != args[idx] then return false end
+		idx = idx + 1
+	end
+	return true
+
+lt { a(Number) b(Number) } Boolean !-> return a < b
+
+lte { a(Number) b(Number) } Boolean !-> return a <= b
+
+gt { a(Number) b(Number) } Boolean !-> return a > b
+
+gte { a(Number) b(Number) } Boolean !-> return a >= b
+
+repr { self(Number) } String !->
+	if self % 1 == 0 then
+		return string.format("%d", self)
+	else
+		return string.format("%f", self)
+	end
+
+repr_debug { self(Number } String = repr self

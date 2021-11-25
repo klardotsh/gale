@@ -2,16 +2,18 @@
 -- public-domain-esque dedication found in COPYING in gluumy's source tree, or
 -- at https://creativecommons.org/publicdomain/zero/1.0/
 
-. ./cmp eq
-. ./error Error
-. ./primitive String Printable DebugPrintable
-. ./result Result (result_from_bool = from_bool)
+<string> String =>
+	<= Equatable
+	<= Printable
+	<= DebugPrintable
 
-Printable = Printable
-DebugPrintable = DebugPrintable
-String = String
+eq { a(String) b(String) } Boolean !-> return a == b
 
-format { it(!String) args(!...Any 0) } ->
+repr { self(String) } -> self
+
+repr_debug { self(String) } String !-> return string.format("\"%s\"", self)
+
+format { it(!String) args(!...Any 0) } String ->
 	!params_expected = _num_format_params it
 	!result_from_bool
 		eq params_expected args.len
@@ -20,13 +22,11 @@ format { it(!String) args(!...Any 0) } ->
 
 	format_unsafe it args
 
-format_unsafe { String (...Any 0) } -> String
-format_unsafe { it args } !-> return string.format(it, args)
+format_unsafe { it(String) args(...Any 0) } String !-> return string.format(it, args)
 
-_num_format_params { it } -> _num_format_params_inner it |> Result.Ok
+_num_format_params { it } -> _num_format_params_inner it |> Result.Ok!
 
 -- TODO: pure gluumy implementation once we have an :iter module
-_num_format_params_inner { String } -> Number
-_num_format_params_inner { it } !->
+_num_format_params_inner { it(String) } Number !->
 	-- TODO: implement...
 	return 0

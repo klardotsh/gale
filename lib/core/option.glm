@@ -2,8 +2,6 @@
 -- public-domain-esque dedication found in COPYING in gluumy's source tree, or
 -- at https://creativecommons.org/publicdomain/zero/1.0/
 
-. ./result Result
-
 Option { T } ~>
 	Some => T
 	None
@@ -11,14 +9,14 @@ Option { T } ~>
 --- Maps a Boolean to an Option, where `false` becomes None, and `true` becomes
 --- `when_true`. If `when_true` should be a dynamic value (i.e. requires a function
 --- call), use `from_bool_with` instead.
-from_bool { true when_true } -> Option.Some when_true
-from_bool { false } -> Option.None
+option_from_bool { true when_true } -> Option.Some when_true
+option_from_bool { false } -> Option.None!
 
 --- Maps a Boolean to an Option, where `false` becomes none, and `true` becomes
 --- the return value of `when_true`. If `when_true` need not be dynamic,
 --- `from_bool` is more efficient.
-from_bool_with { true when_true } -> Option.Some when_true!
-from_bool_with { false } -> Option.None
+option_from_bool_with { true when_true } -> Option.Some when_true!
+option_from_bool_with { false } -> Option.None!
 
 --- Maps an Option to a Boolean, where Some becomes `false` and None becomes
 --- `true`.
@@ -61,8 +59,8 @@ must { Option.None when_none } -> Result.Err when_none
 --- should not return a Result themselves unless nested Results are desired).
 ---
 --- For the inverse operation, see `must_not_with`.
-must_with { val(Option.Some) when_some } -> when_some val |> Result.Ok
-must_with { Option.None _ when_none } -> when_none! |> Result.Err
+must_with { val(Option.Some) when_some } -> when_some val |> Result.Ok!
+must_with { Option.None _ when_none } -> when_none! |> Result.Err!
 
 --- Maps an Option to a Result, wrapping `when_some` in Result.Err and
 --- `when_none` in Result.Ok based on the state of `it`. The inner value of the
@@ -78,5 +76,5 @@ must_not { Option.None _ when_none } -> Result.Ok when_none
 --- should not return a Result themselves unless nested Results are desired).
 ---
 --- For the inverse operation, see `must_with`.
-must_not_with { val(Option.Some) when_some } -> when_some val |> Result.Err
-must_not_with { Option.None _ when_none } -> when_none! |> Result.Ok
+must_not_with { val(Option.Some) when_some } -> when_some val |> Result.Err!
+must_not_with { Option.None _ when_none } -> when_none! |> Result.Ok!

@@ -7,9 +7,9 @@ Result { T1 T2 } ~>
 	Err => T2
 
 -- TODO: doc
-from_bool { true when_true } -> Result.Ok when_true
-from_bool { false _ when_false } -> Result.Err when_false
+result_from_bool { true when_true } -> Result.Ok when_true
+result_from_bool { false _ when_false } -> Result.Err when_false
 
 -- TODO: doc
-from_bool_with { true when_true } -> Result.Ok when_true!
-from_bool_with { false _ when_false } -> Result.Err when_false!
+result_from_bool_with { true when_true } -> Result.Ok when_true!
+result_from_bool_with { false _ when_false } -> Result.Err when_false!

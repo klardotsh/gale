@@ -2,13 +2,10 @@
 -- public-domain-esque dedication found in COPYING in gluumy's source tree, or
 -- at https://creativecommons.org/publicdomain/zero/1.0/
 
-Equatable =>
-	eq { (...Self 2) } Boolean
+Printable =>
+	repr { Self } String
 
-Comparable =>
-	<= Equatable
+DebugPrintable =>
+	<= Printable
 
-	lt { Self Self } Boolean
-	lte { Self Self } Boolean
-	gt { Self Self } Boolean
-	gte { Self Self } Boolean
+	repr_debug { Self } String

@@ -4,16 +4,14 @@
 
 --- Write the Printable representation of `it`, followed by a newline, to
 --- stdout, which is then flushed.
-println { it(:Printable) } -> ()
-println { it(:Printable) } !->
+println { it(:Printable) } () !->
 	io.stdout:write(it:repr())
 	io.stdout:write("\n")
 	io.stdout:flush()
 
 --- Write the Printable representation of `it`, followed by a newline, to
 --- stderr, which is then flushed.
-eprintln { it(:Printable) } -> ()
-eprintln { it(:Printable) } !->
+eprintln { it(:Printable) } () !->
 	io.stderr:write(it:repr())
 	io.stderr:write("\n")
 	io.stderr:flush()

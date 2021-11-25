@@ -2,104 +2,96 @@
 -- public-domain-esque dedication found in COPYING in gluumy's source tree, or
 -- at https://creativecommons.org/publicdomain/zero/1.0/
 
-. ./error DivideByZeroError
-. ./primitive Number
-. ./result Result
+---
+Adds two or more numbers, with optimized implementations available for 2-6
+arities.
 
--- re-export for convenience
-DivideByZeroError = DivideByZeroError
+## Examples
 
-add { Number Number } -> Number
-add { a(Number) b(Number } !->
-	return a + b
-add { Number Number Number } -> Number
-add { a(Number) b(Number) c(Number) } !->
-	return a + b + c
-add { Number Number Number Number } -> Number
-add { a(Number) b(Number) c(Number) d(Number) } !->
-	return a + b + c + d
-add { Number Number Number Number Number } -> Number
-add { a(Number) b(Number) c(Number) d(Number) e(Number) } !->
+```
+-- returns 2
+add 1 1
+
+-- returns 3
+add 1 1 1
+
+--- returns 36
+add 1 2 3 4 5 6 7 8
+```
+---
+add { a(Number) b(Number } Number !-> return a + b
+add { a(Number) b(Number) c(Number) } Number !-> return a + b + c
+add { a(Number) b(Number) c(Number) d(Number) } Number !-> return a + b + c + d
+add { a(Number) b(Number) c(Number) d(Number) e(Number) } Number !->
 	return a + b + c + d + e
-add { Number Number Number Number Number Number } -> Number
-add { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } !->
+add { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } Number !->
 	return a + b + c + d + e + f
-add { args(...Number 7) } !->
+add { args(...Number 7) } Number !->
 	ret = 0
 	for i = 1, #args do
 		ret = ret + args[i]
 	end
 	return ret
 
-sub { Number Number } -> Number
-sub { a(Number) b(Number } !->
-	return a - b
-sub { Number Number Number } -> Number
-sub { a(Number) b(Number) c(Number) } !->
-	return a - b - c
-sub { Number Number Number Number } -> Number
-sub { a(Number) b(Number) c(Number) d(Number) } !->
-	return a - b - c - d
-sub { Number Number Number Number Number } -> Number
-sub { a(Number) b(Number) c(Number) d(Number) e(Number) } !->
+---
+Sequentially subtracts two or more numbers, with optimized implementations
+available for 2-6 arities.
+
+## Examples
+
+```
+-- returns 2
+sub 4 2
+
+-- returns -1
+sub 0 0 1
+
+-- returns 3
+sub 25 10 3 9
+---
+sub { a(Number) b(Number } Number !-> return a - b
+sub { a(Number) b(Number) c(Number) } Number !-> return a - b - c
+sub { a(Number) b(Number) c(Number) d(Number) } Number !-> return a - b - c - d
+sub { a(Number) b(Number) c(Number) d(Number) e(Number) } Number !->
 	return a - b - c - d - e
-sub { Number Number Number Number Number Number } -> Number
-sub { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } !->
+sub { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } Number !->
 	return a - b - c - d - e - f
-sub { args(...Number 7) } !->
+sub { args(...Number 7) } Number !->
 	ret = args[1]
 	for i = 1, #args-1 do
 		ret = ret - args[i + 1]
 	end
 	return ret
 
-div { Number Number } -> Number
-div { a(Number) b(Number } !->
-	return a / b
-div { Number Number Number } -> Number
-div { a(Number) b(Number) c(Number) } !->
-	return a / b / c
-div { Number Number Number Number } -> Number
-div { a(Number) b(Number) c(Number) d(Number) } !->
-	return a / b / c / d
-div { Number Number Number Number Number } -> Number
-div { a(Number) b(Number) c(Number) d(Number) e(Number) } !->
+div { a(Number) b(Number } Number !-> return a / b
+div { a(Number) b(Number) c(Number) } Number !-> return a / b / c
+div { a(Number) b(Number) c(Number) d(Number) } Number !-> return a / b / c / d
+div { a(Number) b(Number) c(Number) d(Number) e(Number) } Number !->
 	return a / b / c / d / e
-div { Number Number Number Number Number Number } -> Number
-div { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } !->
+div { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } Number !->
 	return a / b / c / d / e / f
-div { args(...Number 7) } !->
+div { args(...Number 7) } Number !->
 	ret = args[1]
 	for i = 1, #args-1 do
 		ret = ret / args[i + 1]
 	end
 	return ret
 
-mul { Number Number } -> Number
-mul { a(Number) b(Number } !->
-	return a * b
-mul { Number Number Number } -> Number
-mul { a(Number) b(Number) c(Number) } !->
-	return a * b * c
-mul { Number Number Number Number } -> Number
-mul { a(Number) b(Number) c(Number) d(Number) } !->
-	return a * b * c * d
-mul { Number Number Number Number Number } -> Number
-mul { a(Number) b(Number) c(Number) d(Number) e(Number) } !->
+mul { a(Number) b(Number } Number !-> return a * b
+mul { a(Number) b(Number) c(Number) } Number !-> return a * b * c
+mul { a(Number) b(Number) c(Number) d(Number) } Number !-> return a * b * c * d
+mul { a(Number) b(Number) c(Number) d(Number) e(Number) } Number !->
 	return a * b * c * d * e
-mul { Number Number Number Number Number Number } -> Number
-mul { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } !->
+mul { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } Number !->
 	return a * b * c * d * e * f
-mul { args(...Number 7) } !->
+mul { args(...Number 7) } Number !->
 	ret = args[1]
 	for i = 1, #args-1 do
 		ret = ret * args[i + 1]
 	end
 	return ret
 
-mod { Number Number } -> Result Number DivideByZeroError
-mod { Number 0 } -> DivideByZeroError! |> Result.Err
-mod { it mod_by } -> _mod_impl it mod_by |> Result.Ok
+mod { Number 0 } -> DivideByZeroError! |> Result.Err!
+mod { it mod_by } -> _mod_impl it mod_by |> Result.Ok!
 
-_mod_impl { Number Number } -> Number
-_mod_impl { it(Number) mod_by(Number) } !-> return it % mod_by
+_mod_impl { it(Number) mod_by(Number) } Number !-> return it % mod_by

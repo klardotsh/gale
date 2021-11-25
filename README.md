@@ -9,58 +9,71 @@
        _|                 /           _|                   _|
 ```
 
-gluumy is a small, "fast enough for most day to day stuff", quasi-functional
-(and the rest trait-and-interface-based) language that compiles to Lua, and
-thus should run mostly anywhere Lua 5.1 (plus some compatibility modules, see
-below) can. It probably won't win many benchmarks, it may or may not be most
-appropriate for all or any domains, and it certainly has no basis in academia
-nor a founder with any background in programming language design. What it lacks
-in those departments it tries to make up for in ease of learning,
-understanding, tinkering, and Just Getting Shit Done.
+gluumy is a small, "fast enough for most day to day stuff", strongly-typed,
+functional language that compiles to Lua, running anywhere Lua 5.1+ can. What
+it lacks in academic background it tries to make up for in simplicity,
+ergonomics, and intuitiveness. Simply put: gluumy is here to Get Shit Done and
+get out of the way. As a bonus, the spec, implementation, and standard
+libraries are all [Copyfree](https://copyfree.org/) software.
 
-It takes influence from languages like Gleam, Rust, Ruby, and Lua, and aims to
-create a language that is small, understandable in a day or so, easy to hack
-on, safe, and expressive. If you're here for the latest and greatest in
-programming language research or to make use of your degree in theoretical
-mathematics (or even category theory), this is not the project you're looking
-for. If you've ever wanted a subset of the type system of Rust with an offshoot
-of ML-esque syntax and the mental-model simplicity of Lua, you might be in
-the right place.
+gluumy has just a few core language constructs:
 
-Now, to toot gluumy's horn on its awesome traits and features:
+- the function, with often-inferrable types
+- relatedly, the foreign function (to dip into raw Lua when needed)
+- the shape, which is a mix of structs (or tables), interfaces, and traits (or
+  mixins)... or, if you prefer, "product types"
+- the sum-shape, which is an exhaustiveness-checkable shape containing one or
+  more disparate-but-related shapes (more on these later!)
+- the pipeline (with prepend, `|>`, and append, `|>>`, both supported)
+- strings, numbers, and booleans (no `nil`!)
+- of course, comments and docstrings
 
-- No exceptions or `nil`, instead offering `Result` and `Option` types,
-  respectively
+Notably _not_ present are import statements, modules at all (for the most
+part), package management at all (more on that later), macros, decorations,
+classes, pragmas, or a number of other things found in other languages. gluumy
+provides a solid base to build great software on and the tooling to help you do
+it, while cutting out complexity anywhere it can.
 
-  * It's worth noting that "no exceptions" doesn't mean foreign code wrapped by
-	gluumy's FFI contraptions can't cause runtime panics. FFI is considered
-	inherently unsafe for a reason - gluumy can't save you from things it can't
-	control!
+### On Modules and Package Management
 
-- A small-but-useful standard library that, in general, tries to offer as close
-  to one way to solve a problem as possible. Learn a few patterns and you
-  should be good to go for `core` and `std`.
+gluumy doesn't provide modules, namespaces, or package management. Instead,
+[inspired by Joe Armstrong's musings on
+Erlang](https://web.archive.org/web/20211122060812/https://erlang.org/pipermail/erlang-questions/2011-May/058768.html),
+all identifiers in gluumy live in a single namespace, with functions
+disambiguated by their arities, and any further ambiguities resolved in the
+entrypoint's `gluumy.conf` using a `z-index`-like priority system. While this
+is a dramatic departure from most modern languages (including Lua itself), this
+allows for a few cool features and workflows:
 
-- A trait-based functional-ish paradigm encouraging free functions accepting as
-  broad of interfaces as possible as opposed to narrow member functions.
+- gluumy is monorepo-friendly by default
+- without explicit import syntax, moving functions around between files (or
+  even repositories) is a non-event
+- third party libraries are patchable at compile-time without the need to
+  maintain a full fork
+- in Joe's words, "contribution to open source can be as simple as contributing
+  a single function"
 
-- To complement said paradigm, a strong type inference system that often
-  eliminates the need for type annotations entirely (indeed, much of the
-  standard library lacks explicit annotations, and instead happily works on any
-  inputs that fit the inferred expected shape).
+Further, if modules don't exist, packages technically don't either. gluumy does
+not, and does not ever plan to, have its own package manager. Somewhere
+probably just shy of a billion of these things have already been written, and
+many of them are quite good. If you choose to use gluumy (cool!) and need
+external dependencies, consider any of the following options to retrieve and
+version them:
 
-- Complementing almost all of the above, two pipeline operators (`|>` and
-  `|>>`) to prepend and append (respectively) the results of one function to
-  the arguments of another (those who have used Gleam, Elixir, or F# shuold
-  feel at home with this).
+- [Nix](https://nixos.org/manual/nix/stable/)
+- [Guix](https://guix.gnu.org/)
+- [pkgsrc](http://www.pkgsrc.org/)
+- Git [Submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) or
+  [Subtrees](https://www.atlassian.com/git/tutorials/git-subtree), if your
+  project uses Git
+- Whatever your operating system provides, if anything and if working in a
+  package-manager-homogenous environment (read: not at work, probably)
+- Good old fashioned `curl` and `tar` in a shell script
 
-- It all becomes Lua in the end, allowing for easy portability, inspectability,
-  and optimization (by way of alternative Lua implementations such as LuaJIT).
-  Forget about cross-compilation woes from many languages **and** many of the
-  runtime exceptions from many others.
+For more about the aforementioned "module" config file, see `man 5
+gluumy.conf` (link TBD).
 
-... and as a bonus, the spec, implementation, and standard library are all
-[Copyfree](https://copyfree.org/) software.
+## This Repo
 
 This repository contains various components:
 
