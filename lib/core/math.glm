@@ -63,20 +63,93 @@ sub { args(...Number 7) } Number !->
 	end
 	return ret
 
-div { a(Number) b(Number } Number !-> return a / b
-div { a(Number) b(Number) c(Number) } Number !-> return a / b / c
-div { a(Number) b(Number) c(Number) d(Number) } Number !-> return a / b / c / d
-div { a(Number) b(Number) c(Number) d(Number) e(Number) } Number !->
-	return a / b / c / d / e
-div { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } Number !->
-	return a / b / c / d / e / f
-div { args(...Number 7) } Number !->
-	ret = args[1]
+---
+Sequentially divides two or more numbers, with optimized implementations
+available for 2-6 arities. Will return a DivideByZeroError if any argument is
+0, at comptime if known, otherwise at runtime.
+
+## Examples
+
+```
+-- returns 2
+div 4 2
+
+-- returns 1
+div 4 2 2
+
+-- will not compile
+div 1 0
+```
+---
+div { Number (!...0 1) } -> !Result.Err DivideByZeroError
+div { a(Number) b(Number } Result Number DivideByZeroError !->
+	-- TODO: codegen should probably just add these names to the scope
+	-- automatically, this seems funkadelic at best
+	local Result = gluumy_sumshape('Result')
+	if b == 0 then
+		return Result.Err(gluumy_shape('DivideByZeroError'))
+	else
+		return Result.Ok(a / b)
+	end
+div { a(Number) b(Number) c(Number) } Result Number DivideByZeroError !->
+	-- TODO: codegen should probably just add these names to the scope
+	-- automatically, this seems funkadelic at best
+	local Result = gluumy_sumshape('Result')
+	if b == 0 or c == 0 then
+		return Result.Err(gluumy_shape('DivideByZeroError'))
+	else
+		return Result.Ok(a / b / c)
+	end
+div { a(Number) b(Number) c(Number) d(Number) } Result Number DivideByZeroError !->
+	-- TODO: codegen should probably just add these names to the scope
+	-- automatically, this seems funkadelic at best
+	local Result = gluumy_sumshape('Result')
+	if b == 0 or c == 0 or d == 0 then
+		return Result.Err(gluumy_shape('DivideByZeroError'))
+	else
+		return Result.Ok(a / b / c / d)
+	end
+div { a(Number) b(Number) c(Number) d(Number) e(Number) } Result Number DivideByZeroError !->
+	-- TODO: codegen should probably just add these names to the scope
+	-- automatically, this seems funkadelic at best
+	local Result = gluumy_sumshape('Result')
+	if b == 0 or c == 0 or d == 0 or e == 0 then
+		return Result.Err(gluumy_shape('DivideByZeroError'))
+	else
+		return Result.Ok(a / b / c / d / e)
+	end
+div { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } Result Number DivideByZeroError !->
+	-- TODO: codegen should probably just add these names to the scope
+	-- automatically, this seems funkadelic at best
+	local Result = gluumy_sumshape('Result')
+	if b == 0 or c == 0 or d == 0 or e == 0 or f == 0 then
+		return Result.Err(gluumy_shape('DivideByZeroError'))
+	else
+		return Result.Ok(a / b / c / d / e / f)
+	end
+div { args(...Number 7) } Result Number DivideByZeroError !->
+	-- TODO: codegen should probably just add these names to the scope
+	-- automatically, this seems funkadelic at best
+	local Result = gluumy_sumshape('Result')
+	local ret = args[1]
 	for i = 1, #args-1 do
+		if args[i + 1] == 0 then
+			return Result.Err(gluumy_shape('DivideByZeroError'))
+		end
 		ret = ret / args[i + 1]
 	end
-	return ret
+	return Result.Ok(ret)
 
+---
+Sequentially multiplies two or more numbers, with optimized implementations
+available for 2-6 arities.
+
+## Examples
+
+```
+TODO
+```
+---
 mul { a(Number) b(Number } Number !-> return a * b
 mul { a(Number) b(Number) c(Number) } Number !-> return a * b * c
 mul { a(Number) b(Number) c(Number) d(Number) } Number !-> return a * b * c * d
@@ -92,6 +165,8 @@ mul { args(...Number 7) } Number !->
 	return ret
 
 mod { Number 0 } -> DivideByZeroError! |> Result.Err!
-mod { it mod_by } -> _mod_impl it mod_by |> Result.Ok!
-
-_mod_impl { it(Number) mod_by(Number) } Number !-> return it % mod_by
+mod { it(Number) mod_by(Number) } Result Number DivideByZeroError !->
+	-- TODO: codegen should probably just add these names to the scope
+	-- automatically, this seems funkadelic at best
+	local Result = gluumy_sumshape('Result')
+	return Result.Ok(it % mod_by)
