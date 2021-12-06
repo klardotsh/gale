@@ -1,7 +1,3 @@
--- gluumy is copyfree software with no warranty, released under the CC0-1.0
--- public-domain-esque dedication found in COPYING in gluumy's source tree, or
--- at https://creativecommons.org/publicdomain/zero/1.0/
-
 function pprint(it)
 	local typeof = type(it)
 	if typeof == 'number' then return it

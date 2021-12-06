@@ -10,11 +10,10 @@
 ```
 
 gluumy is a small, "fast enough for most day to day stuff", strongly-typed,
-functional language that compiles to Lua, running anywhere Lua 5.1+ can. What
-it lacks in academic background it tries to make up for in simplicity,
-ergonomics, and intuitiveness. Simply put: gluumy is here to Get Shit Done and
-get out of the way. As a bonus, the spec, implementation, and standard
-libraries are all [Copyfree](https://copyfree.org/) software.
+functional, and legally-unencumbered language that compiles to Lua, running
+anywhere Lua 5.1+ can. What it lacks in academic background it tries to make up
+for in simplicity, ergonomics, and intuitiveness. Simply put: gluumy is here to
+Get Shit Done and get out of the way.
 
 gluumy has just a few core language constructs:
 
@@ -146,3 +145,19 @@ may wish to compare it against some related art in the community:
   language for Lua", offering AOT compilation to dynamically-loadable native
   modules. It seems to target creating a more-type-safe data layer, called into
   by existing Lua code
+
+## A Pretend "Legal" Section
+
+`gluumy` (inclusive of everything found in this repository) is released under
+your choice of either of the following terms. Whichever you choose, have fun
+with it, build cool stuff with it, don't exploit your fellow humans or the
+world at large with it, and generally don't be an ass within or outside of the
+project or anything written with it.
+
+- The [Guthrie Public
+  License](https://web.archive.org/web/20180407192134/https://witches.town/@ThatVeryQuinn/3540091)
+  as written by `@ThatVeryQuinn@witches.town`
+
+- The [Creative Commons Zero 1.0
+  dedication](https://creativecommons.org/publicdomain/zero/1.0/), which is
+  public domain or maximally-permissive, as your jurisdiction allows.

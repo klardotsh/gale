@@ -1,7 +1,3 @@
--- gluumy is copyfree software with no warranty, released under the CC0-1.0
--- public-domain-esque dedication found in COPYING in gluumy's source tree, or
--- at https://creativecommons.org/publicdomain/zero/1.0/
-
 -- gluumy stage0 compiler: duct tape o'plenty
 --
 -- welcome to the shitshow. this is a quick and dirty transpiler from gluumy
