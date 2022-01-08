@@ -13,11 +13,12 @@ gluumy is a small, "fast enough for most day to day stuff", strongly-typed,
 functional, and legally-unencumbered language that compiles to Lua, running
 anywhere Lua 5.1+ can. What it lacks in academic background it tries to make up
 for in simplicity, ergonomics, and intuitiveness. Simply put: gluumy is here to
-Get Shit Done and get out of the way.
+Get Shit Done and get out of the way. It's opinionated and thus not for
+everyone or every use case, but in the right contexts, I hope it shines.
 
 gluumy has just a few core language constructs:
 
-- the function, with often-inferrable types
+- the function, with often-inferrable argument types
 - relatedly, the foreign function (to dip into raw Lua when needed)
 - the shape, which is a mix of structs (or tables), interfaces, and traits (or
   mixins)... or, if you prefer, "product types"
@@ -52,12 +53,15 @@ allows for a few cool features and workflows:
 - in Joe's words, "contribution to open source can be as simple as contributing
   a single function"
 
-Further, if modules don't exist, packages technically don't either. gluumy does
-not, and does not ever plan to, have its own package manager. Somewhere
-probably just shy of a billion of these things have already been written, and
-many of them are quite good. If you choose to use gluumy (cool!) and need
-external dependencies, consider any of the following options to retrieve and
-version them:
+> Dependencies are part of your application and should be reviewed and
+> understood as well as your own code, not treated as a foreign black box of
+> magic!
+
+gluumy does not, and does not currently plan to, have its own package manager.
+Somewhere probably just shy of a billion of these things have already been
+written, and some of them are quite good. If you need to pull external
+dependencies into your project, consider any of the following options to
+retrieve and version them:
 
 - [Nix](https://nixos.org/manual/nix/stable/)
 - [Guix](https://guix.gnu.org/)
@@ -69,8 +73,8 @@ version them:
   package-manager-homogenous environment (read: not at work, probably)
 - Good old fashioned `curl` and `tar` in a shell script
 
-For more about the aforementioned "module" config file, see `man 5
-gluumy.conf` (link TBD).
+For more about the aforementioned config file for configuring search paths and
+resolving function conflicts, see `man 5 gluumy.conf` (link TBD).
 
 ## This Repo
 
@@ -92,9 +96,8 @@ This repository contains various components:
   type-checking engine, [language server](https://langserver.org/), linter, and
   formatter. They are all implemented in gluumy.
 
-- `lib/core` and `lib/std` define the core (always present and in-scope via `:`
-  sugar) and standard (optional, by import) libraries, each also implemented in
-  gluumy.
+- `lib/core` and `lib/std` define the base language and standard library, each
+  also implemented in gluumy.
 
 > Please note that gluumy is a personal side project, mostly aimed towards
 > developing things I want to build (which generally means command line and/or
@@ -113,6 +116,13 @@ This repository contains various components:
   practical terms, on most Unixes this means LuaJIT, Lua 5.2, Lua 5.1 with
   `compat52`, or anything else backwards-compatible to those APIs. Clear as
   mud, thanks Lua fragmentation!
+
+> Note: currently, the standard library is basic enough that it'll probably run
+> anywhere something resembling PUC Lua can run. It's possible that future
+> revisions of gluumy will take optional dependencies on further libraries to
+> provide, for example, stdlib bindings to a network request library. TBD, but
+> those running gluumy on non-Unix platforms (as well as packagers) should keep
+> an eye on project commits/releases for this reason.
 
 ## Alternatives
 
@@ -152,7 +162,12 @@ may wish to compare it against some related art in the community:
 your choice of either of the following terms. Whichever you choose, have fun
 with it, build cool stuff with it, don't exploit your fellow humans or the
 world at large with it, and generally don't be an ass within or outside of the
-project or anything written with it.
+project or anything written with it. Further, while it's not a license term
+(and is instead more of a handshake request), I ask that you please find some
+other name for significant derivatives of gluumy - I'm thrilled if you want to
+target Python or Ruby instead of Lua, but to avoid confusing folks, please find
+some other name for your repo than, for example, `gluumy-py`. Maybe `pyluumy`,
+I dunno.
 
 - The [Guthrie Public
   License](https://web.archive.org/web/20180407192134/https://witches.town/@ThatVeryQuinn/3540091)

@@ -1,6 +1,10 @@
 local symbols = require('symbols')
 
-function ast_parse_stream(stream)
+function ast_parse_stream(stream, indent_level)
+	if indent_level == nil then
+		indent_level = 0 -- root
+	end
+
 	local tree = {}
 	local cur_seq = {}
 	local cur_seq_is_ast_until_idx = 1
@@ -20,17 +24,6 @@ function ast_parse_stream(stream)
 	end
 
 	while ok and next do
-		--[[
-		I've probably already fucked up by going down this length-based
-		approach with a single sequence iterable to populate - I'm gonna have
-		to deal with nested, potentially anonymous, values later, which are
-		their own tree branches, which I don't think this pattern is gonna be
-		especially great at handling. I blame coding on a plane after eating
-		basically nothing today :)
-
-		-- JK 26 Nov 2021
-		]]
-
 		if #cur_seq == 0 then
 			if next.kind == symbols.IDENTIFIER then
 				-- on its own an identifier basically means nothing, so we'll

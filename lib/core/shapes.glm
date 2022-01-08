@@ -5,3 +5,11 @@ DebugPrintable =>
 	<= Printable
 
 	repr_debug { Self } String
+
+Castable =>
+	from { Candidate } Self
+	from_with { Candidate Callback } Self
+
+MaybeCastable =>
+	try_from { Candidate } Result Self Error
+	try_from_with { Candidate Callback } Result Self Error

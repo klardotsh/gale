@@ -4,7 +4,7 @@ Error =>
 
 	message = String
 
-repr { self(Error) } String -> format "Error({})" self.message
+repr { self(Error) } String -> format "Error(%s)" self.message
 
 repr_debug { self(Error) } String -> repr self
 

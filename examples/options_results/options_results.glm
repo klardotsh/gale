@@ -3,7 +3,7 @@ main { .. } -> get_ten_somes! |> output_result
 output_result { msg(Result.Ok) } -> println msg
 output_result { msg(Result.Err) } -> eprintln msg
 
-maybe_something { .. } -> random_bool! |> option_from_bool "body once told me"
+maybe_something { .. } -> random_bool! |> from_bool(Option) "body once told me"
 
 --- A silly statistics-defying method that tries to build an array of 10 Some("body
 --- once told me") values randomly. It will almost certainly return an error, but
@@ -13,7 +13,7 @@ maybe_something { .. } -> random_bool! |> option_from_bool "body once told me"
 get_ten_somes ->
 	array_with_capacity 10
 	|> map maybe_something
-	|> find :option.is_none
+	|> find is_none
 	|> must_not
 		"as expected, at least one None found"
 		"against all odds, the array is all Somes"

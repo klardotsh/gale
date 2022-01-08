@@ -1,4 +1,5 @@
-<string> String =>
+# primitive string
+String =>
 	<= Equatable
 	<= Printable
 	<= DebugPrintable
@@ -9,20 +10,10 @@ repr { self(String) } -> self
 
 repr_debug { self(String) } String !-> return string.format("\"%s\"", self)
 
-format { it(!String) args(!...Any 0) } String ->
-	!params_expected = _num_format_params it
-	!result_from_bool
-		eq params_expected args.len
-		Error <=>
-			message = "incorrect number of format arguments provided"
-
-	format_unsafe it args
-
-format_unsafe { it(String) args(...Any 0) } String !-> return string.format(it, args)
-
-_num_format_params { it } -> _num_format_params_inner it |> Result.Ok!
-
--- TODO: pure gluumy implementation once we have an :iter module
-_num_format_params_inner { it(String) } Number !->
-	-- TODO: implement...
-	return 0
+-- once upon a time I thought about having a comptime concept in gluumy, but it
+-- overcomplicated several things in the language, and is notably not particularly
+-- IDE/LSP friendly. further, this function right here was the only use for it in
+-- the entire standard library. thus, it's been removed, with the side effect of
+-- no compile-time safety/sanity checks on printf, something even C compilers
+-- offer (albeit through special casing). some day I may revisit this...
+format { it(String) args(...Any 0) } String !-> return string.format(it, args)

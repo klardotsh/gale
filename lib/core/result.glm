@@ -1,11 +1,11 @@
-Result { T1 T2 } ~>
-	Ok => T1
-	Err => T2
+Result { TVal TErr } ~>
+	Ok => TVal
+	Err => TErr
 
 -- TODO: doc
-result_from_bool { true when_true } -> Result.Ok when_true
-result_from_bool { false _ when_false } -> Result.Err when_false
+from_bool { true when_true } -> Result.Ok when_true
+from_bool { false _ when_false } -> Result.Err when_false
 
 -- TODO: doc
-result_from_bool_with { true when_true } -> Result.Ok when_true!
-result_from_bool_with { false _ when_false } -> Result.Err when_false!
+from_bool_with { true when_true } -> Result.Ok when_true!
+from_bool_with { false _ when_false } -> Result.Err when_false!

@@ -44,6 +44,7 @@ sub 0 0 1
 
 -- returns 3
 sub 25 10 3 9
+```
 ---
 sub { a(Number) b(Number } Number !-> return a - b
 sub { a(Number) b(Number) c(Number) } Number !-> return a - b - c

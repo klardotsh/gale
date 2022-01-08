@@ -5,14 +5,14 @@ Option { T } ~>
 --- Maps a Boolean to an Option, where `false` becomes None, and `true` becomes
 --- `when_true`. If `when_true` should be a dynamic value (i.e. requires a function
 --- call), use `from_bool_with` instead.
-option_from_bool { true when_true } -> Option.Some when_true
-option_from_bool { false } -> Option.None!
+from_bool { true when_true } -> Option.Some when_true
+from_bool { false } -> Option.None!
 
 --- Maps a Boolean to an Option, where `false` becomes none, and `true` becomes
 --- the return value of `when_true`. If `when_true` need not be dynamic,
 --- `from_bool` is more efficient.
-option_from_bool_with { true when_true } -> Option.Some when_true!
-option_from_bool_with { false } -> Option.None!
+from_bool_with { true when_true } -> Option.Some when_true!
+from_bool_with { false } -> Option.None!
 
 --- Maps an Option to a Boolean, where Some becomes `false` and None becomes
 --- `true`.
