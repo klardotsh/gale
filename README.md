@@ -1,4 +1,4 @@
-# gluumy: a type-safe, minimal-ish, and hackable language targeting Lua
+# gluumy: a hackable, type-safe, minimal-ish language atop Lua
 
 > it's pronounced "gloomy" (or maybe "glue me"), and is spelled in lowercase,
 > always
@@ -9,35 +9,51 @@
        _|                 /           _|                   _|
 ```
 
-gluumy is a small, "fast enough for most day to day stuff", strongly-typed,
-functional, and legally-unencumbered language that compiles to Lua, running
-anywhere Lua 5.1+ can. What it lacks in academic background it tries to make up
-for in simplicity, ergonomics, and intuitiveness. Simply put: gluumy is here to
-Get Shit Done and get out of the way. It's opinionated and thus not for
-everyone or every use case, but in the right contexts, I hope it shines.
+gluumy is an opinionated, conceptually small, "fast enough for most day to day
+stuff", strongly-but-inferredly-typed, functional, and legally-unencumbered
+language that sits atop Lua, generally running anywhere Lua 5.1+ can. What it
+lacks in academic background it tries to make up for in simplicity, ergonomics,
+and intuitiveness. Simply put: gluumy is here to Get Shit Done and get out of
+the way.
 
 gluumy has just a few core language constructs:
 
-- the function, with often-inferrable argument types
-- relatedly, the foreign function (to dip into raw Lua when needed)
-- the shape, which is a mix of structs (or tables), interfaces, and traits (or
-  mixins)... or, if you prefer, "product types"
-- the sum-shape, which is an exhaustiveness-checkable shape containing one or
-  more disparate-but-related shapes (more on these later!)
-- the pipeline (with prepend, `|>`, and append, `|>>`, both supported)
-- strings, numbers, and booleans (no `nil`!)
-- of course, comments and docstrings
+- the function, `->`, with often-inferrable argument and return types
+- relatedly, the foreign function, `!->`, to dip into raw Lua when needed
+- the shape, `=>`, which is a mix of structs (or tables), interfaces, and
+  traits (or mixins)... or, if you prefer, "product types"
+- the sum-shape, `~>`, which is an exhaustiveness-checkable shape containing
+  one or more disparate-but-related shapes (more on these later!)
+- the pipeline, with prepend, `|>`, and append, `|>>`, both supported
+- strings (`"like this"`), numbers (`1` and `1.0` are equivalent, as in Lua
+  itself), and booleans. Notably missing is `nil`, which is instead covered by
+  `Option` and `Result` sum-shapes
+- comments (`--`), docstrings (`---`), and compiler hints (`#`)
 
-Notably _not_ present are import statements, modules at all (for the most
-part), package management at all (more on that later), macros, decorations,
-classes, pragmas, or a number of other things found in other languages. gluumy
-provides a solid base to build great software on and the tooling to help you do
-it, while cutting out complexity anywhere it can.
+Notably _not_ present are import statements, to some degree modules (more on
+that in a minute), package management at all (more on that later), macros,
+decorations, classes, or a number of other concepts found in other languages.
+It's not that those things (or the numerous others not listed here) are bad,
+per-se, but keeping the language tightly-scoped helps it excel at those things,
+rather than trying to be everything to everyone.
+
+As a final note of introduction: gluumy is designed to be usable by developers
+at any level from recent bootcamp grad or bedroom hacker, on up to principal
+engineers who surely will find countless problems in my implementation. It's
+designed to be usable by folks on symmetrical gigabit fibre in the city, or
+folks on terrible sattelite connections in the mountains or at sea somewhere.
+It's designed to be usable on what are, in mainstream terms, relatively "weak"
+computers, such as Raspberry Pis or junked machines you'd find at places like
+Re-PC, as well as the hyper-modern beasts you can spend thousands of USD on.
+But most of all, it's designed to be _usable_, and not just by "application
+developers" - the spirit of gluumy is to a degree inspired by the spirit of
+Forth: that programs are built up of flexible and end-user-replaceable bits and
+bobs, and are not opaque monoliths handed down by powers that be.
 
 ### On Modules and Package Management
 
-gluumy doesn't provide modules, namespaces, or package management. Instead,
-[inspired by Joe Armstrong's musings on
+gluumy doesn't provide source-level modules, namespaces, or package management.
+Instead, [inspired by Joe Armstrong's musings on
 Erlang](https://web.archive.org/web/20211122060812/https://erlang.org/pipermail/erlang-questions/2011-May/058768.html),
 all identifiers in gluumy live in a single namespace, with functions
 disambiguated by their arities, and any further ambiguities resolved in the
@@ -74,22 +90,21 @@ retrieve and version them:
 - Good old fashioned `curl` and `tar` in a shell script
 
 For more about the aforementioned config file for configuring search paths and
-resolving function conflicts, see `man 5 gluumy.conf` (link TBD).
+resolving function conflicts, see `man 5 gluumy.conf` (link TBD, and will also
+become part of `gluumy doc` eventually).
 
 ## This Repo
 
 This repository contains various components:
 
-- `src/stage0` contains the bootstrapping compiler in dependency-free Lua 5.1.
-  This is an extremely unsafe, raw translator of gluumy source to Lua source.
-  Its output is unoptimized and only debatably readable. It also assumes all
-  input code is type-safe. _Use of `stage0` is not supported for any purpose
-  other than compiling `src/compiler` and any gluumy source files it may
-  reference, notably, `lib/core`. Do not file bugs against `stage0` unless they
-  directly cause broken `src/compiler` builds._ For now, the bootstrapping
-  compiler will be retained such that the only requirement to build the gluumy
-  compiler is a Lua 5.1 build, however there is no promise of how long this
-  will last.
+- `src/stage0` contains the bootstrapping compiler in native-dependency-free
+  Lua 5.1. Its output is unoptimized and only debatably readable. _Use of
+  `stage0` is not supported for any purpose other than compiling `src/compiler`
+  and any gluumy source files it may reference, notably, `lib/core`. Do not
+  file bugs against `stage0` unless they directly cause broken `src/compiler`
+  builds._ For now, the bootstrapping compiler will be retained such that the
+  only native requirement to build the gluumy compiler is a standalone Lua 5.1
+  executable, however there is no promise of how long this will last.
 
 - `src/compiler`, `lib/compile`, `lib/tc`, `lib/lsp`, `lib/lint`, and `lib/fmt`
   are the actually-safe and as-production-ready-as-feasible gluumy compiler,
@@ -156,18 +171,18 @@ may wish to compare it against some related art in the community:
   modules. It seems to target creating a more-type-safe data layer, called into
   by existing Lua code
 
-## A Pretend "Legal" Section
+## Legal Yadda-Yadda
 
-`gluumy` (inclusive of everything found in this repository) is released under
-your choice of either of the following terms. Whichever you choose, have fun
-with it, build cool stuff with it, don't exploit your fellow humans or the
-world at large with it, and generally don't be an ass within or outside of the
-project or anything written with it. Further, while it's not a license term
-(and is instead more of a handshake request), I ask that you please find some
-other name for significant derivatives of gluumy - I'm thrilled if you want to
-target Python or Ruby instead of Lua, but to avoid confusing folks, please find
-some other name for your repo than, for example, `gluumy-py`. Maybe `pyluumy`,
-I dunno.
+`gluumy` (inclusive of all _original_ code found in this repository) is
+released under your choice of either of the following terms. Whichever you
+choose, have fun with it, build cool stuff with it, don't exploit your fellow
+humans or the world at large with it, and generally don't be an ass within or
+outside of the project or anything written with it. Further, while it's not a
+license term (and is instead more of a handshake request), I ask that you
+please find some other name for significant derivatives of gluumy - I'm
+thrilled if you want to target Python or Ruby instead of Lua, but to avoid
+confusing folks, please find some other name for your repo than, for example,
+`gluumy-py`. Maybe `pyluumy`, I dunno.
 
 - The [Guthrie Public
   License](https://web.archive.org/web/20180407192134/https://witches.town/@ThatVeryQuinn/3540091)
@@ -176,3 +191,9 @@ I dunno.
 - The [Creative Commons Zero 1.0
   dedication](https://creativecommons.org/publicdomain/zero/1.0/), which is
   public domain or maximally-permissive, as your jurisdiction allows.
+
+This repository redistributes the following third-party code, under their
+original license terms:
+
+- [luaunit](https://github.com/bluebird75/luaunit), a BSD-licensed unit testing
+  library
