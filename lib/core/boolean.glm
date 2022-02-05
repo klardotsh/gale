@@ -5,9 +5,9 @@ Boolean =>
 	<= DebugPrintable
 
 eq { false false } -> true
-eq { false _ } -> false
+eq { false true } -> false
 eq { true true } -> true
-eq { true _ } -> false
+eq { true false } -> false
 eq { args(...Boolean 3) } Boolean !->
 	local idx = 2
 	local first = args[1]
@@ -20,8 +20,7 @@ eq { args(...Boolean 3) } Boolean !->
 repr { true } -> "true"
 repr { false } -> "false"
 
-repr_debug { true } -> "true"
-repr_debug { false } -> "false"
+repr_debug { self } -> repr self
 
 when { true when_true } -> when_true
 when { false _ when_false } -> when_false
