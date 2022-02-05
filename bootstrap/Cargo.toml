@@ -1,0 +1,11 @@
+[package]
+name = "gluumyc-bootstrap"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.58"
+
+[dependencies]
+argh = "0.1"
+full_moon = "0.15"
+nanoserde = "0.1"
+pico-args = "0.4"
