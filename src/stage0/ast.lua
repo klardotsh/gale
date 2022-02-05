@@ -49,6 +49,8 @@ function ast_parse_stream(stream, indent_level)
 		ok, next = coroutine.resume(stream)
 	end
 
+	end_node()
+
 	return tree
 end
 

@@ -1,6 +1,6 @@
 local lu = require('luaunit')
 
-local ast = require('ast')
+local lex = require('lex')
 local symbols = require('symbols')
 
 function parsed(generator)
