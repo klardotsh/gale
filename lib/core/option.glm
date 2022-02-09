@@ -2,41 +2,51 @@ Option { T } ~>
 	Some => T
 	None
 
---- Maps a Boolean to an Option, where `false` becomes None, and `true` becomes
---- `when_true`. If `when_true` should be a dynamic value (i.e. requires a function
---- call), use `from_bool_with` instead.
+---
+Maps a Boolean to an Option, where `false` becomes None, and `true` becomes
+`when_true`. If `when_true` should be a dynamic value (i.e. requires a function
+call), use `from_bool_with` instead.
+---
 from_bool { true when_true } -> Option.Some when_true
 from_bool { false } -> Option.None!
 
---- Maps a Boolean to an Option, where `false` becomes none, and `true` becomes
---- the return value of `when_true`. If `when_true` need not be dynamic,
---- `from_bool` is more efficient.
+---
+Maps a Boolean to an Option, where `false` becomes none, and `true` becomes the
+return value of `when_true`. If `when_true` need not be dynamic, `from_bool` is
+more efficient.
+---
 from_bool_with { true when_true } -> Option.Some when_true!
 from_bool_with { false } -> Option.None!
 
---- Maps an Option to a Boolean, where Some becomes `false` and None becomes
---- `true`.
 ---
---- For the inverse operation, see `is_none`.
+Maps an Option to a Boolean, where Some becomes `false` and None becomes
+`true`.
+
+For the inverse operation, see `is_none`.
+---
 is_none { Option.Some } -> false
 is_none { Option.None } -> true
 
---- Maps an Option to a Boolean, where Some becomes `true` and None becomes
---- `false`.
 ---
---- For the inverse operation, see `is_none`.
+Maps an Option to a Boolean, where Some becomes `true` and None becomes
+`false`.
+
+For the inverse operation, see `is_none`.
+---
 is_some { Option.Some } -> true
 is_some { Option.None } -> false
 
--- Maps an Option to its inner value, if Some, or a fallback value, if None.
--- There is no requirement at this level that the inner value of the Option and
--- the value of `fallback` are of the same type, mostly because the type system
--- currently can't express such a requirement. However, downstream callsites will
--- almost certainly expect congruence, meaning such enforcement usually happens
--- elsewhere in the callgraph anyway.
---
--- If `fallback` should be a dynamic value (i.e. requires a function call), use
--- `or_with` instead.
+---
+Maps an Option to its inner value, if Some, or a fallback value, if None. There
+is no requirement at this level that the inner value of the Option and the
+value of `fallback` are of the same type, mostly because the type system
+currently can't express such a requirement. However, downstream callsites will
+almost certainly expect congruence, meaning such enforcement usually happens
+elsewhere in the callgraph anyway.
+
+If `fallback` should be a dynamic value (i.e. requires a function call), use
+`or_with` instead.
+---
 or { val(Option.Some) } -> val
 or { Option.None fallback } -> fallback
 
@@ -44,33 +54,41 @@ or { Option.None fallback } -> fallback
 or_with { val(Option.Some) } -> val
 or_with { Option.None fallback } -> fallback!
 
---- Maps an Option to a Result, wrapping a Some value in Result.Ok when
---- applicable, and otherwise returning a Result.Err containing `when_none`.
+---
+Maps an Option to a Result, wrapping a Some value in Result.Ok when applicable,
+and otherwise returning a Result.Err containing `when_none`.
+---
 must { val(Option.Some) } -> Result.Ok val
 must { Option.None when_none } -> Result.Err when_none
 
---- Maps an Option to a Result, calling `when_some` with the wrapped Some value
---- or `when_none` with no arguments as appropriate. The result of either handler
---- are then wrapped in Result.Ok or Result.Err, respectively (meaning most callers
---- should not return a Result themselves unless nested Results are desired).
 ---
---- For the inverse operation, see `must_not_with`.
+Maps an Option to a Result, calling `when_some` with the wrapped Some value or
+`when_none` with no arguments as appropriate. The result of either handler are
+then wrapped in Result.Ok or Result.Err, respectively (meaning most callers
+should not return a Result themselves unless nested Results are desired).
+
+For the inverse operation, see `must_not_with`.
+---
 must_with { val(Option.Some) when_some } -> when_some val |> Result.Ok!
 must_with { Option.None _ when_none } -> when_none! |> Result.Err!
 
---- Maps an Option to a Result, wrapping `when_some` in Result.Err and
---- `when_none` in Result.Ok based on the state of `it`. The inner value of the
---- Some type is ignored; to handle it, see `must` or `must_not_with` instead.
---- Most callers should not pass Results for `when_some` and `when_none` unless
---- nested Results are desired.
+---
+Maps an Option to a Result, wrapping `when_some` in Result.Err and `when_none`
+in Result.Ok based on the state of `it`. The inner value of the Some type is
+ignored; to handle it, see `must` or `must_not_with` instead. Most callers
+should not pass Results for `when_some` and `when_none` unless nested Results
+are desired.
+---
 must_not { Option.Some when_some } -> Result.Err when_some
 must_not { Option.None _ when_none } -> Result.Ok when_none
 
---- Maps an Option to a Result, calling `when_some` with the wrapped Some value
---- or `when_none` with no arguments as appropriate. The result of either handler
---- are then wrapped in Result.Err or Result.Ok, respectively (meaning most callers
---- should not return a Result themselves unless nested Results are desired).
 ---
---- For the inverse operation, see `must_with`.
+Maps an Option to a Result, calling `when_some` with the wrapped Some value or
+`when_none` with no arguments as appropriate. The result of either handler are
+then wrapped in Result.Err or Result.Ok, respectively (meaning most callers
+should not return a Result themselves unless nested Results are desired).
+
+For the inverse operation, see `must_with`.
+---
 must_not_with { val(Option.Some) when_some } -> when_some val |> Result.Err!
 must_not_with { Option.None _ when_none } -> when_none! |> Result.Ok!

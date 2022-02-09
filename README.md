@@ -1,4 +1,4 @@
-# gluumy: a hackable, type-safe, minimal-ish language atop Lua
+# gluumy: a hackable, type-safe, minimal-ish, high-level programming language
 
 > it's pronounced "gloomy" (or maybe "glue me"), and is spelled in lowercase,
 > always
@@ -37,18 +37,28 @@ It's not that those things (or the numerous others not listed here) are bad,
 per-se, but keeping the language tightly-scoped helps it excel at those things,
 rather than trying to be everything to everyone.
 
-As a final note of introduction: gluumy is designed to be usable by developers
-at any level from recent bootcamp grad or bedroom hacker, on up to principal
-engineers who surely will find countless problems in my implementation. It's
-designed to be usable by folks on symmetrical gigabit fibre in the city, or
-folks on terrible sattelite connections in the mountains or at sea somewhere.
-It's designed to be usable on what are, in mainstream terms, relatively "weak"
-computers, such as Raspberry Pis or junked machines you'd find at places like
-Re-PC, as well as the hyper-modern beasts you can spend thousands of USD on.
-But most of all, it's designed to be _usable_, and not just by "application
-developers" - the spirit of gluumy is to a degree inspired by the spirit of
-Forth: that programs are built up of flexible and end-user-replaceable bits and
-bobs, and are not opaque monoliths handed down by powers that be.
+gluumy is designed to be usable by developers at any level from recent bootcamp
+grad or bedroom hacker, on up to principal engineers who surely will find
+countless problems in my implementation. It's designed to be usable by folks on
+symmetrical gigabit fibre in the city, or folks on terrible sattelite
+connections in the mountains or at sea somewhere. It's designed to be usable on
+what are, in mainstream terms, relatively "weak" computers, such as Raspberry
+Pis or junked machines you'd find at places like Re-PC, as well as the
+hyper-modern beasts you can spend thousands of USD on. But most of all, it's
+designed to be _usable_, and not just by "application developers" - the spirit
+of gluumy is to a degree inspired by the spirit of Forth: that programs are
+built up of flexible and end-user-replaceable bits and bobs, and are not opaque
+monoliths handed down by powers that be.
+
+Finally: gluumy does not exist in a zero-sum vaccuum of languages, and is not
+the correct tool for every job. It sits somewhere approximately in the altitude
+of languages like Python, Ruby, JavaScript, and can even be considered in some
+places where Go or Haskell might be used, but is _not_ an appropriate
+replacement for low-level languages in the domains where such low-level control
+is necessary. It's expected, for example, that a functional gluumy stack is
+likely made up of C, Zig, and/or Rust componentry, and some gluumy "libraries"
+may be best implemented as type-hint wrappers around FFI modules implemented in
+one of those languages.
 
 ### On Modules and Package Management
 
@@ -97,14 +107,12 @@ become part of `gluumy doc` eventually).
 
 This repository contains various components:
 
-- `src/stage0` contains the bootstrapping compiler in native-dependency-free
-  Lua 5.1. Its output is unoptimized and only debatably readable. _Use of
-  `stage0` is not supported for any purpose other than compiling `src/compiler`
-  and any gluumy source files it may reference, notably, `lib/core`. Do not
-  file bugs against `stage0` unless they directly cause broken `src/compiler`
-  builds._ For now, the bootstrapping compiler will be retained such that the
-  only native requirement to build the gluumy compiler is a standalone Lua 5.1
-  executable, however there is no promise of how long this will last.
+- `bootstrap` contains the bootstrapping compiler, implemented in Rust. It is
+  **only** supported for the purposes of bootstrapping the official gluumy
+  compiler that is, itself, implemented in gluumy. As with the official
+  compiler, it outputs Lua code, and thus standing up gluumy on a new
+  architecture does not actually require Rust support on that architecture,
+  provided Lua source generated on another system is fair game.
 
 - `src/compiler`, `lib/compile`, `lib/tc`, `lib/lsp`, `lib/lint`, and `lib/fmt`
   are the actually-safe and as-production-ready-as-feasible gluumy compiler,
@@ -138,38 +146,6 @@ This repository contains various components:
 > provide, for example, stdlib bindings to a network request library. TBD, but
 > those running gluumy on non-Unix platforms (as well as packagers) should keep
 > an eye on project commits/releases for this reason.
-
-## Alternatives
-
-I find gluumy to fill a somewhat unique niche within the Lua ecosystem, but you
-may wish to compare it against some related art in the community:
-
-- [Teal](https://github.com/teal-language/tl) is by far the closest relative in
-  the ecosystem, written by @hishamhm who also brought us `htop`, `luarocks`,
-  and various Lua libraries. Hisham's work is routinely awesome, so give it a
-  look. Teal, just like gluumy, compiles to Lua after its type-checking stage.
-  gluumy deviates from Teal in a few key areas:
-
-  * Clearly, the syntax. Teal retains Lua's overall syntax style, with a few
-	keywords and symbols added as necessary. gluumy opts for a bespoke hybrid
-	of ML-esque, LiveScript-esque, Ruby-esque, Rust-esque, and anything else to
-	suit my personal taste. While the syntax should be understandable to those
-	with backgrounds in Lua plus at least one of those families, it will _not_
-	feel familiar to those coming from a pure-Lua background.
-
-  * Teal [implicitly allows `nil` for all
-	types](https://github.com/teal-language/tl/blob/68d9e8c57b6ee265b2353b179956a5e65e7936cc/docs/tutorial.md),
-	whereas gluumy lacks a `nil` value entirely, instead requiring the use of
-	[option types](https://en.wikipedia.org/wiki/Option_type). Teal's decision
-	was made in the spirit of maximum compatibility with existing Lua code
-	which depends on such looseness. gluumy is not inherently compatible with
-	existing Lua code without at least some degree of bindings and glue, and
-	thus was able to take a stricter stance.
-
-- [Pallene](https://github.com/pallene-lang/pallene) aims to be a "sister
-  language for Lua", offering AOT compilation to dynamically-loadable native
-  modules. It seems to target creating a more-type-safe data layer, called into
-  by existing Lua code
 
 ## Legal Yadda-Yadda
 
