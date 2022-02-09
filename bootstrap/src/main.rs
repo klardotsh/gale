@@ -62,6 +62,17 @@ impl EntityContents {
             }
         }
     }
+
+    fn contains(&self, content: &str) -> bool {
+        match self {
+            EntityContents::CompilerHint(inner)
+            | EntityContents::HashBang(inner)
+            | EntityContents::Comment(inner)
+            | EntityContents::Docstring(inner)
+            | EntityContents::FFIBody(inner)
+            | EntityContents::Number(inner) => inner.contains(content),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -145,6 +156,13 @@ impl EntityBuilder {
         }
     }
 
+    fn content_contains(&self, content: &str) -> Result<bool, EntityBuildError> {
+        match self.contents.as_ref() {
+            None => Err(EntityBuildError::ContentsNotInitialized),
+            Some(contents) => Ok(contents.contains(content)),
+        }
+    }
+
     fn trim_content_if_applicable(&mut self) -> &Self {
         match self.contents.as_mut() {
             None => {}
@@ -186,6 +204,7 @@ enum ParsingError {
         message: String,
     },
     HashBangFoundOutsideFirstLine(usize, usize),
+    InvalidNumber(InvalidNumber, usize, usize),
 }
 
 impl From<&EntityBuildError> for ParsingError {
@@ -211,12 +230,13 @@ impl From<EntityBuildError> for ParsingError {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-enum CompilerSubsection {
-    EntityBuilder,
+enum InvalidNumber {
+    TooManyDecimalPoints,
 }
 
-fn main() {
-    argh::from_env::<CLIArgs>();
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum CompilerSubsection {
+    EntityBuilder,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -291,14 +311,34 @@ fn parse_string(input: &str) -> Result<Vec<Entity>, ParsingError> {
                     _ => unimplemented!(),
                 },
 
-                ("-", 0) => {
-                    if lastlast == Some("-") && last == Some("-") {
-                        state = if state == ParserState::Docstring {
-                            ParserState::FloatingInTheAbyss
-                        } else {
-                            ParserState::Docstring
-                        };
-                    } else if last == Some("-") {
+                ("-", 0) => match (&state, last, lastlast) {
+                    (ParserState::Comment, Some("-"), Some("-")) => {
+                        let mut entity_builder = EntityBuilder::new();
+                        entity_builder.kind(EntityKind::DocString);
+                        entity_builder.start(PointInSource {
+                            line_number,
+                            col_number: col_number - 1,
+                        });
+                        entity_builder.contents(EntityContents::Docstring(String::new()));
+                        entity = Some(entity_builder);
+                        break;
+                    }
+
+                    (ParserState::Docstring, Some("-"), Some("-")) => match entity.as_mut() {
+                        Some(prepared) => {
+                            prepared.end(PointInSource {
+                                line_number,
+                                col_number,
+                            });
+                            let built = prepared.finalize_and_build()?;
+                            entities.push(built);
+                            entity = None;
+                            break;
+                        }
+                        _ => unreachable!(),
+                    },
+
+                    (_, Some("-"), _) => {
                         state = ParserState::Comment;
                         let mut entity_builder = EntityBuilder::new();
                         entity_builder.kind(EntityKind::Comment);
@@ -308,10 +348,31 @@ fn parse_string(input: &str) -> Result<Vec<Entity>, ParsingError> {
                         });
                         entity_builder.contents(EntityContents::Comment(String::new()));
                         entity = Some(entity_builder);
+                        break;
                     }
 
-                    break;
-                }
+                    (ParserState::FloatingInTheAbyss, _, _) => {}
+
+                    (
+                        ParserState::Comment
+                        | ParserState::CompilerHint
+                        | ParserState::Docstring
+                        | ParserState::HashBang,
+                        _,
+                        _,
+                    ) => {}
+
+                    (
+                        ParserState::BareIdentifier
+                        | ParserState::BareIdentifierThatMayBecomeFunctionCall
+                        | ParserState::Number
+                        | ParserState::FunctionCall
+                        | ParserState::FunctionDefinition
+                        | ParserState::ShapeDefinition(..),
+                        _,
+                        _,
+                    ) => unimplemented!(),
+                },
 
                 ("1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "0", 0) => match state {
                     ParserState::FloatingInTheAbyss => {
@@ -327,6 +388,29 @@ fn parse_string(input: &str) -> Result<Vec<Entity>, ParsingError> {
                         entity = Some(entity_builder);
                         break;
                     }
+                    _ => {}
+                },
+
+                ("_", 0) => match state {
+                    ParserState::Number => break,
+                    _ => {}
+                },
+
+                (".", 0) => match state {
+                    // explicitly allow numbers to be caught in a later block, but only one decimal
+                    // point is allowed in numbers
+                    ParserState::Number => match entity.as_mut() {
+                        Some(entity) => {
+                            if entity.content_contains(".")? {
+                                return Err(ParsingError::InvalidNumber(
+                                    InvalidNumber::TooManyDecimalPoints,
+                                    line_number,
+                                    col_number,
+                                ));
+                            }
+                        }
+                        None => unreachable!(),
+                    },
                     _ => {}
                 },
 
@@ -369,7 +453,7 @@ fn parse_string(input: &str) -> Result<Vec<Entity>, ParsingError> {
                     break;
                 }
 
-                (other, _) => {
+                (other, times) => {
                     match state {
                         ParserState::Comment
                         | ParserState::Docstring
@@ -378,8 +462,19 @@ fn parse_string(input: &str) -> Result<Vec<Entity>, ParsingError> {
                             Some(entity) => {
                                 entity.append_content(other)?;
                             }
-                            None => unreachable!(),
+                            None => unreachable!(
+                                "have PS::(Comment|Docstring|HashBang|Number) with unpopulated entity; grapheme=\"{}\", times={}, line={}, col={}",
+                                other,
+                                times,
+                                line_number,
+                                col_number,
+                            ),
                         },
+
+                        // we usually end up here by way of parsing comments, which implicitly need
+                        // a bit of peekiness to parse correctly
+                        ParserState::FloatingInTheAbyss => {},
+
                         _ => unimplemented!(),
                     }
                     break;
@@ -408,4 +503,10 @@ fn parse_string(input: &str) -> Result<Vec<Entity>, ParsingError> {
     };
 
     Ok(entities)
+}
+
+fn main() -> Result<(), ParsingError> {
+    argh::from_env::<CLIArgs>();
+    parse_string("placeholder to mark functions as used")?;
+    Ok(())
 }
