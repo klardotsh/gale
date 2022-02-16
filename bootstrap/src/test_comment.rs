@@ -48,7 +48,7 @@ fn one_line_unicode() -> Result<(), ParsingError> {
 }
 
 #[test]
-fn one_line_weird_stuff() -> Result<(), ParsingError> {
+fn two_lines_weird_stuff() -> Result<(), ParsingError> {
     assert_eq!(
         parse_string("--hello. \n-- 1 new #_ line, woo hoo!\n")?,
         vec![

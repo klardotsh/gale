@@ -437,6 +437,7 @@ fn parse_string(input: &str) -> Result<Vec<Entity>, ParsingError> {
                                     let built = prepared.finalize_and_build()?;
                                     entities.push(built);
                                     entity = None;
+                                    state = ParserState::FloatingInTheAbyss;
                                 }
                                 _ => unreachable!(),
                             }
