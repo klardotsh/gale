@@ -10,7 +10,7 @@
 ```
 
 gluumy is an opinionated, conceptually small, "fast enough for most day to day
-stuff", strongly-but-inferredly-typed, functional, and legally-unencumbered
+stuff", strongly-typed, functional, interpreted, and legally-unencumbered
 language that sits atop Lua, generally running anywhere Lua 5.1+ can. What it
 lacks in academic background it tries to make up for in simplicity, ergonomics,
 and intuitiveness. Simply put: gluumy is here to Get Shit Done and get out of
@@ -33,9 +33,14 @@ gluumy has just a few core language constructs:
 Notably _not_ present are import statements, to some degree modules (more on
 that in a minute), package management at all (more on that later), macros,
 decorations, classes, or a number of other concepts found in other languages.
-It's not that those things (or the numerous others not listed here) are bad,
-per-se, but keeping the language tightly-scoped helps it excel at those things,
-rather than trying to be everything to everyone.
+
+Somewhat uniquely among strongly-typed languages, gluumy is primarily catered
+towards interpreted usecases. While it can be ahead-of-time compiled down to
+bare Lua if necessary (perhaps to target a microcontroller with minimal flash
+memory available), it's generally expected that a gluumy application work in
+some ways similar to a Forth one: everything, including the code generator and
+typechecking logic, is available at runtime, and can be overridden by the end
+user if so desired (see "On Modules and Package Management" below).
 
 gluumy is designed to be usable by developers at any level from recent bootcamp
 grad or bedroom hacker, on up to principal engineers who surely will find

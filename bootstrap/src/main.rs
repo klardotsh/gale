@@ -317,7 +317,7 @@ fn parse_string(input: &str) -> Result<Vec<Entity>, ParsingError> {
                         entity_builder.kind(EntityKind::DocString);
                         entity_builder.start(PointInSource {
                             line_number,
-                            col_number: col_number - 1,
+                            col_number: col_number - 2,
                         });
                         entity_builder.contents(EntityContents::Docstring(String::new()));
                         entity = Some(entity_builder);
@@ -337,6 +337,10 @@ fn parse_string(input: &str) -> Result<Vec<Entity>, ParsingError> {
                         }
                         _ => unreachable!(),
                     },
+
+                    // TODO: determine whether any special logic should happen here; we're partway
+                    // through a three-grapheme instruction
+                    (ParserState::Docstring, Some("-"), _) => {},
 
                     (_, Some("-"), _) => {
                         state = ParserState::Comment;
