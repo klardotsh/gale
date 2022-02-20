@@ -18,34 +18,44 @@ the way.
 
 gluumy has just a few core language constructs:
 
-- the function, `->`, with often-inferrable argument and return types
-- relatedly, the foreign function, `!->`, to dip into raw Lua when needed
-- the shape, `=>`, which is a mix of structs (or tables), interfaces, and
-  traits (or mixins)... or, if you prefer, "product types"
-- the sum-shape, `~>`, which is an exhaustiveness-checkable shape containing
-  one or more disparate-but-related shapes (more on these later!)
-- the pipeline, with prepend, `|>`, and append, `|>>`, both supported
-- strings (`"like this"`), numbers (`1` and `1.0` are equivalent, as in Lua
-  itself), and booleans. Notably missing is `nil`, which is instead covered by
-  `Option` and `Result` sum-shapes
-- comments (`--`), docstrings (`---`), and compiler hints (`#`)
+- the function, which is strongly (but inferredly) typed, curryable, and can
+  optionally be implemented in raw Lua when necessary (perhaps to wrap a C FFI
+  library or reuse a Lua library)
+- the shape, which combines aspects of several concepts from other languages:
+    * structs, tables, dictionaries, hashes, etc.
+	* interfaces
+	* traits and mixins
+	* generally, "product types"
+- the sum-shape, which is roughly analogous to the concept of enums in
+  ML-inspired languages or Rust in that they are exhaustiveness-checkable
+  containers of related shapes
+- of course, the primitives:
+    * strings (`"like this"`)
+	* numbers (`1` and `1.0` are equivalent, as in Lua itself' and so are
+	  `1_000_000.000_000` and `1000000`)
+	* booleans
+	* _notably missing is `nil`, which is instead covered by the `Option` and
+	  `Result` sum-shapes_
+- miscellanea:
+    * comments (`--`), which run to the end of the line
+    * docstrings,
+      [scdoc](https://git.sr.ht/~sircmpwn/scdoc/tree/master/item/scdoc.5.scd)-formatted
+      blocks bookended by `---`
+    * compiler hints (`#`) to, for example, map primitives to gluumy-side
+      shapes
 
-Notably _not_ present are import statements, to some degree modules (more on
-that in a minute), package management at all (more on that later), macros,
-decorations, classes, or a number of other concepts found in other languages.
+The language is primarily catered towards interpreted usecases. While it can be
+ahead-of-time compiled down to bare Lua if necessary (perhaps to target a
+microcontroller with minimal flash memory available), it's generally expected
+that a gluumy application work in some ways similar to a Forth one: everything,
+including the code generator and typechecking logic, is available at runtime,
+and can be overridden by the end user if so desired (see "On Modules and
+Package Management" below).
 
-Somewhat uniquely among strongly-typed languages, gluumy is primarily catered
-towards interpreted usecases. While it can be ahead-of-time compiled down to
-bare Lua if necessary (perhaps to target a microcontroller with minimal flash
-memory available), it's generally expected that a gluumy application work in
-some ways similar to a Forth one: everything, including the code generator and
-typechecking logic, is available at runtime, and can be overridden by the end
-user if so desired (see "On Modules and Package Management" below).
-
-gluumy is designed to be usable by developers at any level from recent bootcamp
-grad or bedroom hacker, on up to principal engineers who surely will find
-countless problems in my implementation. It's designed to be usable by folks on
-symmetrical gigabit fibre in the city, or folks on terrible sattelite
+This language is designed to be usable by developers at any level from recent
+bootcamp grad or bedroom hacker, on up to principal engineers who surely will
+find countless problems in my implementation. It's designed to be usable by
+folks on symmetrical gigabit fibre in the city, or folks on terrible sattelite
 connections in the mountains or at sea somewhere. It's designed to be usable on
 what are, in mainstream terms, relatively "weak" computers, such as Raspberry
 Pis or junked machines you'd find at places like Re-PC, as well as the
