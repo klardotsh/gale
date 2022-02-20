@@ -75,6 +75,19 @@ likely made up of C, Zig, and/or Rust componentry, and some gluumy "libraries"
 may be best implemented as type-hint wrappers around FFI modules implemented in
 one of those languages.
 
+> Oh hey, lastly, shoutout to a few languages that directly inspired gluumy's
+> design and philosophy, in alphabetical order:
+>
+> - F#
+> - Forth
+> - Haskell
+> - LiveScript
+> - Lua itself!
+> - Ruby, and particularly Stripe's type system for it, Sorbet
+> - Rust
+> - TypeScript
+> - Zig
+
 ### On Modules and Package Management
 
 gluumy doesn't provide source-level modules, namespaces, or package management.
