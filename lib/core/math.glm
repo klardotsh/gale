@@ -1,169 +1,27 @@
 ---
-Adds two or more numbers, with optimized implementations available for 2-6
-arities.
-
-## Examples
-
-```
--- returns 2
-add 1 1
-
--- returns 3
-add 1 1 1
-
---- returns 36
-add 1 2 3 4 5 6 7 8
-```
+Adds two numbers.
 ---
-add { a(Number) b(Number } Number !-> return a + b
-add { a(Number) b(Number) c(Number) } Number !-> return a + b + c
-add { a(Number) b(Number) c(Number) d(Number) } Number !-> return a + b + c + d
-add { a(Number) b(Number) c(Number) d(Number) e(Number) } Number !->
-	return a + b + c + d + e
-add { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } Number !->
-	return a + b + c + d + e + f
-add { args(...Number 7) } Number !->
-	ret = 0
-	for i = 1, #args do
-		ret = ret + args[i]
-	end
-	return ret
+add :!Number: -> a(Number) -> b(Number } -> return a + b
 
 ---
-Sequentially subtracts two or more numbers, with optimized implementations
-available for 2-6 arities.
-
-## Examples
-
-```
--- returns 2
-sub 4 2
-
--- returns -1
-sub 0 0 1
-
--- returns 3
-sub 25 10 3 9
-```
+Substracts two numbers.
 ---
-sub { a(Number) b(Number } Number !-> return a - b
-sub { a(Number) b(Number) c(Number) } Number !-> return a - b - c
-sub { a(Number) b(Number) c(Number) d(Number) } Number !-> return a - b - c - d
-sub { a(Number) b(Number) c(Number) d(Number) e(Number) } Number !->
-	return a - b - c - d - e
-sub { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } Number !->
-	return a - b - c - d - e - f
-sub { args(...Number 7) } Number !->
-	ret = args[1]
-	for i = 1, #args-1 do
-		ret = ret - args[i + 1]
-	end
-	return ret
+sub :!Number: -> a(Number) -> b(Number } -> return a - b
 
 ---
-Sequentially divides two or more numbers, with optimized implementations
-available for 2-6 arities. Will return a DivideByZeroError if any argument is
-0, at comptime if known, otherwise at runtime.
-
-## Examples
-
-```
--- returns 2
-div 4 2
-
--- returns 1
-div 4 2 2
-
--- will not compile
-div 1 0
-```
+Divides two numbers. Will return a DivideByZeroError if any argument is 0.
 ---
-div { Number (!...0 1) } -> !Result.Err DivideByZeroError
-div { a(Number) b(Number } Result Number DivideByZeroError !->
-	-- TODO: codegen should probably just add these names to the scope
-	-- automatically, this seems funkadelic at best
-	local Result = gluumy_sumshape('Result')
-	if b == 0 then
-		return Result.Err(gluumy_shape('DivideByZeroError'))
-	else
-		return Result.Ok(a / b)
-	end
-div { a(Number) b(Number) c(Number) } Result Number DivideByZeroError !->
-	-- TODO: codegen should probably just add these names to the scope
-	-- automatically, this seems funkadelic at best
-	local Result = gluumy_sumshape('Result')
-	if b == 0 or c == 0 then
-		return Result.Err(gluumy_shape('DivideByZeroError'))
-	else
-		return Result.Ok(a / b / c)
-	end
-div { a(Number) b(Number) c(Number) d(Number) } Result Number DivideByZeroError !->
-	-- TODO: codegen should probably just add these names to the scope
-	-- automatically, this seems funkadelic at best
-	local Result = gluumy_sumshape('Result')
-	if b == 0 or c == 0 or d == 0 then
-		return Result.Err(gluumy_shape('DivideByZeroError'))
-	else
-		return Result.Ok(a / b / c / d)
-	end
-div { a(Number) b(Number) c(Number) d(Number) e(Number) } Result Number DivideByZeroError !->
-	-- TODO: codegen should probably just add these names to the scope
-	-- automatically, this seems funkadelic at best
-	local Result = gluumy_sumshape('Result')
-	if b == 0 or c == 0 or d == 0 or e == 0 then
-		return Result.Err(gluumy_shape('DivideByZeroError'))
-	else
-		return Result.Ok(a / b / c / d / e)
-	end
-div { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } Result Number DivideByZeroError !->
-	-- TODO: codegen should probably just add these names to the scope
-	-- automatically, this seems funkadelic at best
-	local Result = gluumy_sumshape('Result')
-	if b == 0 or c == 0 or d == 0 or e == 0 or f == 0 then
-		return Result.Err(gluumy_shape('DivideByZeroError'))
-	else
-		return Result.Ok(a / b / c / d / e / f)
-	end
-div { args(...Number 7) } Result Number DivideByZeroError !->
-	-- TODO: codegen should probably just add these names to the scope
-	-- automatically, this seems funkadelic at best
-	local Result = gluumy_sumshape('Result')
-	local ret = args[1]
-	for i = 1, #args-1 do
-		if args[i + 1] == 0 then
-			return Result.Err(gluumy_shape('DivideByZeroError'))
-		end
-		ret = ret / args[i + 1]
-	end
-	return Result.Ok(ret)
+div :!Result { Number DivideByZeroError }: 0 -> _(Number) -> Result.Err DivideByZeroError
+div :!Result { Number DivideByZeroError }: _(Number) -> 0 -> Result.Err DivideByZeroError
+div :!Result { Number DivideByZeroError }: a(Number) -> b(Number) -> return Result.Ok(a / b)
 
 ---
-Sequentially multiplies two or more numbers, with optimized implementations
-available for 2-6 arities.
-
-## Examples
-
-```
-TODO
-```
+Multiplies two numbers.
 ---
-mul { a(Number) b(Number } Number !-> return a * b
-mul { a(Number) b(Number) c(Number) } Number !-> return a * b * c
-mul { a(Number) b(Number) c(Number) d(Number) } Number !-> return a * b * c * d
-mul { a(Number) b(Number) c(Number) d(Number) e(Number) } Number !->
-	return a * b * c * d * e
-mul { a(Number) b(Number) c(Number) d(Number) e(Number) f(Number) } Number !->
-	return a * b * c * d * e * f
-mul { args(...Number 7) } Number !->
-	ret = args[1]
-	for i = 1, #args-1 do
-		ret = ret * args[i + 1]
-	end
-	return ret
+mul :!Number: -> a(Number) -> b(Number } -> return a * b
 
-mod { Number 0 } -> DivideByZeroError! |> Result.Err!
-mod { it(Number) mod_by(Number) } Result Number DivideByZeroError !->
-	-- TODO: codegen should probably just add these names to the scope
-	-- automatically, this seems funkadelic at best
-	local Result = gluumy_sumshape('Result')
-	return Result.Ok(it % mod_by)
+---
+Modulo. TODO: better docs.
+---
+mod :: _(Number) -> 0 -> Result.Err DivideByZeroError
+mod :!Result {Number DivideByZeroError}: it(Number) -> mod_by(Number) -> return Result.Ok(it % mod_by)

@@ -1,29 +1,17 @@
 # primitive bool
-Boolean =>
+Boolean => {
 	<= Equatable
 	<= Printable
 	<= DebugPrintable
+}
 
-eq { false false } -> true
-eq { false true } -> false
-eq { true true } -> true
-eq { true false } -> false
-eq { args(...Boolean 3) } Boolean !->
-	local idx = 2
-	local first = args[1]
-	while ret and idx <= #args do
-		if not (first == args[idx]) then return false end
-		idx = idx + 1
-	end
-	return true
+eq :: false -> false -> true
+eq :: false -> true -> false
+eq :: true -> true -> true
+eq :: true -> false -> false
 
-repr { true } -> "true"
-repr { false } -> "false"
+repr :: true -> "true"
+repr :: false -> "false"
 
-repr_debug { self } -> repr self
-
-when { true when_true } -> when_true
-when { false _ when_false } -> when_false
-
-when_do { true when_true_do } -> when_true_do!
-when_do { false _ when_false_do } -> when_false_do!
+when :: true -> when_true -> when_true
+when :: false -> _ -> when_false -> when_false

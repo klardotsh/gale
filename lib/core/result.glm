@@ -1,11 +1,8 @@
-Result { TVal TErr } ~>
+Result ~> TVal ~> TErr ~> {
 	Ok => TVal
 	Err => TErr
+}
 
 -- TODO: doc
-from_bool { true when_true } -> Result.Ok when_true
-from_bool { false _ when_false } -> Result.Err when_false
-
--- TODO: doc
-from_bool_with { true when_true } -> Result.Ok when_true!
-from_bool_with { false _ when_false } -> Result.Err when_false!
+from_bool :: true -> when_true -> Result.Ok when_true
+from_bool :: false -> _ when_false -> Result.Err when_false

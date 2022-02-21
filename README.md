@@ -175,6 +175,28 @@ This repository contains various components:
 > those running gluumy on non-Unix platforms (as well as packagers) should keep
 > an eye on project commits/releases for this reason.
 
+## Thanks
+
+This project didn't happen in a vacuum - it was shaped by the input and advice
+and teachings of various people and prior art in computer science. In
+alphabetical order, here's some of those people:
+
+- [@ndpi@merveilles.town](https://merveilles.town/@ndpi) ([on gemini](gemini://gemini.circumlunar.space/~ndpi/)
+- [@swift@merveilles.town](https://merveilles.town/@swift)
+- [Phil Hagelberg aka technomancy](http://technomancy.us/)
+
+... and the prior art:
+
+- [F#](https://fsharp.org/)
+- [Forth](https://en.wikipedia.org/wiki/Forth_(programming_language))
+- [Haskell](https://www.haskell.org/)
+- [LiveScript](http://livescript.net/)
+- [Lua](http://www.lua.org/) itself!
+- [Ruby](https://www.ruby-lang.org/en/), and particularly Stripe's type system for it, [Sorbet](https://sorbet.org)
+- [Rust](https://rust-lang.org)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Zig](https://ziglang.org/)
+
 ## Legal Yadda-Yadda
 
 `gluumy` (inclusive of all _original_ code found in this repository) is

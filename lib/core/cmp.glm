@@ -1,10 +1,10 @@
-Equatable =>
-	eq { (...Self 2) } Boolean
+Equatable => eq :: Self -> Self -> Boolean
 
-Comparable =>
+Comparable => {
 	<= Equatable
 
-	lt { Self Self } Boolean
-	lte { Self Self } Boolean
-	gt { Self Self } Boolean
-	gte { Self Self } Boolean
+	lt :: Self -> Self -> Boolean
+	lte :: Self -> Self -> Boolean
+	gt :: Self -> Self -> Boolean
+	gte :: Self -> Self -> Boolean
+}

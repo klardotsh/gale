@@ -1,17 +1,16 @@
-Printable =>
-	repr { Self } String
+-- bearing in mind all the other rules about syntax, shapes *can* be made to
+-- fit on one line, in theory
+Printable => repr :: Self -> String
 
-DebugPrintable =>
-	repr_debug { Self } String
+-- shapes can define a default implementation. the inferred return type will
+-- become the return type of the entire contract, so use this ability with eyes
+-- open (but not, per se, caution: it's not unsafe, just highly implicit)
+DebugPrintable => repr_debug :: self(Self) -> repr self
 
-From =>
-	from { Candidate } Self
+From => Candidate => from :: Candidate -> Self
 
-MaybeFrom =>
-	try_from { Candidate } Result Self Error
+TryFrom => try_from :: Candidate -> Result Self Error
 
-Into =>
-	into { Self } Candidate
+Into => into :: Self -> Candidate
 
-MaybeInto =>
-	into { Self } Result Candidate Error
+TryInto => try_into :: Self -> Result Candidate Error

@@ -4,11 +4,9 @@ String =>
 	<= Printable
 	<= DebugPrintable
 
-eq { a(String) b(String) } Boolean !-> return a == b
+eq :!Boolean: a(String) -> b(String) -> return a == b
 
-repr { self(String) } -> self
-
-repr_debug { self(String) } String !-> return string.format("\"%s\"", self)
+repr :: self(String) -> self
 
 -- once upon a time I thought about having a comptime concept in gluumy, but it
 -- overcomplicated several things in the language, and is notably not particularly
@@ -16,4 +14,6 @@ repr_debug { self(String) } String !-> return string.format("\"%s\"", self)
 -- the entire standard library. thus, it's been removed, with the side effect of
 -- no compile-time safety/sanity checks on printf, something even C compilers
 -- offer (albeit through special casing). some day I may revisit this...
-format { it(String) args(...Any 0) } String !-> return string.format(it, args)
+--
+-- TODO: accept any iterable, not just lists
+format :!String: it(String) -> args(List Printable) -> return string.format(it, args)

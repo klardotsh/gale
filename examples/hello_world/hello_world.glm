@@ -1,1 +1,1 @@
-main { .. } -> println "hello, world!"
+main :: -> println "hello, world!"

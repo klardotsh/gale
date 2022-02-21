@@ -1,9 +1,9 @@
-Error =>
+Error => {
 	<= DebugPrintable
 
-	message = String
+	message(String)
+}
 
-repr_debug { self(Error) } String -> format "Error(%s)" self.message
+repr_debug :: self(Error) -> format "Error(%s)" self.message
 
-DivideByZeroError = Error <=>
-	message = "impossible to divide by zero"
+DivideByZeroError = Error <=> message = "impossible to divide by zero"

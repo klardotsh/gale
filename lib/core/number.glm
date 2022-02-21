@@ -1,31 +1,19 @@
 # primitive number
-Number =>
+Number => {
 	<= Comparable
 	<= Printable
 	<= DebugPrintable
+}
 
-eq { a(Number) b(Number) } Boolean !-> return a == b
-eq { args(...Number 3) } Boolean !->
-	local idx = 2
-	local first = args[1]
-	while ret and idx <= #args do
-		if not (first == args[idx]) then return false end
-		idx = idx + 1
-	end
-	return true
+eq :!Boolean: a(Number) -> b(Number) -> return a == b
+lt :!Boolean: a(Number) -> b(Number) -> return a < b
+lte :!Boolean: a(Number) -> b(Number) -> return a <= b
+gt :!Boolean: a(Number) -> b(Number) -> return a > b
+gte :!Boolean: a(Number) -> b(Number) -> return a >= b
 
-lt { a(Number) b(Number) } Boolean !-> return a < b
-
-lte { a(Number) b(Number) } Boolean !-> return a <= b
-
-gt { a(Number) b(Number) } Boolean !-> return a > b
-
-gte { a(Number) b(Number) } Boolean !-> return a >= b
-
-repr { self(Number) } String !->
+repr :!String: self(Number) -> {
 	if self % 1 == 0 then
 		return string.format("%d", self)
 	end
 	return string.format("%f", self)
-
-repr_debug { self(Number } String = repr self
+}
