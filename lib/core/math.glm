@@ -11,9 +11,9 @@ sub :!Number: -> a(Number) -> b(Number } -> return a - b
 ---
 Divides two numbers. Will return a DivideByZeroError if any argument is 0.
 ---
-div :!Result { Number DivideByZeroError }: 0 -> _(Number) -> Result.Err DivideByZeroError
-div :!Result { Number DivideByZeroError }: _(Number) -> 0 -> Result.Err DivideByZeroError
-div :!Result { Number DivideByZeroError }: a(Number) -> b(Number) -> return Result.Ok(a / b)
+div :!Result Number DivideByZeroError : 0 -> _(Number) -> Result.Err DivideByZeroError
+div :!Result Number DivideByZeroError : _(Number) -> 0 -> Result.Err DivideByZeroError
+div :!Result Number DivideByZeroError : a(Number) -> b(Number) -> return Result.Ok(a / b)
 
 ---
 Multiplies two numbers.
@@ -24,4 +24,4 @@ mul :!Number: -> a(Number) -> b(Number } -> return a * b
 Modulo. TODO: better docs.
 ---
 mod :: _(Number) -> 0 -> Result.Err DivideByZeroError
-mod :!Result {Number DivideByZeroError}: it(Number) -> mod_by(Number) -> return Result.Ok(it % mod_by)
+mod :!Result Number DivideByZeroError: it(Number) -> mod_by(Number) -> return Result.Ok(it % mod_by)

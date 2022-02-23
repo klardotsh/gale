@@ -1,8 +1,9 @@
 # primitive string
-String =>
+String => {
 	<= Equatable
 	<= Printable
 	<= DebugPrintable
+}
 
 eq :!Boolean: a(String) -> b(String) -> return a == b
 

@@ -12,7 +12,7 @@ maybe_something :: -> from_bool(Option) random_bool "body once told me"
 --- one swing.
 get_ten_somes :: -> must_not {
 	find {
-		is_none
+		'is_none
 		filled_list_with_capacity {
 			maybe_something
 			10

@@ -9,8 +9,8 @@ DebugPrintable => repr_debug :: self(Self) -> repr self
 
 From => Candidate => from :: Candidate -> Self
 
-TryFrom => try_from :: Candidate -> Result Self Error
+TryFrom => Candidate => try_from :: Candidate -> Result Self Error
 
-Into => into :: Self -> Candidate
+Into => Candidate => into :: Self -> Candidate
 
-TryInto => try_into :: Self -> Result Candidate Error
+TryInto => Candidate => try_into :: Self -> Result Candidate Error

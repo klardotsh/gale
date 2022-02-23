@@ -1,6 +1,6 @@
 --- Write the Printable representation of `it`, followed by a newline, to
 --- stdout, which is then flushed.
-println :!Void: it(Printable) -> {
+println :!void: it(Printable) -> {
 	io.stdout:write(it:repr())
 	io.stdout:write("\n")
 	io.stdout:flush()
@@ -8,7 +8,7 @@ println :!Void: it(Printable) -> {
 
 --- Write the Printable representation of `it`, followed by a newline, to
 --- stderr, which is then flushed.
-eprintln :!Void: it(Printable) -> {
+eprintln :!void: it(Printable) -> {
 	io.stderr:write(it:repr())
 	io.stderr:write("\n")
 	io.stderr:flush()
