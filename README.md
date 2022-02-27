@@ -135,15 +135,16 @@ become part of `gluumy doc` eventually).
 
 This repository contains various components:
 
-- `bootstrap` contains the bootstrapping compiler, implemented in Rust. It is
-  **only** supported for the purposes of bootstrapping the official gluumy
-  compiler that is, itself, implemented in gluumy. As with the official
-  compiler, it outputs Lua code, and thus standing up gluumy on a new
-  architecture does not actually require Rust support on that architecture,
-  provided Lua source generated on another system is fair game.
+- `src/stage1` contains the AOT-only bootstrapping compiler, implemented in
+  Lua. It is **only** supported for the purpose of bootstrapping the gluumy
+  toolchain which is, itself, written in gluumy. This compiler can run anywhere
+  Lua 5.1 or newer (thus including LuaJIT) can, and bundles all of its runtime
+  and test-time dependencies in pure Lua (however, if a native
+  [LPeg](http://www.inf.puc-rio.br/~roberto/lpeg/) library is available, it
+  will be used instead of the bundled [LuLPeg](https://github.com/pygy/LuLPeg)).
 
-- `src/compiler`, `lib/compile`, `lib/tc`, `lib/lsp`, `lib/lint`, and `lib/fmt`
-  are the actually-safe and as-production-ready-as-feasible gluumy compiler,
+- `lib/compile`, `lib/tc`, `lib/lsp`, `lib/lint`, and `lib/fmt` are the
+  actually-safe and as-production-ready-as-feasible gluumy compiler,
   type-checking engine, [language server](https://langserver.org/), linter, and
   formatter. They are all implemented in gluumy.
 
@@ -223,3 +224,9 @@ original license terms:
 
 - [luaunit](https://github.com/bluebird75/luaunit), a BSD-licensed unit testing
   library
+
+- [LuLPeg](https://github.com/pygy/LuLPeg), a pure-Lua implementation of
+  [LPeg](http://www.inf.puc-rio.br/~roberto/lpeg/), which is under a custom,
+  permissive license ("The Romantic WTF public license, version <3", containing
+  [excellent ASCII art](https://github.com/pygy/LuLPeg/blob/master/LICENSE)) on
+  top of the BSD-/MIT-style license of LPeg itself
