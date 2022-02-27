@@ -40,6 +40,12 @@ struct PointInSource {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Shape {
+    identifier: Option<String>,
+    composition_references: Vec<ComposedShapeReference>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum EntityContents {
     CompilerHint(String),
     HashBang(String),
@@ -47,6 +53,7 @@ enum EntityContents {
     Docstring(String),
     FFIBody(String),
     Number(String),
+    Shape(Shape),
 }
 
 impl EntityContents {
@@ -60,6 +67,8 @@ impl EntityContents {
             | EntityContents::Number(inner) => {
                 inner.push_str(content);
             }
+
+            EntityContents::Shape { .. } => unreachable!(),
         }
     }
 
@@ -71,8 +80,16 @@ impl EntityContents {
             | EntityContents::Docstring(inner)
             | EntityContents::FFIBody(inner)
             | EntityContents::Number(inner) => inner.contains(content),
+
+            EntityContents::Shape { .. } => unreachable!(),
         }
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum ComposedShapeReference {
+    Identified(String),
+    Resolved(Shape),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -182,6 +199,8 @@ impl EntityBuilder {
                 self.contents = Some(EntityContents::Number(content.trim().into()))
             }
             Some(EntityContents::FFIBody(..)) => unimplemented!(),
+
+            Some(EntityContents::Shape { .. }) => unreachable!(),
         };
 
         self
