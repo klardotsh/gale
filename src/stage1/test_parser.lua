@@ -1,6 +1,7 @@
 local lu = require('luaunit')
 
 local parser = require('parser')
+local parse_string = parser.parse_string
 local Entity = parser.Entity
 local EntityKind = parser.Entity.Kind
 local PointInSource = parser.PointInSource
@@ -8,12 +9,12 @@ local PointInSource = parser.PointInSource
 TestAST = {}
 
 function TestAST:test_empty_string()
-	lu.assertEquals(parser.parse_string(""), {})
+	lu.assertEquals(parse_string(""), {})
 end
 
 function TestAST:test_one_line_simple_comment()
 	lu.assertEquals(
-        parser.parse_string("-- this is a one line comment"),
+        parse_string("-- this is a one line comment"),
 		{
 			Entity({
 				kind = EntityKind.Comment("this is a one line comment"),
@@ -24,7 +25,7 @@ end
 
 function TestAST:test_one_line_unicode_comment()
 	lu.assertEquals(
-		parser.parse_string("-- this is a one-line comment, but with Japanese characters: すてきな一日を"),
+		parse_string("-- this is a one-line comment, but with Japanese characters: すてきな一日を"),
 		{
 			Entity({
 				kind = EntityKind.Comment(
@@ -37,7 +38,7 @@ end
 
 function TestAST:test_two_comments()
 	lu.assertEquals(
-        parser.parse_string("-- line one\n-- line two\n"),
+        parse_string("-- line one\n-- line two\n"),
 		{
 			Entity({
 				kind = EntityKind.Comment("line one"),
@@ -51,7 +52,7 @@ end
 
 function TestAST:test_number_int()
     lu.assertEquals(
-        parser.parse_string("1"),
+        parse_string("1"),
         {
 			Entity({
 				kind = EntityKind.Number("1"),
@@ -151,6 +152,32 @@ function TestAST:test_number_then_a_comment()
 			}),
 			Entity({
 				kind = EntityKind.Comment("this was a number, tee hee"),
+			}),
+		}
+    )
+end
+
+function TestAST:test_simple_shape_definition()
+    lu.assertEquals(
+        parse_string("Printable => repr :: Self -> String"),
+        {
+			Entity({
+				kind = EntityKind.Shape({
+					identifier = "Printable",
+					composed_from = {},
+					requisite_functions = {
+						EntityKind.FunctionStub({
+							identifier = "repr",
+							arguments = {
+								EntityKind.Argument({
+									identifier = nil,
+									type_identifier = "Self",
+								})
+							},
+							returns = "String",
+						})
+					},
+				}),
 			}),
 		}
     )
