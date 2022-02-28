@@ -92,7 +92,22 @@ local WHEREIS = lpeg.Cp()
 local P_NEWLINE = lpeg.S("\r\n")
 local P_WHITESPACE = lpeg.S(" \t\r\n")
 local P_INTEGER = lpeg.R("09") ^ 1
-local P_NUMBER = re.compile("(([0-9]+)[_]?)+([.]?(([0-9]+)[_]?)*)")
+local P_NUMBER = re.compile([[
+	-- there is no rule about where or when underscores are valid. 1_2_3 is
+	-- totally legit
+	[0-9_]+
+	(
+		[\.]^-1
+		[0-9_]+
+	)?
+]]) - re.compile([[
+	-- however, multiple dots are never allowed in a number, so we'll use this
+	-- negative match group to match anything with extraneous dots
+	[0-9_]+
+	[.]^-1
+	[0-9_]+
+	[.]+
+]])
 local P_ESCAPE = lpeg.P('\\')
 local P_COMMENT_DELIM = lpeg.P('--')
 local P_COMMENT_BEGIN = (P_COMMENT_DELIM - (P_ESCAPE * P_COMMENT_DELIM)) * P_WHITESPACE
