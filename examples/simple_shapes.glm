@@ -26,7 +26,8 @@ repr :: self(Song) -> format {
 main :: -> println Song <=> {
 	artist = "Portishead"
 	title = "Wandering Star"
-	track = Option.Some =>
+	track = Option.Some => {
 		num = 5
 		total = 7
+	}
 }
