@@ -16,7 +16,8 @@ Song => {
 	track(Option Track)
 }
 
-repr :: self(Song) -> format {
+repr :: self(Song) -> {
+	format
 	"%s by %s"
 	self.title
 	(or self.album_artist self.artist)
