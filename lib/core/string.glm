@@ -1,20 +1,10 @@
-# primitive string
-String => {
-	<= Equatable
-	<= Printable
-	<= DebugPrintable
-}
+: eq -> a 'String -> b 'String -> ffi 'Boolean '{ return a == b }
 
-eq :!Boolean: a(String) -> b(String) -> return a == b
+: repr -> self 'String -> self
 
-repr :: self(String) -> self
+: repr_debug -> self 'String -> format "\"%s\"" << [] self
 
--- once upon a time I thought about having a comptime concept in gluumy, but it
--- overcomplicated several things in the language, and is notably not particularly
--- IDE/LSP friendly. further, this function right here was the only use for it in
--- the entire standard library. thus, it's been removed, with the side effect of
--- no compile-time safety/sanity checks on printf, something even C compilers
--- offer (albeit through special casing). some day I may revisit this...
---
--- TODO: accept any iterable, not just lists
-format :!String: it(String) -> args(List Printable) -> return string.format(it, args)
+: format(String) \
+	-> it String \
+	-> args << & List Printable \
+	-> ffi String '{ return string.format(it, args) }

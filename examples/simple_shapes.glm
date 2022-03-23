@@ -1,34 +1,50 @@
-Track => {
-	num(Number)
-	total(Number)
-}
+$ Track
+	"num" Number shape-field
+	"total" Number shape-field
+;
 
--- this implicitly implements Printable for Track despite us not declaring
--- Track as a Printable
-repr :: self(Track) -> format "Track %d/%d" self.num self.total
+# this implicitly implements Printable for Track despite us not declaring
+# Track as a Printable
+: repr ( Track -> String )
+	"num" .
+	"total" .
+	"Track %d/%d"
+	format/2
+;
 
-Song => {
-	<= Printable
+$ Song
+	Printable shape-dep
 
-	artist(String)
-	album_artist(Option String)
-	title(String)
-	track(Option Track)
-}
+	"artist" String shape-field
+	"album_artist" Option< String > shape-field
+	"title" String shape-field
+	"track" Option< Track > shape-field
+;
 
-repr :: self(Song) -> {
-	format
+: repr ( Song -> String )
+	"title" .
+	"album_artist" .. "artist" ./3 or
 	"%s by %s"
-	self.title
-	(or self.album_artist self.artist)
-}
+	format/2
+;
 
--- this prints "Wandering Star by Portishead"
-main :: -> println Song <=> {
-	artist = "Portishead"
-	title = "Wandering Star"
-	track = Option.Some => {
-		num = 5
-		total = 7
-	}
-}
+: main
+	# make our Track and jam it in an Option. the type system will be able to
+	# figure out that, despite not "finalizing" the shape into a Track, that
+	# the interface is fulfilled and thus this table is a Track
+	make-table
+	"num" 5 set
+	"total" 7 set
+	Option.Some
+
+	# this is the actual safe way to create a "struct": shape definitions
+	# generate make-X words, where X is the name of the shape, as well as
+	# type-safe "set" overrides for each of its fields
+	make-Song
+	"title" "Wandering Star" set
+	"artist" "Portishead" set
+	"track" set/2
+
+	# this prints "Wandering Star by Portishead"
+	repr println
+;

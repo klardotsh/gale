@@ -1,59 +1,41 @@
-Option ~> T ~> {
-	Some => T
-	None
-}
+% Option
+	"T" enum-generic
 
----
-Maps a Boolean to an Option, where `false` becomes None, and `true` becomes
-`when_true`.
----
-from_bool :: true -> when_true -> Option.Some when_true
-from_bool :: false -> Option.None
+	"Some" "T" enum-generic-member
+	"None" enum-member
+;
 
----
-Maps an Option to a Boolean, where Some becomes `false` and None becomes
-`true`.
+? from-bool!
+	consumes a Boolean and a fallback value off the stack and returns an Option
+	member: Some(T) containing the fallback value if the boolean was truthy, or
+	else None.
+;
+: from-bool! ( _ Boolean.True -> _ ) swap drop Option.Some ;
+: from-bool! ( _ Boolean.False -> _ ) drop drop Option.None ;
 
-For the inverse operation, see `is_some`.
----
-is_none :: Option.Some -> false
-is_none :: Option.None -> true
+: is-none? ( Option.Some -> Option.Some Boolean ) false ;
+: is-none? ( Option.None -> Option.None Boolean ) true ;
 
----
-Maps an Option to a Boolean, where Some becomes `true` and None becomes
-`false`.
+: is-some? ( Option.Some -> Option.Some Boolean.True ) true ;
+: is-some? ( Option.None -> Option.None Boolean.False ) false ;
 
-For the inverse operation, see `is_none`.
----
-is_some :: Option.Some -> true
-is_some :: Option.None -> false
+? or
+	reads an Option and a fallback value off the stack and returns it plus
+	either the Option.Some member, if existent, or else the fallback value.
+;
+: or ( _ Option.Some -> _ ) swap drop enum-member-extract ;
+: or ( _ Option.None -> _ ) swap ;
 
----
-Maps an Option to its inner value, if Some, or a fallback value, if None. There
-is no requirement at this level that the inner value of the Option and the
-value of `fallback` are of the same type, mostly because the type system
-currently can't express such a requirement. However, downstream callsites will
-almost certainly expect congruence, meaning such enforcement usually happens
-elsewhere in the callgraph anyway.
+? or!
+	consumes an Option and a fallback value off the stack and returns either
+	the Option.Some member, if existent, or else the fallback value.
+	;
+: or! ( _ Option.Some -> _ ) swap drop enum-member-extract! ;
+: or! ( _ Option.None -> _ ) drop ;
 
-If `fallback` should be a dynamic value (i.e. requires a function call), use
-`or_with` instead.
----
-or :: val(Option.Some) -> val
-or :: Option.None -> fallback -> fallback
+: must! ( _ Option.Some -> _ ) enum-member-extract! Result.Ok ;
+: must! ( _ Option.None -> _ ) drop Result.Err ;
 
----
-Maps an Option to a Result, wrapping a Some value in Result.Ok when applicable,
-and otherwise returning a Result.Err containing `when_none`.
----
-must :: val(Option.Some) -> Result.Ok val
-must :: Option.None when_none -> Result.Err when_none
-
----
-Maps an Option to a Result, wrapping `when_some` in Result.Err and `when_none`
-in Result.Ok based on the state of `it`. The inner value of the Some type is
-ignored; to handle it, see `must` instead. Most callers should not pass Results
-for `when_some` and `when_none` unless nested Results are desired.
----
-must_not :: Option.Some -> when_some -> Result.Err when_some
-must_not :: Option.None -> _ -> when_none -> Result.Ok when_none
+# TODO: docs: takes when_none when_some Option
+: must_not! ( _ _ Option.Some -> _ ) drop swap drop Result.Err ;
+: must_not! ( _ _ Option.None -> _ ) drop drop Result.Ok ;

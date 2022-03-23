@@ -1,16 +1,27 @@
--- bearing in mind all the other rules about syntax, shapes *can* be made to
--- fit on one line, in theory
-Printable => repr :: Self -> String
+Printable = shape << <- :repr 'Self 'String
 
--- shapes can define a default implementation. the inferred return type will
--- become the return type of the entire contract, so use this ability with eyes
--- open (but not, per se, caution: it's not unsafe, just highly implicit)
-DebugPrintable => repr_debug :: self(Self) -> repr self
+DebugPrintable = shape << <- :repr_debug 'Self 'String
 
-From => Candidate => from :: Candidate -> Self
+From = shape {
+	~ :Candidate
 
-TryFrom => Candidate => try_from :: Candidate -> Result Self Error
+	<~ :from :Candidate 'Self
+}
 
-Into => Candidate => into :: Self -> Candidate
+TryFrom = shape {
+	~ :Candidate
 
-TryInto => Candidate => try_into :: Self -> Result Candidate Error
+	<~ :try_from :Candidate << & 'Result 'Self 'Error
+}
+
+Into = shape {
+	~ :Candidate
+
+	<~ :into 'Self :Candidate
+}
+
+TryInto = shape {
+	~ :Candidate
+
+	<~ :try_into 'Self << & 'Result :Candidate 'Error
+}

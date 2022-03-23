@@ -1,0 +1,18 @@
+# TODO: determine if these should return Result (I'm fairly certain update and
+# finish can both fail, I just haven't prodded to see how or why yet)
+$ MD5
+	"update"
+		Self String shape-method-inputs/2
+		Self shape-method-outputs/1
+		shape-method
+	"finish"
+		Self shape-method-inputs/1
+		String shape-method-outputs/1
+		shape-method
+;
+
+: update ( MD5 String -> MD5 ) ffi{ arg[1]:update(arg[2]); return arg[1] } ;
+: finish ( MD5 -> String ) ffi{ return arg[1]:finish() } ;
+: md5sum ( String -> String ) ffi{ return md5.sum(arg[1]) } ;
+: md5sum_hex ( String -> String ) ffi{ return md5.sumhexa(arg[1]) } ;
+: hex_from_byte_string ( String -> String ) ffi{ return md5.tohex(arg[1]) } ;

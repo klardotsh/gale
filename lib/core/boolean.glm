@@ -1,9 +1,15 @@
-# primitive bool
-Boolean => {
-	<= Equatable
-	<= Printable
-	<= DebugPrintable
+Boolean = enum {
+	<= 'Equatable
+	<= 'Printable
+	<= 'DebugPrintable
+
+	-- these probably need optimized codegen to avoid becoming boxed
+	=> :True
+	=> :False
 }
+
+true = Boolean.True
+false = Boolean.False
 
 eq :: false -> false -> true
 eq :: false -> true -> false

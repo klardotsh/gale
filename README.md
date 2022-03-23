@@ -1,4 +1,4 @@
-# gluumy: a hackable, type-safe, minimal-ish, high-level programming language
+# gluumy: a hackable, type-safe, minimalist, stack-based programming language
 
 > it's pronounced "gloomy" (or maybe "glue me"), and is spelled in lowercase,
 > always
@@ -9,84 +9,45 @@
        _|                 /           _|                   _|
 ```
 
-gluumy is an opinionated, conceptually small, "fast enough for most day to day
-stuff", strongly-typed, functional, interpreted, and legally-unencumbered
-language that sits atop Lua, generally running anywhere Lua 5.1+ can. What it
-lacks in academic background it tries to make up for in simplicity, ergonomics,
-and intuitiveness. Simply put: gluumy is here to Get Shit Done and get out of
-the way.
+gluumy is a strongly-typed Forth-inspired language that sits atop any Lua
+compatible with 5.1 or newer, supporting ahead-of-time compilation as well as
+interpretation (perhaps at a REPL). What it lacks in academic background it
+tries to make up for in simplicity, extreme flexibility, and a general Get Shit
+Done vibe.
 
-gluumy has just a few core language constructs:
+> Tangential: gluumy's fairly-minimalist type system, `cheereo` is implemented
+> in a single file of pure Lua, and can be used as at least a _runtime_ type
+> system for Lua, MoonScript, Fennel, and other languages targeting Lua. The
+> truly adventurous can probably figure out how to use cheereo for _static_
+> type checking in those languages similarly to how gluumy does; such efforts
+> are left as an exercise to those communities.
+>
+> For more about cheereo, peruse the `src/cheereo.lua` file, which is heavily
+> commented.
 
-- the function, which is strongly (but inferredly) typed, curryable, and can
-  optionally be implemented in raw Lua when necessary (perhaps to wrap a C FFI
-  library or reuse a Lua library)
-- the shape, which combines aspects of several concepts from other languages:
-    * structs, tables, dictionaries, hashes, etc.
-	* interfaces
-	* traits and mixins
-	* generally, "product types"
-- the sum-shape, which is roughly analogous to the concept of enums in
-  ML-inspired languages or Rust in that they are exhaustiveness-checkable
-  containers of related shapes
-- of course, the primitives:
-    * strings (`"like this"`)
-	* numbers (`1` and `1.0` are equivalent, as in Lua itself' and so are
-	  `1_000_000.000_000` and `1000000`)
-	* booleans
-	* _notably missing is `nil`, which is instead covered by the `Option` and
-	  `Result` sum-shapes_
-- miscellanea:
-    * comments (`--`), which run to the end of the line
-    * docstrings,
-      [scdoc](https://git.sr.ht/~sircmpwn/scdoc/tree/master/item/scdoc.5.scd)-formatted
-      blocks bookended by `---`
-    * compiler hints (`#`) to, for example, map primitives to gluumy-side
-      shapes
+## Philosophy
 
-The language is primarily catered towards interpreted usecases. While it can be
-ahead-of-time compiled down to bare Lua if necessary (perhaps to target a
-microcontroller with minimal flash memory available), it's generally expected
-that a gluumy application work in some ways similar to a Forth one: everything,
-including the code generator and typechecking logic, is available at runtime,
-and can be overridden by the end user if so desired (see "On Modules and
-Package Management" below).
+gluumy is designed to be usable by developers at any level from recent bootcamp
+grad or bedroom hacker, on up to principal engineers who surely will find
+countless problems in my implementation. It's designed to be usable by folks on
+gigabit fibre in the city, or folks on terrible sattelite connections in the
+mountains or at sea somewhere. It's designed to be usable on what are, in
+mainstream terms, relatively "weak" computers, such as Raspberry Pis or
+recycled machines from eras past, as well as the hyper-modern beasts you can
+spend thousands of USD on. But most of all, it's designed to be _usable_, and
+not just by "application developers" - the spirit of gluumy is that programs
+are built up of flexible and end-user-replaceable bits and bobs, and are not
+opaque monoliths handed down by powers that be.
 
-This language is designed to be usable by developers at any level from recent
-bootcamp grad or bedroom hacker, on up to principal engineers who surely will
-find countless problems in my implementation. It's designed to be usable by
-folks on symmetrical gigabit fibre in the city, or folks on terrible sattelite
-connections in the mountains or at sea somewhere. It's designed to be usable on
-what are, in mainstream terms, relatively "weak" computers, such as Raspberry
-Pis or junked machines you'd find at places like Re-PC, as well as the
-hyper-modern beasts you can spend thousands of USD on. But most of all, it's
-designed to be _usable_, and not just by "application developers" - the spirit
-of gluumy is to a degree inspired by the spirit of Forth: that programs are
-built up of flexible and end-user-replaceable bits and bobs, and are not opaque
-monoliths handed down by powers that be.
-
-Finally: gluumy does not exist in a zero-sum vaccuum of languages, and is not
-the correct tool for every job. It sits somewhere approximately in the altitude
-of languages like Python, Ruby, JavaScript, and can even be considered in some
+gluumy does not exist in a zero-sum vaccuum of languages, and is not the
+correct tool for every job. It sits somewhere approximately in the altitude of
+languages like Python, Ruby, JavaScript, and can even be considered in some
 places where Go or Haskell might be used, but is _not_ an appropriate
 replacement for low-level languages in the domains where such low-level control
 is necessary. It's expected, for example, that a functional gluumy stack is
 likely made up of C, Zig, and/or Rust componentry, and some gluumy "libraries"
-may be best implemented as type-hint wrappers around FFI modules implemented in
-one of those languages.
-
-> Oh hey, lastly, shoutout to a few languages that directly inspired gluumy's
-> design and philosophy, in alphabetical order:
->
-> - F#
-> - Forth
-> - Haskell
-> - LiveScript
-> - Lua itself!
-> - Ruby, and particularly Stripe's type system for it, Sorbet
-> - Rust
-> - TypeScript
-> - Zig
+may be best implemented as FFI wrappers around Lua bindings to such foreign
+componentry.
 
 ### On Modules and Package Management
 
@@ -182,21 +143,10 @@ This project didn't happen in a vacuum - it was shaped by the input and advice
 and teachings of various people and prior art in computer science. In
 alphabetical order, here's some of those people:
 
+- [Devine Du Linvega](https://wiki.xxiivv.com/site/home.html)
 - [@ndpi@merveilles.town](https://merveilles.town/@ndpi) ([on gemini](gemini://gemini.circumlunar.space/~ndpi/)
 - [@swift@merveilles.town](https://merveilles.town/@swift)
 - [Phil Hagelberg aka technomancy](http://technomancy.us/)
-
-... and the prior art:
-
-- [F#](https://fsharp.org/)
-- [Forth](https://en.wikipedia.org/wiki/Forth_(programming_language))
-- [Haskell](https://www.haskell.org/)
-- [LiveScript](http://livescript.net/)
-- [Lua](http://www.lua.org/) itself!
-- [Ruby](https://www.ruby-lang.org/en/), and particularly Stripe's type system for it, [Sorbet](https://sorbet.org)
-- [Rust](https://rust-lang.org)
-- [TypeScript](https://www.typescriptlang.org/)
-- [Zig](https://ziglang.org/)
 
 ## Legal Yadda-Yadda
 
@@ -224,9 +174,3 @@ original license terms:
 
 - [luaunit](https://github.com/bluebird75/luaunit), a BSD-licensed unit testing
   library
-
-- [LuLPeg](https://github.com/pygy/LuLPeg), a pure-Lua implementation of
-  [LPeg](http://www.inf.puc-rio.br/~roberto/lpeg/), which is under a custom,
-  permissive license ("The Romantic WTF public license, version <3", containing
-  [excellent ASCII art](https://github.com/pygy/LuLPeg/blob/master/LICENSE)) on
-  top of the BSD-/MIT-style license of LPeg itself

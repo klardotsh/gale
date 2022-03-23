@@ -1,17 +1,16 @@
-# primitive number
-Number => {
-	<= Comparable
-	<= Printable
-	<= DebugPrintable
+Number = shape {
+	<= 'Comparable
+	<= 'Printable
+	<= 'DebugPrintable
 }
 
-eq :!Boolean: a(Number) -> b(Number) -> return a == b
-lt :!Boolean: a(Number) -> b(Number) -> return a < b
-lte :!Boolean: a(Number) -> b(Number) -> return a <= b
-gt :!Boolean: a(Number) -> b(Number) -> return a > b
-gte :!Boolean: a(Number) -> b(Number) -> return a >= b
+eq :: a 'Number -> b 'Number -> ffi 'Boolean '{ return a == b }
+lt :: a 'Number -> b 'Number -> ffi 'Boolean '{ return a < b }
+lte :: a 'Number -> b 'Number -> ffi 'Boolean '{ return a <= b }
+gt :: a 'Number -> b 'Number -> ffi 'Boolean '{ return a > b }
+gte :: a 'Number -> b 'Number -> ffi 'Boolean '{ return a >= b }
 
-repr :!String: self(Number) -> {
+repr :: self 'Number -> ffi 'String '{
 	if self % 1 == 0 then
 		return string.format("%d", self)
 	end

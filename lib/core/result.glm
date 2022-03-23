@@ -1,8 +1,11 @@
-Result ~> TVal ~> TErr ~> {
-	Ok => TVal
-	Err => TErr
-}
+% Result
+	:Val enum-generic
+	:Err enum-generic
 
--- TODO: doc
-from_bool :: true -> when_true -> Result.Ok when_true
-from_bool :: false -> _ when_false -> Result.Err when_false
+	:Ok :Val enum-generic-member
+	:Err :Err enum-generic-member
+;
+
+# TODO: docs, takes when_false when_true bool
+: from_bool! ( _ _ Boolean.True -> _ ) drop swap drop Result.Ok ;
+: from_bool! ( _ _ Boolean.False -> _ ) drop drop Result.Err ;

@@ -1,27 +1,33 @@
 ---
 Adds two numbers.
 ---
-add :!Number: -> a(Number) -> b(Number } -> return a + b
+add :: a 'Number -> b 'Number -> ffi 'Number '{ return a + b }
 
 ---
 Substracts two numbers.
 ---
-sub :!Number: -> a(Number) -> b(Number } -> return a - b
+sub :: a 'Number -> b 'Number -> ffi 'Number '{ return a - b }
 
 ---
 Divides two numbers. Will return a DivideByZeroError if any argument is 0.
 ---
-div :!Result Number DivideByZeroError : 0 -> _(Number) -> Result.Err DivideByZeroError
-div :!Result Number DivideByZeroError : _(Number) -> 0 -> Result.Err DivideByZeroError
-div :!Result Number DivideByZeroError : a(Number) -> b(Number) -> return Result.Ok(a / b)
+div :: 0 -> _ 'Number -> Result.Err DivideByZeroError
+div :: _ 'Number -> 0 -> Result.Err DivideByZeroError
+div :: a 'Number -> b 'Number -> ffi 'Number '{ return Result.Ok(a / b) }
 
 ---
 Multiplies two numbers.
 ---
-mul :!Number: -> a(Number) -> b(Number } -> return a * b
+mul :: a 'Number -> b 'Number -> ffi 'Number '{ return a * b }
 
 ---
 Modulo. TODO: better docs.
 ---
-mod :: _(Number) -> 0 -> Result.Err DivideByZeroError
-mod :!Result Number DivideByZeroError: it(Number) -> mod_by(Number) -> return Result.Ok(it % mod_by)
+mod :: _ 'Number -> 0 -> Result.Err DivideByZeroError
+mod \
+	:: it 'Number \
+	-> mod_by 'Number \
+	-> ffi {
+		& 'Result 'Number 'DivideByZeroError
+		'{ return Result.Ok(it % mod_by) }
+	}
