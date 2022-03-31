@@ -1,17 +1,30 @@
--- an example of a SQL DSL in gluumy that probably could exist
--- selects the highest priced item's id and its modification time as a native
--- dt object
-PricedItemRow = SQLRow <=> {
-	id(UUIDv4)
-	price(Decimal)
-	updated_at(DateTime)
-}
+# an example of a SQL DSL in gluumy that probably could exist selects the
+# highest priced item's id and its modification time as a native dt object
 
-select(Result (List PricedItemRow)) {
-	from "items" {
-		(col "id")
-		(max (col "price"))
-		(col "updated_at")
-	}
-	where (eq (col "deleted_at") null)
-}
+$ PricedItemRow
+	SQLRow shape-dep
+
+	"id" UUIDv4 shape-field
+	"price" Decimal shape-field
+	"updated_at" DateTime shape-field
+;
+
+: not_deleted_items
+	( -> Result< List< PricedItemRow > > _ )
+	"select" make-sql-query
+
+	"from" make-sql-clause
+	"id" col sql-clause-add
+	"price" col max sql-clause-add
+	"updated_at" col sql-clause-add
+	sql-query-add
+
+	"where" make-sql-clause
+	"deleted_at" col sql-null eq sql-clause-add
+	sql-query-add
+
+	sql-exec
+	into!
+;
+
+: main not_deleted_items unwrap println

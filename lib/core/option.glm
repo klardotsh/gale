@@ -5,7 +5,7 @@
 	"None" enum-member
 ;
 
-? from-bool!
+?: from-bool!
 	consumes a Boolean and a fallback value off the stack and returns an Option
 	member: Some(T) containing the fallback value if the boolean was truthy, or
 	else None.
@@ -19,17 +19,17 @@
 : is-some? ( Option.Some -> Option.Some Boolean.True ) true ;
 : is-some? ( Option.None -> Option.None Boolean.False ) false ;
 
-? or
+?: or
 	reads an Option and a fallback value off the stack and returns it plus
 	either the Option.Some member, if existent, or else the fallback value.
 ;
 : or ( _ Option.Some -> _ ) swap drop enum-member-extract ;
 : or ( _ Option.None -> _ ) swap ;
 
-? or!
+?: or!
 	consumes an Option and a fallback value off the stack and returns either
 	the Option.Some member, if existent, or else the fallback value.
-	;
+;
 : or! ( _ Option.Some -> _ ) swap drop enum-member-extract! ;
 : or! ( _ Option.None -> _ ) drop ;
 
