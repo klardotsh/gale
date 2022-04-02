@@ -1,3 +1,5 @@
 .envrc
 .ignore
 .pijul
+zig-cache
+zig-out
