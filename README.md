@@ -92,7 +92,7 @@ and teachings of various people and prior art in computer science. In
 alphabetical order, here's some of those people:
 
 - [Devine Lu Linvega](https://wiki.xxiivv.com/site/home.html)
-- [@ndpi@merveilles.town](https://merveilles.town/@ndpi) ([on gemini](gemini://gemini.circumlunar.space/~ndpi/)
+- [@ndpi@merveilles.town](https://merveilles.town/@ndpi) ([on gemini](gemini://gemini.circumlunar.space/~ndpi/))
 - [@swift@merveilles.town](https://merveilles.town/@swift)
 - [Phil Hagelberg aka technomancy](http://technomancy.us/)
 
