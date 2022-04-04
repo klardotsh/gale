@@ -88,8 +88,17 @@ const Dictionary = struct {
 
     // TODO take type signature into account
     fn lookup(self: Self, name: []const u8) ?*Word {
-        std.debug.print("looking up \"{s}\"\n", .{name});
-        return self.store.get(name).?.getPtr(&TopType);
+        if (self.store.get(name)) |word| {
+            std.debug.print("found word \"{s}\" of type {any} with {any}\n", .{
+                name,
+                TopType,
+                word,
+            });
+            return word.getPtr(&TopType);
+        }
+
+        std.debug.print("no such word \"{s}\" of type {any}\n", .{ name, TopType });
+        return null;
     }
 
     // TODO take type signature into account
@@ -100,9 +109,7 @@ const Dictionary = struct {
         var entry = try self.store.getOrPut(name_storage);
 
         if (!entry.found_existing) {
-            var impls = try self.allocator.create(WordImplementationsByTypeSignature);
-            impls.* = WordImplementationsByTypeSignature.init(self.allocator.*);
-            entry.value_ptr = impls;
+            entry.value_ptr.* = WordImplementationsByTypeSignature.init(self.allocator.*);
         }
 
         _ = try entry.value_ptr.getOrPutValue(&TopType, word);
@@ -344,6 +351,8 @@ const Runtime = struct {
     }
 
     fn feed_word_TEMP(self: Self, word: []const u8) !void {
+        var stack = self.stack;
+
         // TODO integrate type system, everything is currently assumed
         // TOP_TYPE_ID since, well, duh, there's no type system yet
         const found_word = self.word_dictionary.lookup(word).?;
@@ -351,6 +360,13 @@ const Runtime = struct {
         // TODO implement
         if (found_word.flags.immediate) unreachable;
         if (found_word.flags.hidden) unreachable;
+
+        const result = switch (found_word.implementation) {
+            .Primitive => |impl| impl.*(self, &stack),
+            else => unreachable,
+        };
+
+        std.debug.print("result: {any}\n", .{result});
     }
 
     comptime {
