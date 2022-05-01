@@ -419,6 +419,10 @@ fn prim_word_dup(store: &mut Store) -> WordResult {
 }
 
 fn prim_word_mul(store: &mut Store) -> WordResult {
+    if store.len() < 2 {
+        return Err(RuntimeError::StackUnderflow);
+    }
+
     let left = store.pop_front()?;
     let right = store.pop_front()?;
 
