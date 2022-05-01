@@ -80,6 +80,18 @@ impl Store {
             .pop_front()
             .ok_or(RuntimeError::StackUnderflow)
     }
+
+    fn get(&self, i: usize) -> Option<&StoreEntry> {
+        self.container.get(i)
+    }
+
+    fn swap(&mut self, i: usize, j: usize) {
+        self.container.swap(i, j)
+    }
+
+    fn insert(&mut self, i: usize, obj: StoreEntry) {
+        self.container.insert(i, obj)
+    }
 }
 
 impl Display for Store {
@@ -138,7 +150,7 @@ impl Display for WordsInDictionary {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 struct StoreEntry {
     type_signature: TypeSignature,
     value: Object,
@@ -160,7 +172,7 @@ impl Deref for StoreEntry {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 enum Object {
     Primitive(Primitive),
     // TODO: complex things (dictionaries, lists, whatever) and foreign things (C ABI)
@@ -179,7 +191,7 @@ impl Object {
 impl Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Primitive(prim) => write!(f, "{}", prim.to_string())
+            Self::Primitive(prim) => write!(f, "{}", prim.to_string()),
         }
     }
 }
@@ -189,7 +201,7 @@ enum ObjectMethodError {
     MethodDoesNotApplyToObjectKind,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 struct TypeSignature {}
 
 impl Display for TypeSignature {
@@ -198,8 +210,7 @@ impl Display for TypeSignature {
     }
 }
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 enum Primitive {
     Boolean(bool),
     UnsignedInt(usize),
@@ -349,6 +360,28 @@ fn define_word(dict: &mut Dictionary, identifier: &String, word: Word) -> Result
 }
 
 fn populate_primitive_words(mut dict: &mut Dictionary) -> Result<(), RuntimeError> {
+    // stack ops
+    define_word(
+        &mut dict,
+        &"dup".into(),
+        Word {
+            hidden: false,
+            immediate: false,
+            implementation: WordImplementation::Primitive(prim_word_dup),
+        },
+    )?;
+
+    define_word(
+        &mut dict,
+        &"swap".into(),
+        Word {
+            hidden: false,
+            immediate: false,
+            implementation: WordImplementation::Primitive(prim_word_swap),
+        },
+    )?;
+
+    // math
     define_word(
         &mut dict,
         &"*".into(),
@@ -362,16 +395,37 @@ fn populate_primitive_words(mut dict: &mut Dictionary) -> Result<(), RuntimeErro
     Ok(())
 }
 
+// TODO: handle "peek" syntax (eg. swap/2, which peeks the stack "pointer" backwards by two
+// elements before running swap)
+fn prim_word_swap(store: &mut Store) -> WordResult {
+    if store.len() < 2 {
+        return Err(RuntimeError::StackUnderflow);
+    }
+
+    Ok(store.swap(0, 1))
+}
+
+// TODO: handle "peek" syntax (eg. swap/2, which peeks the stack "pointer" backwards by two
+// elements before running swap)
+fn prim_word_dup(store: &mut Store) -> WordResult {
+    let new_entry = {
+        store
+            .get(0)
+            .map(|src| src.clone())
+            .ok_or(RuntimeError::StackUnderflow)
+    }?;
+
+    Ok(store.insert(0, new_entry))
+}
+
 fn prim_word_mul(store: &mut Store) -> WordResult {
     let left = store.pop_front()?;
     let right = store.pop_front()?;
 
-    store.push_front(StoreEntry {
+    Ok(store.push_front(StoreEntry {
         type_signature: TypeSignature {},
         value: left.mul(&right)??,
-    });
-
-    Ok(())
+    }))
 }
 
 fn main() -> Result<(), RuntimeError> {
@@ -617,6 +671,69 @@ mod tests {
         );
 
         assert_store_empty(&store);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_uint_literal() -> Result<(), RuntimeError> {
+        let (mut store, dictionary) = construct_default_runtime()?;
+
+        assert_store_empty(&store);
+
+        runtime_feed_word(&mut store, &dictionary, "1")?;
+        assert_eq!(
+            store.pop_front()?.value,
+            Object::Primitive(Primitive::UnsignedInt(1)),
+        );
+
+        runtime_feed_word(&mut store, &dictionary, "1")?;
+        runtime_feed_word(&mut store, &dictionary, "2")?;
+        assert_eq!(
+            store.pop_front()?.value,
+            Object::Primitive(Primitive::UnsignedInt(2)),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_swap() -> Result<(), RuntimeError> {
+        let (mut store, dictionary) = construct_default_runtime()?;
+
+        assert_store_empty(&store);
+
+        push_uint_to_stack(&mut store, 1);
+        push_uint_to_stack(&mut store, 2);
+        runtime_feed_word(&mut store, &dictionary, "swap")?;
+        assert_eq!(
+            store.pop_front()?.value,
+            Object::Primitive(Primitive::UnsignedInt(1)),
+        );
+        assert_eq!(
+            store.pop_front()?.value,
+            Object::Primitive(Primitive::UnsignedInt(2)),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_dup() -> Result<(), RuntimeError> {
+        let (mut store, dictionary) = construct_default_runtime()?;
+
+        assert_store_empty(&store);
+
+        push_uint_to_stack(&mut store, 1);
+        runtime_feed_word(&mut store, &dictionary, "dup")?;
+        assert_eq!(
+            store.pop_front()?.value,
+            Object::Primitive(Primitive::UnsignedInt(1)),
+        );
+        assert_eq!(
+            store.pop_front()?.value,
+            Object::Primitive(Primitive::UnsignedInt(1)),
+        );
 
         Ok(())
     }
