@@ -378,44 +378,56 @@ fn main() -> Result<(), RuntimeError> {
     let stdin = io::stdin();
     let (mut store, dictionary) = construct_default_runtime()?;
 
-    let mut stdin_buffer = String::new();
-    {
-        let mut stdin = stdin.lock();
-        // NOTE: since we're in vanilla zero-dependency Rust, there's no access to per-byte
-        // character streams here: for cross-platform compat reasons, io::Stdin is always
-        // line-buffered. TODO allow opting into linenoise (readline), termion,  etc. to enable
-        // rich REPL (i.e. syntax highlighting as you type)
-        stdin.read_line(&mut stdin_buffer)?;
+    // FIXME: traditionally in a Forth, the REPL is, itself, a Forth program (and thus is hackable
+    // at runtime), so this logic will need to be generalized and exposed to the runtime itself,
+    // rather than hard-coded here
+    loop {
+        let mut stdin_buffer = String::new();
+        {
+            let mut stdin = stdin.lock();
+            // NOTE: since we're in vanilla zero-dependency Rust, there's no access to per-byte
+            // character streams here: for cross-platform compat reasons, io::Stdin is always
+            // line-buffered. TODO allow opting into linenoise (readline), termion,  etc. to enable
+            // rich REPL (i.e. syntax highlighting as you type)
+            let chars_read = stdin.read_line(&mut stdin_buffer)?;
 
-        // FIXME: traditionally in a Forth, the REPL is, itself, a Forth program (and thus is
-        // hackable at runtime), so this logic will need to be generalized and exposed to the
-        // runtime itself, rather than hard-coded here
-        loop {
-            match (
-                stdin_buffer.len(),
-                stdin_buffer.split_once(&WORD_SPLITTING_CHARS),
-            ) {
-                (0, _) => break,
-
-                // word is the entirety of the line (no splits found)
-                // TODO: no unwrap, provide error reporting UX in REPL
-                (_, None) => runtime_feed_word(&mut store, &dictionary, &stdin_buffer).unwrap(),
-
-                (_, Some((first_word, rest))) => {
-                    // TODO: no unwrap, provide error reporting UX in REPL
-                    runtime_feed_word(&mut store, &dictionary, &first_word).unwrap();
-
-                    // TODO fix this compiler warning; indeed this combo of borrowing feels like a
-                    // code smell, but I'm too lazy to bother fixing it right now
-                    stdin_buffer = stdin_buffer.split_off(first_word.len() + 1);
-                }
+            // "If this function returns Ok(0), the stream has reached EOF" --
+            // https://doc.rust-lang.org/std/io/trait.BufRead.html#method.read_line
+            if chars_read == 0 {
+                break Ok(());
             }
 
-            eprintln!("store is now: {}", store);
-        }
-    }
+            if stdin_buffer.trim().is_empty() {
+                continue;
+            }
 
-    Ok(())
+            loop {
+                match (
+                    stdin_buffer.len(),
+                    stdin_buffer.split_once(&WORD_SPLITTING_CHARS),
+                ) {
+                    (0, _) => break,
+
+                    // word is the entirety of the line (no splits found)
+                    // TODO: no unwrap, provide error reporting UX in REPL
+                    (_, None) => runtime_feed_word(&mut store, &dictionary, &stdin_buffer).unwrap(),
+
+                    (_, Some((first_word, _))) => {
+                        // TODO: no unwrap, provide error reporting UX in REPL
+                        runtime_feed_word(&mut store, &dictionary, &first_word).unwrap();
+
+                        // TODO fix this compiler warning; indeed this combo of borrowing feels like a
+                        // code smell, but I'm too lazy to bother fixing it right now
+                        stdin_buffer = stdin_buffer.split_off(first_word.len() + 1);
+                    }
+                }
+
+                eprintln!("store is now: {}", store);
+            }
+        }
+
+        stdin_buffer.clear();
+    }
 }
 
 fn runtime_feed_word(
@@ -447,8 +459,8 @@ fn runtime_feed_word(
             // a primitive. since this is _always_ the fallback case, this implies that defining a
             // word `1` can and will overwrite the primitive number 1. with great power comes great
             // responsibility, friends.
-            RuntimeError::NoWordsByName(_) => attempt_parse_iint_literal(word_str)
-                .or_else(|| attempt_parse_uint_literal(word_str))
+            RuntimeError::NoWordsByName(_) => attempt_parse_uint_literal(word_str)
+                .or_else(|| attempt_parse_iint_literal(word_str))
                 .or_else(|| attempt_parse_float_literal(word_str))
                 .ok_or_else(|| err)
                 .map(|entry| {
