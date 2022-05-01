@@ -181,9 +181,9 @@ enum Object {
 impl Object {
     fn mul(&self, other: &Self) -> Result<Result<Self, RuntimeError>, ObjectMethodError> {
         match (self, other) {
-            (Self::Primitive(prim_self), Self::Primitive(prim_other)) => Ok(prim_self
-                .mul(prim_other)
-                .map(|result| Self::Primitive(result))),
+            (Self::Primitive(prim_self), Self::Primitive(prim_other)) => {
+                Ok(prim_self.mul(prim_other).map(Self::Primitive))
+            }
         }
     }
 }
@@ -191,7 +191,7 @@ impl Object {
 impl Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Primitive(prim) => write!(f, "{}", prim.to_string()),
+            Self::Primitive(prim) => write!(f, "{}", prim),
         }
     }
 }
@@ -243,10 +243,10 @@ impl Primitive {
 impl Display for Primitive {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Boolean(prim) => write!(f, "{}", prim.to_string()),
-            Self::SignedInt(prim) => write!(f, "{}", prim.to_string()),
-            Self::UnsignedInt(prim) => write!(f, "{}", prim.to_string()),
-            Self::Float(prim) => write!(f, "{}", prim.to_string()),
+            Self::Boolean(prim) => write!(f, "{}", prim),
+            Self::SignedInt(prim) => write!(f, "{}", prim),
+            Self::UnsignedInt(prim) => write!(f, "{}", prim),
+            Self::Float(prim) => write!(f, "{}", prim),
         }
     }
 }
@@ -341,9 +341,9 @@ impl From<ObjectMethodError> for InternalError {
     }
 }
 
-fn define_word(dict: &mut Dictionary, identifier: &String, word: Word) -> Result<(), RuntimeError> {
+fn define_word(dict: &mut Dictionary, identifier: &str, word: Word) -> Result<(), RuntimeError> {
     if !dict.contains_key(identifier) {
-        match dict.insert(identifier.clone(), WordsInDictionary::new()) {
+        match dict.insert(identifier.to_string(), WordsInDictionary::new()) {
             None => {}
             Some(existing) => unreachable!(
                 "Dictionary claims to not contain key {}, but {} was already there",
@@ -353,17 +353,19 @@ fn define_word(dict: &mut Dictionary, identifier: &String, word: Word) -> Result
     }
 
     dict.get_mut(identifier)
-        .and_then(|impls| Some(impls.push(word)))
+        .map(|impls| {
+            impls.push(word);
+        })
         .ok_or(RuntimeError::InternalError(
             InternalError::WordInsertionFailed,
         ))
 }
 
-fn populate_primitive_words(mut dict: &mut Dictionary) -> Result<(), RuntimeError> {
+fn populate_primitive_words(dict: &mut Dictionary) -> Result<(), RuntimeError> {
     // stack ops
     define_word(
-        &mut dict,
-        &"dup".into(),
+        dict,
+        "dup",
         Word {
             hidden: false,
             immediate: false,
@@ -372,8 +374,8 @@ fn populate_primitive_words(mut dict: &mut Dictionary) -> Result<(), RuntimeErro
     )?;
 
     define_word(
-        &mut dict,
-        &"swap".into(),
+        dict,
+        "swap",
         Word {
             hidden: false,
             immediate: false,
@@ -383,8 +385,8 @@ fn populate_primitive_words(mut dict: &mut Dictionary) -> Result<(), RuntimeErro
 
     // math
     define_word(
-        &mut dict,
-        &"*".into(),
+        dict,
+        "*",
         Word {
             hidden: false,
             immediate: false,
@@ -402,20 +404,19 @@ fn prim_word_swap(store: &mut Store) -> WordResult {
         return Err(RuntimeError::StackUnderflow);
     }
 
-    Ok(store.swap(0, 1))
+    store.swap(0, 1);
+
+    Ok(())
 }
 
 // TODO: handle "peek" syntax (eg. swap/2, which peeks the stack "pointer" backwards by two
 // elements before running swap)
 fn prim_word_dup(store: &mut Store) -> WordResult {
-    let new_entry = {
-        store
-            .get(0)
-            .map(|src| src.clone())
-            .ok_or(RuntimeError::StackUnderflow)
-    }?;
+    let new_entry = { store.get(0).cloned().ok_or(RuntimeError::StackUnderflow) }?;
 
-    Ok(store.insert(0, new_entry))
+    store.insert(0, new_entry);
+
+    Ok(())
 }
 
 fn prim_word_mul(store: &mut Store) -> WordResult {
@@ -425,11 +426,12 @@ fn prim_word_mul(store: &mut Store) -> WordResult {
 
     let left = store.pop_front()?;
     let right = store.pop_front()?;
-
-    Ok(store.push_front(StoreEntry {
+    store.push_front(StoreEntry {
         type_signature: TypeSignature {},
         value: left.mul(&right)??,
-    }))
+    });
+
+    Ok(())
 }
 
 fn main() -> Result<(), RuntimeError> {
@@ -472,7 +474,7 @@ fn main() -> Result<(), RuntimeError> {
 
                     (_, Some((first_word, _))) => {
                         // TODO: no unwrap, provide error reporting UX in REPL
-                        runtime_feed_word(&mut store, &dictionary, &first_word).unwrap();
+                        runtime_feed_word(&mut store, &dictionary, first_word).unwrap();
 
                         // TODO fix this compiler warning; indeed this combo of borrowing feels like a
                         // code smell, but I'm too lazy to bother fixing it right now
@@ -489,13 +491,13 @@ fn main() -> Result<(), RuntimeError> {
 }
 
 fn runtime_feed_word(
-    mut store: &mut Store,
+    store: &mut Store,
     dictionary: &Dictionary,
     word_str: &str,
 ) -> Result<(), RuntimeError> {
     dictionary
         .get(word_str)
-        .ok_or(RuntimeError::NoWordsByName(word_str.into()))
+        .ok_or_else(|| RuntimeError::NoWordsByName(word_str.into()))
         .and_then(|impls| {
             // NOTE: for now we're lazy and just use the last (newest) definition of a word that
             // isn't hidden. FIXME integrate type system when it exists, and consider the
@@ -507,16 +509,17 @@ fn runtime_feed_word(
                 .position(|candidate| !candidate.hidden)
                 .and_then(|word_idx| impls.get(word_idx))
                 .and_then(|word| match word.implementation {
-                    WordImplementation::Primitive(prim_impl) => Some(prim_impl(&mut store)),
+                    WordImplementation::Primitive(prim_impl) => Some(prim_impl(store)),
                     _ => unimplemented!(),
                 })
-                .ok_or(RuntimeError::NoWordsByName(word_str.into()))
+                .ok_or_else(|| RuntimeError::NoWordsByName(word_str.into()))
         })
         .or_else(|err| match err {
             // word not found in dictionary, so before throwing an error, let's try to parse it as
             // a primitive. since this is _always_ the fallback case, this implies that defining a
             // word `1` can and will overwrite the primitive number 1. with great power comes great
             // responsibility, friends.
+            #[allow(clippy::unnecessary_lazy_evaluations)]
             RuntimeError::NoWordsByName(_) => attempt_parse_uint_literal(word_str)
                 .or_else(|| attempt_parse_iint_literal(word_str))
                 .or_else(|| attempt_parse_float_literal(word_str))
