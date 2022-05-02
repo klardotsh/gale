@@ -233,7 +233,9 @@ impl Primitive {
             | (Self::UnsignedInt(_), Self::Float(_))
             | (Self::Float(_), Self::UnsignedInt(_))
             | (Self::SignedInt(_), Self::Float(_))
-            | (Self::Float(_), Self::SignedInt(_)) => unimplemented!(),
+            | (Self::Float(_), Self::SignedInt(_)) => {
+                unimplemented!("multiplication of disparate number types")
+            }
 
             (Self::Boolean(_), _) | (_, Self::Boolean(_)) => Err(RuntimeError::IncompatibleTypes),
         }
@@ -244,9 +246,9 @@ impl Display for Primitive {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Boolean(prim) => write!(f, "{}", prim),
-            Self::SignedInt(prim) => write!(f, "{}", prim),
-            Self::UnsignedInt(prim) => write!(f, "{}", prim),
-            Self::Float(prim) => write!(f, "{}", prim),
+            Self::SignedInt(prim) => write!(f, "i{}", prim),
+            Self::UnsignedInt(prim) => write!(f, "u{}", prim),
+            Self::Float(prim) => write!(f, "f{}", prim),
         }
     }
 }
@@ -290,7 +292,7 @@ impl Display for WordImplementation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WordImplementation::Primitive(_) => write!(f, "<native method>"),
-            _ => unimplemented!(),
+            _ => unimplemented!("Display for non-Primitive WordImplementation"),
         }
     }
 }
@@ -510,7 +512,7 @@ fn runtime_feed_word(
                 .and_then(|word_idx| impls.get(word_idx))
                 .and_then(|word| match word.implementation {
                     WordImplementation::Primitive(prim_impl) => Some(prim_impl(store)),
-                    _ => unimplemented!(),
+                    _ => unimplemented!("runtime for non-Primitive WordImplementations"),
                 })
                 .ok_or_else(|| RuntimeError::NoWordsByName(word_str.into()))
         })
