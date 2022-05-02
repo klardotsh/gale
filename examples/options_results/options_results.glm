@@ -1,23 +1,24 @@
-main :: -> output_result get_ten_somes
+: output_result ( Result.Ok -> ) println ;
+: output_result ( Result.Err -> ) eprintln ;
 
-output_result :: msg(Result.Ok) -> println msg
-output_result :: msg(Result.Err) -> eprintln msg
+: maybe_something
+	"body once told me"
+	random(Boolean)
+	into(Option)
+;
 
-maybe_something :: -> from_bool(Option) random_bool "body once told me"
+?: get_ten_somes
+	A silly statistics-defying method that tries to build an array of 10
+	Some("body once told me") values randomly. It will almost certainly return
+	an error, but on the off chance that RNGesus smiles upon you, it may return
+	an ok. Regardless, it makes for a nice silly example of the Result and
+	Option types in one swing.
+;
+: get_ten_somes
+	"as expected, at least one None found" # String for Result.Err
+	"against all odds, the array is all Somes" # String for Result.Ok
+	'maybe_something 10 with_capacity_filled(Vec)
+	'is_none find
+;
 
---- A silly statistics-defying method that tries to build an array of 10 Some("body
---- once told me") values randomly. It will almost certainly return an error, but
---- on the off chance that RNGesus smiles upon you, it may return an ok.
---- Regardless, it makes for a nice silly example of the Result and Option types in
---- one swing.
-get_ten_somes :: -> must_not {
-	find {
-		'is_none
-		filled_list_with_capacity {
-			maybe_something
-			10
-		}
-	}
-	"as expected, at least one None found"
-	"against all odds, the array is all Somes"
-}
+: main get_ten_somes output_result ;
