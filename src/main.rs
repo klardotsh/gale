@@ -474,13 +474,10 @@ fn main() -> Result<(), RuntimeError> {
                     // TODO: no unwrap, provide error reporting UX in REPL
                     (_, None) => runtime_feed_word(&mut store, &dictionary, &stdin_buffer).unwrap(),
 
-                    (_, Some((first_word, _))) => {
+                    (_, Some((first_word, rest))) => {
                         // TODO: no unwrap, provide error reporting UX in REPL
                         runtime_feed_word(&mut store, &dictionary, first_word).unwrap();
-
-                        // TODO fix this compiler warning; indeed this combo of borrowing feels like a
-                        // code smell, but I'm too lazy to bother fixing it right now
-                        stdin_buffer = stdin_buffer.split_off(first_word.len() + 1);
+                        stdin_buffer = rest.into();
                     }
                 }
 
