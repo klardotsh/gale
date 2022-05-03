@@ -32,6 +32,10 @@
 //
 // With that said, let's begin the "host" side of gluumy.
 
+mod type_system;
+
+use type_system::TypeSignature;
+
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fmt::{self, Display};
@@ -54,6 +58,69 @@ const DEFAULT_DICTIONARY_CAPACITY_PER_WORD: usize = 3;
 const WORD_SPLITTING_CHARS: [char; 3] = [' ', '\t', '\n'];
 
 type StandardFloat = f64;
+
+struct Runtime {
+    store: Store,
+    dictionary: Dictionary,
+}
+
+impl Runtime {
+    fn feed_word(&mut self, word_str: &str) -> Result<(), RuntimeError> {
+        self.dictionary
+            .get(word_str)
+            .ok_or_else(|| RuntimeError::NoWordsByName(word_str.into()))
+            .and_then(|impls| {
+                // NOTE: for now we're lazy and just use the last (newest) definition of a word that
+                // isn't hidden. FIXME integrate type system when it exists, and consider the
+                // (potential?) need for, like in jonesForth and most other ASM Forths, retaining
+                // references to old versions of words (eg A is defined, B is defined with a ref to A,
+                // and then A is redefined/overwritten)
+                impls
+                    .iter()
+                    .position(|candidate| !candidate.hidden)
+                    .and_then(|word_idx| impls.get(word_idx))
+                    .and_then(|word| match word.implementation {
+                        WordImplementation::Primitive(prim_impl) => {
+                            Some(prim_impl(&mut self.store))
+                        }
+                        _ => unimplemented!("runtime for non-Primitive WordImplementations"),
+                    })
+                    .ok_or_else(|| RuntimeError::NoWordsByName(word_str.into()))
+            })
+            .or_else(|err| match err {
+                // word not found in dictionary, so before throwing an error, let's try to parse it as
+                // a primitive. since this is _always_ the fallback case, this implies that defining a
+                // word `1` can and will overwrite the primitive number 1. with great power comes great
+                // responsibility, friends.
+                #[allow(clippy::unnecessary_lazy_evaluations)]
+                RuntimeError::NoWordsByName(_) => attempt_parse_uint_literal(word_str)
+                    .or_else(|| attempt_parse_iint_literal(word_str))
+                    .or_else(|| attempt_parse_float_literal(word_str))
+                    .ok_or_else(|| err)
+                    .map(|entry| {
+                        self.store.push_front(entry);
+                        Ok(())
+                    }),
+
+                _ => Err(err),
+            })
+            .map(|_| ())
+    }
+}
+
+impl Default for Runtime {
+    fn default() -> Self {
+        let store = Store::default();
+        // TODO: impl Default for Dictionary instead (needs refactor of Dictionary to be a wrapper
+        // type instead of alias)
+        let mut dictionary = Dictionary::with_capacity(DEFAULT_DICTIONARY_CAPACITY_WORDS);
+
+        populate_primitive_words(&mut dictionary)
+            .expect("internal error populating primitive words");
+
+        Self { store, dictionary }
+    }
+}
 
 type StoreContainer = VecDeque<StoreEntry>;
 struct Store {
@@ -91,6 +158,12 @@ impl Store {
 
     fn insert(&mut self, i: usize, obj: StoreEntry) {
         self.container.insert(i, obj)
+    }
+}
+
+impl Default for Store {
+    fn default() -> Self {
+        Self::with_capacity(MAX_STORE_SIZE)
     }
 }
 
@@ -179,10 +252,42 @@ enum Object {
 }
 
 impl Object {
+    fn add(&self, other: &Self) -> Result<Result<Self, RuntimeError>, ObjectMethodError> {
+        match (self, other) {
+            (Self::Primitive(prim_self), Self::Primitive(prim_other)) => {
+                Ok(prim_self.add(prim_other).map(Self::Primitive))
+            }
+        }
+    }
+
+    fn sub(&self, other: &Self) -> Result<Result<Self, RuntimeError>, ObjectMethodError> {
+        match (self, other) {
+            (Self::Primitive(prim_self), Self::Primitive(prim_other)) => {
+                Ok(prim_self.sub(prim_other).map(Self::Primitive))
+            }
+        }
+    }
+
     fn mul(&self, other: &Self) -> Result<Result<Self, RuntimeError>, ObjectMethodError> {
         match (self, other) {
             (Self::Primitive(prim_self), Self::Primitive(prim_other)) => {
                 Ok(prim_self.mul(prim_other).map(Self::Primitive))
+            }
+        }
+    }
+
+    fn div(&self, other: &Self) -> Result<Result<Self, RuntimeError>, ObjectMethodError> {
+        match (self, other) {
+            (Self::Primitive(prim_self), Self::Primitive(prim_other)) => {
+                Ok(prim_self.div(prim_other).map(Self::Primitive))
+            }
+        }
+    }
+
+    fn modu(&self, other: &Self) -> Result<Result<Self, RuntimeError>, ObjectMethodError> {
+        match (self, other) {
+            (Self::Primitive(prim_self), Self::Primitive(prim_other)) => {
+                Ok(prim_self.modu(prim_other).map(Self::Primitive))
             }
         }
     }
@@ -202,15 +307,6 @@ enum ObjectMethodError {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct TypeSignature {}
-
-impl Display for TypeSignature {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "?")
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
 enum Primitive {
     Boolean(bool),
     UnsignedInt(usize),
@@ -219,6 +315,50 @@ enum Primitive {
 }
 
 impl Primitive {
+    fn add(&self, other: &Self) -> Result<Self, RuntimeError> {
+        // TODO: should implicit `into` be allowed here?
+        match (self, other) {
+            (Self::UnsignedInt(left), Self::UnsignedInt(right)) => {
+                Ok(Self::UnsignedInt(left + right))
+            }
+            (Self::SignedInt(left), Self::SignedInt(right)) => Ok(Self::SignedInt(left + right)),
+            (Self::Float(left), Self::Float(right)) => Ok(Self::Float(left + right)),
+
+            (Self::UnsignedInt(_), Self::SignedInt(_))
+            | (Self::SignedInt(_), Self::UnsignedInt(_))
+            | (Self::UnsignedInt(_), Self::Float(_))
+            | (Self::Float(_), Self::UnsignedInt(_))
+            | (Self::SignedInt(_), Self::Float(_))
+            | (Self::Float(_), Self::SignedInt(_)) => {
+                unimplemented!("addition of disparate number types")
+            }
+
+            (Self::Boolean(_), _) | (_, Self::Boolean(_)) => Err(RuntimeError::IncompatibleTypes),
+        }
+    }
+
+    fn sub(&self, other: &Self) -> Result<Self, RuntimeError> {
+        // TODO: should implicit `into` be allowed here?
+        match (self, other) {
+            (Self::UnsignedInt(left), Self::UnsignedInt(right)) => {
+                Ok(Self::UnsignedInt(left - right))
+            }
+            (Self::SignedInt(left), Self::SignedInt(right)) => Ok(Self::SignedInt(left - right)),
+            (Self::Float(left), Self::Float(right)) => Ok(Self::Float(left - right)),
+
+            (Self::UnsignedInt(_), Self::SignedInt(_))
+            | (Self::SignedInt(_), Self::UnsignedInt(_))
+            | (Self::UnsignedInt(_), Self::Float(_))
+            | (Self::Float(_), Self::UnsignedInt(_))
+            | (Self::SignedInt(_), Self::Float(_))
+            | (Self::Float(_), Self::SignedInt(_)) => {
+                unimplemented!("subtraction of disparate number types")
+            }
+
+            (Self::Boolean(_), _) | (_, Self::Boolean(_)) => Err(RuntimeError::IncompatibleTypes),
+        }
+    }
+
     fn mul(&self, other: &Self) -> Result<Self, RuntimeError> {
         // TODO: should implicit `into` be allowed here?
         match (self, other) {
@@ -235,6 +375,50 @@ impl Primitive {
             | (Self::SignedInt(_), Self::Float(_))
             | (Self::Float(_), Self::SignedInt(_)) => {
                 unimplemented!("multiplication of disparate number types")
+            }
+
+            (Self::Boolean(_), _) | (_, Self::Boolean(_)) => Err(RuntimeError::IncompatibleTypes),
+        }
+    }
+
+    fn div(&self, other: &Self) -> Result<Self, RuntimeError> {
+        // TODO: should implicit `into` be allowed here?
+        match (self, other) {
+            (Self::UnsignedInt(left), Self::UnsignedInt(right)) => {
+                Ok(Self::UnsignedInt(left / right))
+            }
+            (Self::SignedInt(left), Self::SignedInt(right)) => Ok(Self::SignedInt(left / right)),
+            (Self::Float(left), Self::Float(right)) => Ok(Self::Float(left / right)),
+
+            (Self::UnsignedInt(_), Self::SignedInt(_))
+            | (Self::SignedInt(_), Self::UnsignedInt(_))
+            | (Self::UnsignedInt(_), Self::Float(_))
+            | (Self::Float(_), Self::UnsignedInt(_))
+            | (Self::SignedInt(_), Self::Float(_))
+            | (Self::Float(_), Self::SignedInt(_)) => {
+                unimplemented!("division of disparate number types")
+            }
+
+            (Self::Boolean(_), _) | (_, Self::Boolean(_)) => Err(RuntimeError::IncompatibleTypes),
+        }
+    }
+
+    fn modu(&self, other: &Self) -> Result<Self, RuntimeError> {
+        // TODO: should implicit `into` be allowed here?
+        match (self, other) {
+            (Self::UnsignedInt(left), Self::UnsignedInt(right)) => {
+                Ok(Self::UnsignedInt(left % right))
+            }
+            (Self::SignedInt(left), Self::SignedInt(right)) => Ok(Self::SignedInt(left % right)),
+            (Self::Float(left), Self::Float(right)) => Ok(Self::Float(left % right)),
+
+            (Self::UnsignedInt(_), Self::SignedInt(_))
+            | (Self::SignedInt(_), Self::UnsignedInt(_))
+            | (Self::UnsignedInt(_), Self::Float(_))
+            | (Self::Float(_), Self::UnsignedInt(_))
+            | (Self::SignedInt(_), Self::Float(_))
+            | (Self::Float(_), Self::SignedInt(_)) => {
+                unimplemented!("modulus of disparate number types")
             }
 
             (Self::Boolean(_), _) | (_, Self::Boolean(_)) => Err(RuntimeError::IncompatibleTypes),
@@ -367,6 +551,16 @@ fn populate_primitive_words(dict: &mut Dictionary) -> Result<(), RuntimeError> {
     // stack ops
     define_word(
         dict,
+        "drop",
+        Word {
+            hidden: false,
+            immediate: false,
+            implementation: WordImplementation::Primitive(prim_word_drop),
+        },
+    )?;
+
+    define_word(
+        dict,
         "dup",
         Word {
             hidden: false,
@@ -388,11 +582,47 @@ fn populate_primitive_words(dict: &mut Dictionary) -> Result<(), RuntimeError> {
     // math
     define_word(
         dict,
-        "*",
+        "add",
+        Word {
+            hidden: false,
+            immediate: false,
+            implementation: WordImplementation::Primitive(prim_word_add),
+        },
+    )?;
+    define_word(
+        dict,
+        "sub",
+        Word {
+            hidden: false,
+            immediate: false,
+            implementation: WordImplementation::Primitive(prim_word_sub),
+        },
+    )?;
+    define_word(
+        dict,
+        "mul",
         Word {
             hidden: false,
             immediate: false,
             implementation: WordImplementation::Primitive(prim_word_mul),
+        },
+    )?;
+    define_word(
+        dict,
+        "div",
+        Word {
+            hidden: false,
+            immediate: false,
+            implementation: WordImplementation::Primitive(prim_word_div),
+        },
+    )?;
+    define_word(
+        dict,
+        "mod",
+        Word {
+            hidden: false,
+            immediate: false,
+            implementation: WordImplementation::Primitive(prim_word_mod),
         },
     )?;
 
@@ -421,6 +651,50 @@ fn prim_word_dup(store: &mut Store) -> WordResult {
     Ok(())
 }
 
+// TODO: handle "peek" syntax (eg. swap/2, which peeks the stack "pointer" backwards by two
+// elements before running swap)
+fn prim_word_drop(store: &mut Store) -> WordResult {
+    store.pop_front().map(|_| ())
+}
+
+fn prim_word_add(store: &mut Store) -> WordResult {
+    if store.len() < 2 {
+        return Err(RuntimeError::StackUnderflow);
+    }
+
+    let left = store.pop_front()?;
+    let right = store.pop_front()?;
+    store.push_front(StoreEntry {
+        type_signature: TypeSignature {
+            shape_id: 0,
+            subshape_id: None,
+            name: "<none>".into(),
+        },
+        value: left.add(&right)??,
+    });
+
+    Ok(())
+}
+
+fn prim_word_sub(store: &mut Store) -> WordResult {
+    if store.len() < 2 {
+        return Err(RuntimeError::StackUnderflow);
+    }
+
+    let left = store.pop_front()?;
+    let right = store.pop_front()?;
+    store.push_front(StoreEntry {
+        type_signature: TypeSignature {
+            shape_id: 0,
+            subshape_id: None,
+            name: "<none>".into(),
+        },
+        value: left.sub(&right)??,
+    });
+
+    Ok(())
+}
+
 fn prim_word_mul(store: &mut Store) -> WordResult {
     if store.len() < 2 {
         return Err(RuntimeError::StackUnderflow);
@@ -429,8 +703,50 @@ fn prim_word_mul(store: &mut Store) -> WordResult {
     let left = store.pop_front()?;
     let right = store.pop_front()?;
     store.push_front(StoreEntry {
-        type_signature: TypeSignature {},
+        type_signature: TypeSignature {
+            shape_id: 0,
+            subshape_id: None,
+            name: "<none>".into(),
+        },
         value: left.mul(&right)??,
+    });
+
+    Ok(())
+}
+
+fn prim_word_div(store: &mut Store) -> WordResult {
+    if store.len() < 2 {
+        return Err(RuntimeError::StackUnderflow);
+    }
+
+    let left = store.pop_front()?;
+    let right = store.pop_front()?;
+    store.push_front(StoreEntry {
+        type_signature: TypeSignature {
+            shape_id: 0,
+            subshape_id: None,
+            name: "<none>".into(),
+        },
+        value: left.div(&right)??,
+    });
+
+    Ok(())
+}
+
+fn prim_word_mod(store: &mut Store) -> WordResult {
+    if store.len() < 2 {
+        return Err(RuntimeError::StackUnderflow);
+    }
+
+    let left = store.pop_front()?;
+    let right = store.pop_front()?;
+    store.push_front(StoreEntry {
+        type_signature: TypeSignature {
+            shape_id: 0,
+            subshape_id: None,
+            name: "<none>".into(),
+        },
+        value: left.modu(&right)??,
     });
 
     Ok(())
@@ -438,7 +754,7 @@ fn prim_word_mul(store: &mut Store) -> WordResult {
 
 fn main() -> Result<(), RuntimeError> {
     let stdin = io::stdin();
-    let (mut store, dictionary) = construct_default_runtime()?;
+    let mut runtime = Runtime::default();
 
     // FIXME: traditionally in a Forth, the REPL is, itself, a Forth program (and thus is hackable
     // at runtime), so this logic will need to be generalized and exposed to the runtime itself,
@@ -472,16 +788,16 @@ fn main() -> Result<(), RuntimeError> {
 
                     // word is the entirety of the line (no splits found)
                     // TODO: no unwrap, provide error reporting UX in REPL
-                    (_, None) => runtime_feed_word(&mut store, &dictionary, &stdin_buffer).unwrap(),
+                    (_, None) => runtime.feed_word(&stdin_buffer).unwrap(),
 
                     (_, Some((first_word, rest))) => {
                         // TODO: no unwrap, provide error reporting UX in REPL
-                        runtime_feed_word(&mut store, &dictionary, first_word).unwrap();
+                        runtime.feed_word(first_word).unwrap();
                         stdin_buffer = rest.into();
                     }
                 }
 
-                eprintln!("store is now: {}", store);
+                eprintln!("store is now: {}", runtime.store);
             }
         }
 
@@ -489,55 +805,15 @@ fn main() -> Result<(), RuntimeError> {
     }
 }
 
-fn runtime_feed_word(
-    store: &mut Store,
-    dictionary: &Dictionary,
-    word_str: &str,
-) -> Result<(), RuntimeError> {
-    dictionary
-        .get(word_str)
-        .ok_or_else(|| RuntimeError::NoWordsByName(word_str.into()))
-        .and_then(|impls| {
-            // NOTE: for now we're lazy and just use the last (newest) definition of a word that
-            // isn't hidden. FIXME integrate type system when it exists, and consider the
-            // (potential?) need for, like in jonesForth and most other ASM Forths, retaining
-            // references to old versions of words (eg A is defined, B is defined with a ref to A,
-            // and then A is redefined/overwritten)
-            impls
-                .iter()
-                .position(|candidate| !candidate.hidden)
-                .and_then(|word_idx| impls.get(word_idx))
-                .and_then(|word| match word.implementation {
-                    WordImplementation::Primitive(prim_impl) => Some(prim_impl(store)),
-                    _ => unimplemented!("runtime for non-Primitive WordImplementations"),
-                })
-                .ok_or_else(|| RuntimeError::NoWordsByName(word_str.into()))
-        })
-        .or_else(|err| match err {
-            // word not found in dictionary, so before throwing an error, let's try to parse it as
-            // a primitive. since this is _always_ the fallback case, this implies that defining a
-            // word `1` can and will overwrite the primitive number 1. with great power comes great
-            // responsibility, friends.
-            #[allow(clippy::unnecessary_lazy_evaluations)]
-            RuntimeError::NoWordsByName(_) => attempt_parse_uint_literal(word_str)
-                .or_else(|| attempt_parse_iint_literal(word_str))
-                .or_else(|| attempt_parse_float_literal(word_str))
-                .ok_or_else(|| err)
-                .map(|entry| {
-                    store.push_front(entry);
-                    Ok(())
-                }),
-
-            _ => Err(err),
-        })
-        .map(|_| ())
-}
-
 fn attempt_parse_iint_literal(candidate: &str) -> Option<StoreEntry> {
     candidate
         .parse::<isize>()
         .map(|parsed| StoreEntry {
-            type_signature: TypeSignature {},
+            type_signature: TypeSignature {
+                shape_id: 0,
+                subshape_id: None,
+                name: "<none>".into(),
+            },
             value: Object::Primitive(Primitive::SignedInt(parsed)),
         })
         .ok()
@@ -547,7 +823,11 @@ fn attempt_parse_uint_literal(candidate: &str) -> Option<StoreEntry> {
     candidate
         .parse::<usize>()
         .map(|parsed| StoreEntry {
-            type_signature: TypeSignature {},
+            type_signature: TypeSignature {
+                shape_id: 0,
+                subshape_id: None,
+                name: "<none>".into(),
+            },
             value: Object::Primitive(Primitive::UnsignedInt(parsed)),
         })
         .ok()
@@ -557,23 +837,14 @@ fn attempt_parse_float_literal(candidate: &str) -> Option<StoreEntry> {
     candidate
         .parse::<StandardFloat>()
         .map(|parsed| StoreEntry {
-            type_signature: TypeSignature {},
+            type_signature: TypeSignature {
+                shape_id: 0,
+                subshape_id: None,
+                name: "<none>".into(),
+            },
             value: Object::Primitive(Primitive::Float(parsed)),
         })
         .ok()
-}
-
-fn construct_default_runtime() -> Result<(Store, Dictionary), RuntimeError> {
-    let store = construct_default_store();
-    let mut dictionary = Dictionary::with_capacity(DEFAULT_DICTIONARY_CAPACITY_WORDS);
-
-    populate_primitive_words(&mut dictionary)?;
-
-    Ok((store, dictionary))
-}
-
-fn construct_default_store() -> Store {
-    Store::with_capacity(MAX_STORE_SIZE)
 }
 
 #[cfg(test)]
@@ -586,72 +857,188 @@ mod tests {
 
     fn push_uint_to_stack(store: &mut Store, val: usize) {
         store.push_front(StoreEntry {
-            type_signature: TypeSignature {},
+            type_signature: TypeSignature {
+                shape_id: 0,
+                subshape_id: None,
+                name: "<none>".into(),
+            },
             value: Object::Primitive(Primitive::UnsignedInt(val)),
         })
     }
 
     fn push_int_to_stack(store: &mut Store, val: isize) {
         store.push_front(StoreEntry {
-            type_signature: TypeSignature {},
+            type_signature: TypeSignature {
+                shape_id: 0,
+                subshape_id: None,
+                name: "<none>".into(),
+            },
             value: Object::Primitive(Primitive::SignedInt(val)),
         })
     }
 
     fn push_float_to_stack(store: &mut Store, val: StandardFloat) {
         store.push_front(StoreEntry {
-            type_signature: TypeSignature {},
+            type_signature: TypeSignature {
+                shape_id: 0,
+                subshape_id: None,
+                name: "<none>".into(),
+            },
             value: Object::Primitive(Primitive::Float(val)),
         })
     }
 
     #[test]
+    fn test_swap() -> Result<(), RuntimeError> {
+        let mut runtime = Runtime::default();
+
+        assert_store_empty(&runtime.store);
+
+        push_uint_to_stack(&mut runtime.store, 1);
+        push_uint_to_stack(&mut runtime.store, 2);
+        runtime.feed_word("swap")?;
+        assert_eq!(
+            runtime.store.pop_front()?.value,
+            Object::Primitive(Primitive::UnsignedInt(1)),
+        );
+        assert_eq!(
+            runtime.store.pop_front()?.value,
+            Object::Primitive(Primitive::UnsignedInt(2)),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_dup() -> Result<(), RuntimeError> {
+        let mut runtime = Runtime::default();
+
+        assert_store_empty(&runtime.store);
+
+        push_uint_to_stack(&mut runtime.store, 1);
+        runtime.feed_word("dup")?;
+        assert_eq!(
+            runtime.store.pop_front()?.value,
+            Object::Primitive(Primitive::UnsignedInt(1)),
+        );
+        assert_eq!(
+            runtime.store.pop_front()?.value,
+            Object::Primitive(Primitive::UnsignedInt(1)),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_drop() -> Result<(), RuntimeError> {
+        let mut runtime = Runtime::default();
+
+        assert_store_empty(&runtime.store);
+        push_uint_to_stack(&mut runtime.store, 1);
+        runtime.feed_word("drop")?;
+        assert_store_empty(&runtime.store);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_uint_literal() -> Result<(), RuntimeError> {
+        let mut runtime = Runtime::default();
+
+        assert_store_empty(&runtime.store);
+
+        runtime.feed_word("1")?;
+        assert_eq!(
+            runtime.store.pop_front()?.value,
+            Object::Primitive(Primitive::UnsignedInt(1)),
+        );
+
+        runtime.feed_word("1")?;
+        runtime.feed_word("2")?;
+        assert_eq!(
+            runtime.store.pop_front()?.value,
+            Object::Primitive(Primitive::UnsignedInt(2)),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_iint_literal() -> Result<(), RuntimeError> {
+        let mut runtime = Runtime::default();
+
+        assert_store_empty(&runtime.store);
+
+        runtime.feed_word("-1")?;
+        assert_eq!(
+            runtime.store.pop_front()?.value,
+            Object::Primitive(Primitive::SignedInt(-1)),
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_mul_underflow() -> Result<(), RuntimeError> {
-        let mut store = construct_default_store();
-        assert_eq!(prim_word_mul(&mut store), Err(RuntimeError::StackUnderflow),);
-        push_uint_to_stack(&mut store, 1);
-        assert_eq!(prim_word_mul(&mut store), Err(RuntimeError::StackUnderflow),);
+        let mut runtime = Runtime::default();
+        assert_eq!(
+            prim_word_mul(&mut runtime.store),
+            Err(RuntimeError::StackUnderflow),
+        );
+        push_uint_to_stack(&mut runtime.store, 1);
+        assert_eq!(
+            prim_word_mul(&mut runtime.store),
+            Err(RuntimeError::StackUnderflow),
+        );
         Ok(())
     }
 
     #[test]
     fn test_mul_uints() -> Result<(), RuntimeError> {
-        let mut store = construct_default_store();
+        let mut runtime = Runtime::default();
 
-        push_uint_to_stack(&mut store, 2);
-        push_uint_to_stack(&mut store, 2);
-        prim_word_mul(&mut store)?;
+        push_uint_to_stack(&mut runtime.store, 2);
+        push_uint_to_stack(&mut runtime.store, 2);
+        prim_word_mul(&mut runtime.store)?;
 
         assert_eq!(
-            store.pop_front()?,
+            runtime.store.pop_front()?,
             StoreEntry {
-                type_signature: TypeSignature {},
+                type_signature: TypeSignature {
+                    shape_id: 0,
+                    subshape_id: None,
+                    name: "<none>".into(),
+                },
                 value: Object::Primitive(Primitive::UnsignedInt(4)),
             },
         );
 
-        assert_store_empty(&store);
+        assert_store_empty(&runtime.store);
 
         Ok(())
     }
 
     #[test]
     fn test_mul_iints() -> Result<(), RuntimeError> {
-        let mut store = construct_default_store();
+        let mut runtime = Runtime::default();
 
-        push_int_to_stack(&mut store, 2);
-        push_int_to_stack(&mut store, 2);
-        prim_word_mul(&mut store)?;
+        push_int_to_stack(&mut runtime.store, 2);
+        push_int_to_stack(&mut runtime.store, 2);
+        prim_word_mul(&mut runtime.store)?;
 
         assert_eq!(
-            store.pop_front()?,
+            runtime.store.pop_front()?,
             StoreEntry {
-                type_signature: TypeSignature {},
+                type_signature: TypeSignature {
+                    shape_id: 0,
+                    subshape_id: None,
+                    name: "<none>".into(),
+                },
                 value: Object::Primitive(Primitive::SignedInt(4)),
             },
         );
 
-        assert_store_empty(&store);
+        assert_store_empty(&runtime.store);
 
         Ok(())
     }
@@ -662,84 +1049,25 @@ mod tests {
     // the inner float of a Primitive, rounding it to the nearest int, and comparing to usize(4)
     // here instead
     fn test_mul_floats() -> Result<(), RuntimeError> {
-        let mut store = construct_default_store();
+        let mut runtime = Runtime::default();
 
-        push_float_to_stack(&mut store, 2.0);
-        push_float_to_stack(&mut store, 2.0);
-        prim_word_mul(&mut store)?;
+        push_float_to_stack(&mut runtime.store, 2.0);
+        push_float_to_stack(&mut runtime.store, 2.0);
+        prim_word_mul(&mut runtime.store)?;
 
         assert_eq!(
-            store.pop_front()?,
+            runtime.store.pop_front()?,
             StoreEntry {
-                type_signature: TypeSignature {},
+                type_signature: TypeSignature {
+                    shape_id: 0,
+                    subshape_id: None,
+                    name: "<none>".into(),
+                },
                 value: Object::Primitive(Primitive::Float(4.0)),
             },
         );
 
-        assert_store_empty(&store);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_uint_literal() -> Result<(), RuntimeError> {
-        let (mut store, dictionary) = construct_default_runtime()?;
-
-        assert_store_empty(&store);
-
-        runtime_feed_word(&mut store, &dictionary, "1")?;
-        assert_eq!(
-            store.pop_front()?.value,
-            Object::Primitive(Primitive::UnsignedInt(1)),
-        );
-
-        runtime_feed_word(&mut store, &dictionary, "1")?;
-        runtime_feed_word(&mut store, &dictionary, "2")?;
-        assert_eq!(
-            store.pop_front()?.value,
-            Object::Primitive(Primitive::UnsignedInt(2)),
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_swap() -> Result<(), RuntimeError> {
-        let (mut store, dictionary) = construct_default_runtime()?;
-
-        assert_store_empty(&store);
-
-        push_uint_to_stack(&mut store, 1);
-        push_uint_to_stack(&mut store, 2);
-        runtime_feed_word(&mut store, &dictionary, "swap")?;
-        assert_eq!(
-            store.pop_front()?.value,
-            Object::Primitive(Primitive::UnsignedInt(1)),
-        );
-        assert_eq!(
-            store.pop_front()?.value,
-            Object::Primitive(Primitive::UnsignedInt(2)),
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_dup() -> Result<(), RuntimeError> {
-        let (mut store, dictionary) = construct_default_runtime()?;
-
-        assert_store_empty(&store);
-
-        push_uint_to_stack(&mut store, 1);
-        runtime_feed_word(&mut store, &dictionary, "dup")?;
-        assert_eq!(
-            store.pop_front()?.value,
-            Object::Primitive(Primitive::UnsignedInt(1)),
-        );
-        assert_eq!(
-            store.pop_front()?.value,
-            Object::Primitive(Primitive::UnsignedInt(1)),
-        );
+        assert_store_empty(&runtime.store);
 
         Ok(())
     }
