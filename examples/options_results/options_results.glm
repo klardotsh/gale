@@ -1,9 +1,14 @@
+# admittedly this shape alias is a bit redundant and exists solely as an
+# example, because the Printable constraint already exists in this call chain
+# via repr
+%@ PrintableResult Result< Printable > ;
+
 ?: output_result
-	Consume a #?[ % Result Printable Printable ] , printing the inner contents
+	Consume a #?[ % PrintableResult ] , printing the inner contents
 	to stdout (in the event of success) or stderr (in the event of an error).
 ;
-: output_result ( Result.Ok -> ) enum-member-extract! repr println ;
-: output_result ( Result.Err -> ) enum-member-extract! repr eprintln ;
+: output_result ( PrintableResult.Ok -> ) enum-member-extract! repr println ;
+: output_result ( PrintableResult.Err -> ) enum-member-extract! repr eprintln ;
 
 ?: maybe_something
 	Randomly generate either Option.Some("body once told me") or None. How
