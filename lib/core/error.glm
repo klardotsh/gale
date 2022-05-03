@@ -1,9 +1,15 @@
-Error :: shape {
-	<= 'DebugPrintable
+$ Error
+	DebugPrintable shape-dep
 
-	=> :message 'String
-}
+	message String shape-field
+;
 
-repr_debug :: self 'Error -> format "Error(%s)" self.message
+: repr_debug ( Error -> String )
+	.message
+	format< "Error(%s)" >
 
-DivideByZeroError :: Error << @ :message "impossible to divide by zero"
+: DivideByZeroError
+	Error(
+		"impossible to divide by zero" >.message
+	)
+;

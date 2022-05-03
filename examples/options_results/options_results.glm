@@ -1,6 +1,14 @@
-: output_result ( Result.Ok -> ) println ;
-: output_result ( Result.Err -> ) eprintln ;
+?: output_result
+	Consume a #?[ % Result Printable Printable ] , printing the inner contents
+	to stdout (in the event of success) or stderr (in the event of an error).
+;
+: output_result ( Result.Ok -> ) enum-member-extract! repr println ;
+: output_result ( Result.Err -> ) enum-member-extract! repr eprintln ;
 
+?: maybe_something
+	Randomly generate either Option.Some("body once told me") or None. How
+	silly, right? The world's gonna roll me...
+;
 : maybe_something
 	"body once told me"
 	random(Boolean)

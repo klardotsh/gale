@@ -1,10 +1,25 @@
-Equatable = shape << <- :eq 'Self 'Self 'Boolean
+?$ Equatable
+	An object capable of being compared to another of the same shape for
+	equality via the eq method, which pushes a #?[ $ Boolean ] onto the store.
 
-Comparable = shape {
-	<= Equatable
+	A subset of #?[ $ Comparable ] .
+;
+$ Equatable
+	eq ( Self Self -> Self Self Boolean ) shape-word-dep
+;
 
-	<- :lt 'Self 'Self 'Boolean
-	<- :lte 'Self 'Self 'Boolean
-	<- :gt 'Self 'Self 'Boolean
-	<- :gte 'Self 'Self 'Boolean
-}
+?$ Comparable
+	An object capable of being compared to another of the same shape via any of
+	the lt, lte, gt, and/or gte methods, which push a #?[ $ Boolean ] onto the
+	store.
+
+	#?[ $ Equatable ] is a fulfilled by all Comparables.
+;
+$ Comparable
+	Equatable shape-dep
+
+	lt ( Self Self -> Self Self Boolean ) shape-word-dep
+	lte ( Self Self -> Self Self Boolean ) shape-word-dep
+	gt ( Self Self -> Self Self Boolean ) shape-word-dep
+	gte ( Self Self -> Self Self Boolean ) shape-word-dep
+;

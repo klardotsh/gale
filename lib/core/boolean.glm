@@ -1,23 +1,23 @@
-Boolean = enum {
-	<= 'Equatable
-	<= 'Printable
-	<= 'DebugPrintable
+?% Boolean
+	A primitive shape with two members: True (also creatable via the true word)
+	and False (also creatable via the false word).
+;
+@primitive-shape Boolean
+	Equatable shape-dep
+	Printable shape-dep
+	DebugPrintable shape-dep
+;
 
-	-- these probably need optimized codegen to avoid becoming boxed
-	=> :True
-	=> :False
-}
+: true Boolean.True ;
+: false Boolean.False ;
 
-true = Boolean.True
-false = Boolean.False
+: eq ( Boolean.False Boolean.False -> _ ) true ;
+: eq ( Boolean.False Boolean.True -> _ ) false ;
+: eq ( Boolean.True Boolean.True -> _ ) true ;
+: eq ( Boolean.True Boolean.False -> _ ) false ;
 
-eq :: false -> false -> true
-eq :: false -> true -> false
-eq :: true -> true -> true
-eq :: true -> false -> false
+: repr ( Boolean.True -> _ _ ) "true" ;
+: repr ( Boolean.False -> _ _ ) "false" ;
 
-repr :: true -> "true"
-repr :: false -> "false"
-
-when :: true -> when_true -> when_true
-when :: false -> _ -> when_false -> when_false
+: repr_debug ( Boolean.True -> _ _ ) "Boolean.True" ;
+: repr_debug ( Boolean.False -> _ _ ) "Boolean.False" ;
