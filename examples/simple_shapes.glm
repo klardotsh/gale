@@ -5,7 +5,7 @@ $ Track
 
 # this implicitly implements Printable for Track despite us not declaring
 # Track as a Printable
-: repr ( Track -> String )
+: repr ( Track -> Song String )
 	.num
 	.total/2
 	format< "Track %d/%d" >
@@ -20,7 +20,7 @@ $ Song
 	track Option< Track > shape-field
 ;
 
-: repr ( Song -> String )
+: repr ( Song -> Song String )
 	.title
 	.album_artist/2 .artist/3 or
 	format< "%s by %s" >

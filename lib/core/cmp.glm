@@ -5,7 +5,7 @@
 	A subset of #?[ $ Comparable ] .
 ;
 $ Equatable
-	eq ( Self Self -> Self Self Boolean ) shape-word-dep
+	eq ( @1 @1 -> @1 @1 Boolean )
 ;
 
 ?$ Comparable
@@ -16,10 +16,10 @@ $ Equatable
 	#?[ $ Equatable ] is a fulfilled by all Comparables.
 ;
 $ Comparable
-	Equatable shape-dep
+	Equatable ..
 
-	lt ( Self Self -> Self Self Boolean ) shape-word-dep
-	lte ( Self Self -> Self Self Boolean ) shape-word-dep
-	gt ( Self Self -> Self Self Boolean ) shape-word-dep
-	gte ( Self Self -> Self Self Boolean ) shape-word-dep
+	lt ( @1 @1 -> @1 @1 Boolean )
+	lte ( @1 @1 -> @1 @1 Boolean )
+	gt ( @1 @1 -> @1 @1 Boolean )
+	gte ( @1 @1 -> @1 @1 Boolean )
 ;

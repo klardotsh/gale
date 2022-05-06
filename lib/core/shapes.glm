@@ -1,31 +1,23 @@
 $ Printable
-	repr ( Self -> Self String ) shape-word-dep
+	repr ( @1 -> @1 String )
 ;
 
 $ DebugPrintable
-	repr_debug ( Self -> Self String ) shape-word-dep
+	repr_debug ( @1 -> @1 String )
 ;
 
 $ From
-	Candidate shape-generic
-
-	from ( Candidate -> Self ) shape-word-dep
+	from ( @1 -> Self )
 ;
 
 $ TryFrom
-	Candidate shape-generic
-
-	try_from ( Candidate -> Result< Self Error > ) shape-word-dep
+	try_from ( @1 -> Result< @2 Error > )
 ;
 
 $ Into
-	Target shape-generic
-
-	into ( Self -> Target ) shape-word-dep
+	into ( @1 -> @2 )
 ;
 
 $ TryInto
-	Target shape-generic
-
-	try_into ( Self -> Result< Target Error > ) shape-word-dep
+	try_into ( @1 -> Result< @2 Error > )
 ;

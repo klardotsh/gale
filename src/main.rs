@@ -42,14 +42,6 @@ use std::fmt::{self, Display};
 use std::io::{self, BufRead};
 use std::ops::{Deref, DerefMut};
 
-// First, let's set up some constants. WORD_BUF_LEN is how big of a buffer we're willing to
-// allocate to store words as they're input (be that by keyboard or by source file: we'll see how
-// that works later). We have to draw a line _somewhere_, and since 1KB of RAM is beyond feasible
-// to allocate on most systems I'd foresee writing gluumy for, that's the max word length until I'm
-// convinced otherwise. This should be safe to change and the implementation will scale
-// proportionally.
-const WORD_BUF_LEN: usize = 1024;
-
 const MAX_STORE_SIZE: usize = 4096; // arbitrary for now
 
 const DEFAULT_DICTIONARY_CAPACITY_WORDS: usize = 1024;
