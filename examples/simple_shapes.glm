@@ -1,6 +1,6 @@
 $ Track
-	* num Number
-	* total Number
+	* Number num ;
+	* Number total ;
 ;
 
 # this implicitly implements Printable for Track despite us not declaring
@@ -14,10 +14,10 @@ $ Track
 $ Song
 	.. Printable
 
-	* artist String
-	* album_artist Option< String >
-	* title String
-	* track Option< Track >
+	* String artist ;
+	* Option< String > album_artist ;
+	* String title ;
+	* Option< Track > track ;
 ;
 
 : repr ( Song -> Song String )

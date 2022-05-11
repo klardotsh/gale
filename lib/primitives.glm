@@ -1,0 +1,105 @@
+# This file should probably be renamed to prelude.glm which just contains the
+# aliases, since the shapes referred to in here will cause circular references
+# eventually: how can a String be Printable when a Printable/repr must return a
+# String? We'll need a series of unsafe shape compositions to actually land on
+# a type-safe shape definition for pretty much any of these primitives.
+
+?: swap
+	Reverses the order of the top two items on the stack in-place. This
+	operation happens in O(1) time. If fewer than two items are on the stack,
+	the execution unit panics.
+;
+:!!! { __@PRIMITIVES } swap ( @1 @2 -> @2 @1 ) __@SWAP ;
+
+?: rot
+	Moves the third item (from the top) of the stack to the top, pushing the
+	next two items down. This operation happens in O(1) time. If fewer than
+	three items are on the stack, the execution unit panics.
+;
+:!!! { __@PRIMITIVES } rot ( @3 @2 @1 -- @2 @1 @3 ) __@ROT ;
+
+?: drop
+	Deletes the top item from the stack if it exists, or panics the execution
+	unit. This operation happens in O(1) time.
+;
+:!!! { __@PRIMITIVES } drop ( @1 -> ) __@DROP ;
+
+?: dup
+	Duplicates the top item of the stack if it exists, or panics the execution
+	unit. The entire object, whatever it may be, is cloned in memory, which may
+	cause an out-of-memory panic if allocation fails. This operation otherwise
+	happens in O(n) time based on the size of the object being cloned.
+;
+:!!! { __@PRIMITIVES } dup ( @1 -> @1 @1 ) __@DROP ;
+
+?$ SignedInt
+	Contains an unsigned integer that is the size of a pointer on the target
+	platform (eg. on a 64-bit system, it is 64 bits / 8 bytes long).
+;
+$ SignedInt
+	.. Comparable
+	.. Equatable
+	.. Printable
+	.. DebugPrintable
+
+	* { __@PRIMITIVES } __@SIGNED_INT ;
+;
+:!!! eq ( SignedInt SignedInt -> SignedInt SignedInt Boolean ) __@SIGNED_INT_EQ ;
+:!!! gt ( SignedInt SignedInt -> SignedInt SignedInt Boolean ) __@SIGNED_INT_GT ;
+:!!! gte ( SignedInt SignedInt -> SignedInt SignedInt Boolean ) __@SIGNED_INT_GTE ;
+:!!! lt ( SignedInt SignedInt -> SignedInt SignedInt Boolean ) __@SIGNED_INT_LT ;
+:!!! lte ( SignedInt SignedInt -> SignedInt SignedInt Boolean ) __@SIGNED_INT_LTE ;
+:!!! repr ( SignedInt SignedInt -> SignedInt SignedInt String ) __@SIGNED_INT_REPR ;
+
+?$ UnsignedInt
+	Contains an unsigned integer that is the size of a pointer on the target
+	platform (eg. on a 64-bit system, it is 64 bits / 8 bytes long).
+;
+$ UnsignedInt
+	.. Comparable
+	.. Equatable
+	.. Printable
+	.. DebugPrintable
+
+	* { __@PRIMITIVES } __@UNSIGNED_INT ;
+;
+:!!! eq ( UnsignedInt UnsignedInt -> UnsignedInt UnsignedInt Boolean ) __@UNSIGNED_INT_EQ ;
+:!!! gt ( UnsignedInt UnsignedInt -> UnsignedInt UnsignedInt Boolean ) __@UNSIGNED_INT_GT ;
+:!!! gte ( UnsignedInt UnsignedInt -> UnsignedInt UnsignedInt Boolean ) __@UNSIGNED_INT_GTE ;
+:!!! lt ( UnsignedInt UnsignedInt -> UnsignedInt UnsignedInt Boolean ) __@UNSIGNED_INT_LT ;
+:!!! lte ( UnsignedInt UnsignedInt -> UnsignedInt UnsignedInt Boolean ) __@UNSIGNED_INT_LTE ;
+:!!! repr ( UnsignedInt UnsignedInt -> UnsignedInt UnsignedInt String ) __@UNSIGNED_INT_REPR ;
+
+?$ Float32
+	Contains a 32-bit floating number (IEEE 754-2008's binary32 type).
+;
+$ Float32
+	.. Equatable
+	.. Printable
+	.. DebugPrintable
+
+	* { __@PRIMITIVES } __@FLOAT32 ;
+;
+:!!! eq ( Float32 Float32 -> Float32 Float32 Boolean ) __@FLOAT32_EQ ;
+:!!! gt ( Float32 Float32 -> Float32 Float32 Boolean ) __@FLOAT32_GT ;
+:!!! gte ( Float32 Float32 -> Float32 Float32 Boolean ) __@FLOAT32_GTE ;
+:!!! lt ( Float32 Float32 -> Float32 Float32 Boolean ) __@FLOAT32_LT ;
+:!!! lte ( Float32 Float32 -> Float32 Float32 Boolean ) __@FLOAT32_LTE ;
+:!!! repr ( Float32 Float32 -> Float32 Float32 String ) __@FLOAT32_REPR ;
+
+?$ Float64
+	Contains a 64-bit floating number (IEEE 754-2008's binary64 type).
+;
+$ Float64
+	.. Equatable
+	.. Printable
+	.. DebugPrintable
+
+	* { __@PRIMITIVES } __@FLOAT64 ;
+;
+:!!! eq ( Float64 Float64 -> Float64 Float64 Boolean ) __@FLOAT64_EQ ;
+:!!! gt ( Float64 Float64 -> Float64 Float64 Boolean ) __@FLOAT64_GT ;
+:!!! gte ( Float64 Float64 -> Float64 Float64 Boolean ) __@FLOAT64_GTE ;
+:!!! lt ( Float64 Float64 -> Float64 Float64 Boolean ) __@FLOAT64_LT ;
+:!!! lte ( Float64 Float64 -> Float64 Float64 Boolean ) __@FLOAT64_LTE ;
+:!!! repr ( Float64 Float64 -> Float64 Float64 String ) __@FLOAT64_REPR ;
