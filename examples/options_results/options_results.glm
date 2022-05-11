@@ -15,9 +15,9 @@ $@ PrintableResult Result< Printable @ErrKind > ;
 	silly, right? The world's gonna roll me...
 ;
 : maybe_something
-	"body once told me"
-	random(Boolean)
-	into(Option)
+	s" body once told me "
+	<~ random Boolean >
+	<~ into Option >
 ;
 
 ?: get_ten_somes
@@ -28,9 +28,9 @@ $@ PrintableResult Result< Printable @ErrKind > ;
 	Option types in one swing.
 ;
 : get_ten_somes
-	"as expected, at least one None found" # String for Result.Err
-	"against all odds, the array is all Somes" # String for Result.Ok
-	'maybe_something 10 with_capacity_filled(Vec)
+	s" as expected, at least one None found " # String for Result.Err
+	s" against all odds, the array is all Somes " # String for Result.Ok
+	'maybe_something 10 <~ Vec with_capacity_filled >
 	'is_none find
 ;
 
