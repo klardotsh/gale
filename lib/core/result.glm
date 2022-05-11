@@ -1,16 +1,15 @@
-?% Result
+?$ Result
 	Represents success (via Ok(Val)) and failure (via Err(Err)) of a given
 	operation (as a structured alternative to using error code numbers,
 	exceptions, or multi-value returns, all found in various other languages).
 
-	Not to be confused with #?[ % Option ] .
-;
-% Result
-	"Val" enum-generic
-	"Err" enum-generic
+	--
 
-	"Ok" "Val" enum-generic-member
-	"Err" "Err" enum-generic-member
+	Not to be confused with #?[ Option ] .
+;
+$ Result OkKind ErrKind
+	| Ok OkKind
+	| Err ErrKind
 ;
 
 # TODO: docs, takes when_false when_true bool

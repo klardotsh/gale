@@ -1,28 +1,28 @@
 $ Track
-	num Number shape-field
-	total Number shape-field
+	* num Number
+	* total Number
 ;
 
 # this implicitly implements Printable for Track despite us not declaring
 # Track as a Printable
 : repr ( Track -> Song String )
 	.num
-	.total/2
+	.total[ 2 ]
 	format< "Track %d/%d" >
 ;
 
 $ Song
-	Printable shape-dep
+	.. Printable
 
-	artist String shape-field
-	album_artist Option< String > shape-field
-	title String shape-field
-	track Option< Track > shape-field
+	* artist String
+	* album_artist Option< String >
+	* title String
+	* track Option< Track >
 ;
 
 : repr ( Song -> Song String )
 	.title
-	.album_artist/2 .artist/3 or
+	.album_artist[ 2 ] .artist[ 3 ] or
 	format< "%s by %s" >
 ;
 
@@ -37,7 +37,7 @@ $ Song
 		"Wandering Star" >.title
 		"Portishead" >.artist
 		>.album_artist?! # fills field with the default value of its shape
-		>.track/2
+		>.track[ 2 ]
 	)
 
 	# this prints "Wandering Star by Portishead"

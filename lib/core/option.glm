@@ -1,16 +1,16 @@
-?% Option
+?$ Option
 	Represents the optionality of a value: an Option can be of the Some(T) or
 	None member shapes, where Some(T) represents the value's existence, and
 	None represents the lack thereof (as opposed to using "null" or "nil"
 	values as found in many other languages).
 
-	Not to be confused with #?[ % Result ] .
-;
-% Option
-	"T" enum-generic
+	--
 
-	"Some" "T" enum-generic-member
-	"None" enum-member
+	Not to be confused with #?[ Result ] .
+;
+$ Option T
+	| Some T
+	| None
 ;
 
 ?: from-bool!

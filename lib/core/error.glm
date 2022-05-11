@@ -1,10 +1,10 @@
 $ Error
-	DebugPrintable shape-dep
+	.. DebugPrintable
 
-	message String shape-field
+	* message String
 ;
 
-: repr_debug ( Error -> String )
+: repr_debug ( Error -> Error String )
 	.message
 	format< "Error(%s)" >
 

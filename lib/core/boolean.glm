@@ -1,11 +1,13 @@
-?% Boolean
-	A primitive shape with two members: True (also creatable via the true word)
-	and False (also creatable via the false word).
+?$ Boolean
+	The representation of "yes" (True) and "no" (False)
 ;
-@primitive-shape Boolean
-	Equatable shape-dep
-	Printable shape-dep
-	DebugPrintable shape-dep
+$ Boolean
+	.. Equatable
+	.. Printable
+	.. DebugPrintable
+
+	| True
+	| False
 ;
 
 : true Boolean.True ;

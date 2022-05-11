@@ -1,23 +1,23 @@
 $ Printable
-	repr ( @1 -> @1 String )
+	.: repr ( @1 -> @1 String )
 ;
 
 $ DebugPrintable
-	repr_debug ( @1 -> @1 String )
+	.: repr_debug ( @1 -> @1 String )
 ;
 
 $ From
-	from ( @1 -> Self )
+	.: from ( @1 -> Self )
 ;
 
 $ TryFrom
-	try_from ( @1 -> Result< @2 Error > )
+	.: try_from ( @1 -> Result< @2 Error > )
 ;
 
 $ Into
-	into ( @1 -> @2 )
+	.: into ( @1 -> @2 )
 ;
 
 $ TryInto
-	try_into ( @1 -> Result< @2 Error > )
+	.: try_into ( @1 -> Result< @2 Error > )
 ;

@@ -2,10 +2,12 @@
 	An object capable of being compared to another of the same shape for
 	equality via the eq method, which pushes a #?[ $ Boolean ] onto the store.
 
-	A subset of #?[ $ Comparable ] .
+	--
+
+	A subset of #?[ Comparable ] .
 ;
 $ Equatable
-	eq ( @1 @1 -> @1 @1 Boolean )
+	.: eq ( @1 @1 -> @1 @1 Boolean )
 ;
 
 ?$ Comparable
@@ -13,13 +15,15 @@ $ Equatable
 	the lt, lte, gt, and/or gte methods, which push a #?[ $ Boolean ] onto the
 	store.
 
-	#?[ $ Equatable ] is a fulfilled by all Comparables.
+	--
+
+	#?[ Equatable ] is a fulfilled by all Comparables.
 ;
 $ Comparable
-	Equatable ..
+	.. Equatable
 
-	lt ( @1 @1 -> @1 @1 Boolean )
-	lte ( @1 @1 -> @1 @1 Boolean )
-	gt ( @1 @1 -> @1 @1 Boolean )
-	gte ( @1 @1 -> @1 @1 Boolean )
+	.: lt ( @1 @1 -> @1 @1 Boolean )
+	.: lte ( @1 @1 -> @1 @1 Boolean )
+	.: gt ( @1 @1 -> @1 @1 Boolean )
+	.: gte ( @1 @1 -> @1 @1 Boolean )
 ;
