@@ -32,10 +32,6 @@
 //
 // With that said, let's begin the "host" side of gluumy.
 
-mod type_system;
-
-use type_system::TypeSignature;
-
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fmt::{self, Display};
@@ -216,14 +212,11 @@ impl Display for WordsInDictionary {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct StoreEntry {
-    type_signature: TypeSignature,
-    value: Object,
-}
+struct StoreEntry(Object);
 
 impl Display for StoreEntry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Item<{}>({})", self.type_signature, self.value)?;
+        write!(f, "Item({})", self.0)?;
 
         Ok(())
     }
@@ -233,7 +226,7 @@ impl Deref for StoreEntry {
     type Target = Object;
 
     fn deref(&self) -> &Self::Target {
-        &self.value
+        &self.0
     }
 }
 
@@ -300,10 +293,10 @@ enum ObjectMethodError {
 
 #[derive(Clone, Debug, PartialEq)]
 enum Primitive {
-    Boolean(bool),
     UnsignedInt(usize),
     SignedInt(isize),
     Float(StandardFloat),
+    //Shape(Shape),
 }
 
 impl Primitive {
@@ -324,8 +317,6 @@ impl Primitive {
             | (Self::Float(_), Self::SignedInt(_)) => {
                 unimplemented!("addition of disparate number types")
             }
-
-            (Self::Boolean(_), _) | (_, Self::Boolean(_)) => Err(RuntimeError::IncompatibleTypes),
         }
     }
 
@@ -346,8 +337,6 @@ impl Primitive {
             | (Self::Float(_), Self::SignedInt(_)) => {
                 unimplemented!("subtraction of disparate number types")
             }
-
-            (Self::Boolean(_), _) | (_, Self::Boolean(_)) => Err(RuntimeError::IncompatibleTypes),
         }
     }
 
@@ -368,8 +357,6 @@ impl Primitive {
             | (Self::Float(_), Self::SignedInt(_)) => {
                 unimplemented!("multiplication of disparate number types")
             }
-
-            (Self::Boolean(_), _) | (_, Self::Boolean(_)) => Err(RuntimeError::IncompatibleTypes),
         }
     }
 
@@ -390,8 +377,6 @@ impl Primitive {
             | (Self::Float(_), Self::SignedInt(_)) => {
                 unimplemented!("division of disparate number types")
             }
-
-            (Self::Boolean(_), _) | (_, Self::Boolean(_)) => Err(RuntimeError::IncompatibleTypes),
         }
     }
 
@@ -412,8 +397,6 @@ impl Primitive {
             | (Self::Float(_), Self::SignedInt(_)) => {
                 unimplemented!("modulus of disparate number types")
             }
-
-            (Self::Boolean(_), _) | (_, Self::Boolean(_)) => Err(RuntimeError::IncompatibleTypes),
         }
     }
 }
@@ -421,12 +404,16 @@ impl Primitive {
 impl Display for Primitive {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Boolean(prim) => write!(f, "{}", prim),
             Self::SignedInt(prim) => write!(f, "i{}", prim),
             Self::UnsignedInt(prim) => write!(f, "u{}", prim),
             Self::Float(prim) => write!(f, "f{}", prim),
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum Shape {
+    //Primitive(ShapePrimitive),
 }
 
 struct Word {
@@ -656,14 +643,9 @@ fn prim_word_add(store: &mut Store) -> WordResult {
 
     let left = store.pop_front()?;
     let right = store.pop_front()?;
-    store.push_front(StoreEntry {
-        type_signature: TypeSignature {
-            shape_id: 0,
-            subshape_id: None,
-            name: "<none>".into(),
-        },
-        value: left.add(&right)??,
-    });
+    store.push_front(StoreEntry(
+        left.add(&right)??,
+    ));
 
     Ok(())
 }
@@ -675,14 +657,7 @@ fn prim_word_sub(store: &mut Store) -> WordResult {
 
     let left = store.pop_front()?;
     let right = store.pop_front()?;
-    store.push_front(StoreEntry {
-        type_signature: TypeSignature {
-            shape_id: 0,
-            subshape_id: None,
-            name: "<none>".into(),
-        },
-        value: left.sub(&right)??,
-    });
+    store.push_front(StoreEntry(left.sub(&right)??));
 
     Ok(())
 }
@@ -694,14 +669,9 @@ fn prim_word_mul(store: &mut Store) -> WordResult {
 
     let left = store.pop_front()?;
     let right = store.pop_front()?;
-    store.push_front(StoreEntry {
-        type_signature: TypeSignature {
-            shape_id: 0,
-            subshape_id: None,
-            name: "<none>".into(),
-        },
-        value: left.mul(&right)??,
-    });
+    store.push_front(StoreEntry(
+        left.mul(&right)??,
+    ));
 
     Ok(())
 }
@@ -713,14 +683,9 @@ fn prim_word_div(store: &mut Store) -> WordResult {
 
     let left = store.pop_front()?;
     let right = store.pop_front()?;
-    store.push_front(StoreEntry {
-        type_signature: TypeSignature {
-            shape_id: 0,
-            subshape_id: None,
-            name: "<none>".into(),
-        },
-        value: left.div(&right)??,
-    });
+    store.push_front(StoreEntry(
+        left.div(&right)??,
+    ));
 
     Ok(())
 }
@@ -732,14 +697,9 @@ fn prim_word_mod(store: &mut Store) -> WordResult {
 
     let left = store.pop_front()?;
     let right = store.pop_front()?;
-    store.push_front(StoreEntry {
-        type_signature: TypeSignature {
-            shape_id: 0,
-            subshape_id: None,
-            name: "<none>".into(),
-        },
-        value: left.modu(&right)??,
-    });
+    store.push_front(StoreEntry(
+        left.modu(&right)??,
+    ));
 
     Ok(())
 }
@@ -800,42 +760,27 @@ fn main() -> Result<(), RuntimeError> {
 fn attempt_parse_iint_literal(candidate: &str) -> Option<StoreEntry> {
     candidate
         .parse::<isize>()
-        .map(|parsed| StoreEntry {
-            type_signature: TypeSignature {
-                shape_id: 0,
-                subshape_id: None,
-                name: "<none>".into(),
-            },
-            value: Object::Primitive(Primitive::SignedInt(parsed)),
-        })
+        .map(|parsed| StoreEntry(
+            Object::Primitive(Primitive::SignedInt(parsed)),
+        ))
         .ok()
 }
 
 fn attempt_parse_uint_literal(candidate: &str) -> Option<StoreEntry> {
     candidate
         .parse::<usize>()
-        .map(|parsed| StoreEntry {
-            type_signature: TypeSignature {
-                shape_id: 0,
-                subshape_id: None,
-                name: "<none>".into(),
-            },
-            value: Object::Primitive(Primitive::UnsignedInt(parsed)),
-        })
+        .map(|parsed| StoreEntry(
+            Object::Primitive(Primitive::UnsignedInt(parsed)),
+        ))
         .ok()
 }
 
 fn attempt_parse_float_literal(candidate: &str) -> Option<StoreEntry> {
     candidate
         .parse::<StandardFloat>()
-        .map(|parsed| StoreEntry {
-            type_signature: TypeSignature {
-                shape_id: 0,
-                subshape_id: None,
-                name: "<none>".into(),
-            },
-            value: Object::Primitive(Primitive::Float(parsed)),
-        })
+        .map(|parsed| StoreEntry(
+            Object::Primitive(Primitive::Float(parsed)),
+        ))
         .ok()
 }
 
@@ -848,36 +793,21 @@ mod tests {
     }
 
     fn push_uint_to_stack(store: &mut Store, val: usize) {
-        store.push_front(StoreEntry {
-            type_signature: TypeSignature {
-                shape_id: 0,
-                subshape_id: None,
-                name: "<none>".into(),
-            },
-            value: Object::Primitive(Primitive::UnsignedInt(val)),
-        })
+        store.push_front(StoreEntry(
+            Object::Primitive(Primitive::UnsignedInt(val)),
+        ))
     }
 
     fn push_int_to_stack(store: &mut Store, val: isize) {
-        store.push_front(StoreEntry {
-            type_signature: TypeSignature {
-                shape_id: 0,
-                subshape_id: None,
-                name: "<none>".into(),
-            },
-            value: Object::Primitive(Primitive::SignedInt(val)),
-        })
+        store.push_front(StoreEntry(
+            Object::Primitive(Primitive::SignedInt(val)),
+        ))
     }
 
     fn push_float_to_stack(store: &mut Store, val: StandardFloat) {
-        store.push_front(StoreEntry {
-            type_signature: TypeSignature {
-                shape_id: 0,
-                subshape_id: None,
-                name: "<none>".into(),
-            },
-            value: Object::Primitive(Primitive::Float(val)),
-        })
+        store.push_front(StoreEntry(
+            Object::Primitive(Primitive::Float(val)),
+        ))
     }
 
     #[test]
@@ -995,14 +925,9 @@ mod tests {
 
         assert_eq!(
             runtime.store.pop_front()?,
-            StoreEntry {
-                type_signature: TypeSignature {
-                    shape_id: 0,
-                    subshape_id: None,
-                    name: "<none>".into(),
-                },
-                value: Object::Primitive(Primitive::UnsignedInt(4)),
-            },
+            StoreEntry(
+                Object::Primitive(Primitive::UnsignedInt(4)),
+            ),
         );
 
         assert_store_empty(&runtime.store);
@@ -1020,14 +945,9 @@ mod tests {
 
         assert_eq!(
             runtime.store.pop_front()?,
-            StoreEntry {
-                type_signature: TypeSignature {
-                    shape_id: 0,
-                    subshape_id: None,
-                    name: "<none>".into(),
-                },
-                value: Object::Primitive(Primitive::SignedInt(4)),
-            },
+            StoreEntry(
+                Object::Primitive(Primitive::SignedInt(4)),
+            ),
         );
 
         assert_store_empty(&runtime.store);
@@ -1049,14 +969,9 @@ mod tests {
 
         assert_eq!(
             runtime.store.pop_front()?,
-            StoreEntry {
-                type_signature: TypeSignature {
-                    shape_id: 0,
-                    subshape_id: None,
-                    name: "<none>".into(),
-                },
-                value: Object::Primitive(Primitive::Float(4.0)),
-            },
+            StoreEntry(
+                Object::Primitive(Primitive::Float(4.0)),
+            ),
         );
 
         assert_store_empty(&runtime.store);
