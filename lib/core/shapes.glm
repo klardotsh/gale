@@ -1,23 +1,23 @@
 $ Printable
-	.: repr ( @1 -> @1 String )
+	.: repr ( Self <- String ) ;
 ;
 
 $ DebugPrintable
-	.: repr_debug ( @1 -> @1 String )
+	.: repr_debug ( Self <- String ) ;
 ;
 
-$ From
-	.: from ( @1 -> Self )
+$ From T
+	.: from ( T -> Self ) ;
 ;
 
-$ TryFrom
-	.: try_from ( @1 -> Result< @2 Error > )
+$ TryFrom T
+	.: try_from ( T -> Result< Self Error > ) ;
 ;
 
-$ Into
-	.: into ( @1 -> @2 )
+$ Into T
+	.: into ( Self -> T ) ;
 ;
 
-$ TryInto
-	.: try_into ( @1 -> Result< @2 Error > )
+$ TryInto T
+	.: try_into ( Self -> Result< T Error > ) ;
 ;

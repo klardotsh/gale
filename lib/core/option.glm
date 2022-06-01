@@ -1,3 +1,8 @@
+/* This implementation lives in lib/primitives.glm, as it is a foundational
+ * primitive required to implement almost anything (notably comments and
+ * docstrings within that file).
+ */
+
 ?$ Option
 	Represents the optionality of a value: an Option can be of the Some(T) or
 	None member shapes, where Some(T) represents the value's existence, and
@@ -8,10 +13,6 @@
 
 	Not to be confused with #?[ Result ] .
 ;
-$ Option T
-	| Some T
-	| None
-;
 
 ?: from-bool!
 	consumes a Boolean and a fallback value off the stack and returns an Option
@@ -21,29 +22,22 @@ $ Option T
 : from-bool! ( _ Boolean.True -> _ ) swap drop Option.Some ;
 : from-bool! ( _ Boolean.False -> _ ) drop drop Option.None ;
 
-: is-none? ( Option.Some -> Option.Some Boolean ) false ;
-: is-none? ( Option.None -> Option.None Boolean ) true ;
+: is-none? ( Option.Some ) false ;
+: is-none? ( Option.None ) true ;
 
-: is-some? ( Option.Some -> Option.Some Boolean.True ) true ;
-: is-some? ( Option.None -> Option.None Boolean.False ) false ;
-
-?: or
-	reads an Option and a fallback value off the stack and returns it plus
-	either the Option.Some member, if existent, or else the fallback value.
-;
-: or ( _ Option.Some -> _ ) swap drop enum-member-extract ;
-: or ( _ Option.None -> _ ) swap ;
+: is-some? ( Option.Some ) true ;
+: is-some? ( Option.None ) false ;
 
 ?: or!
 	consumes an Option and a fallback value off the stack and returns either
 	the Option.Some member, if existent, or else the fallback value.
 ;
-: or! ( _ Option.Some -> _ ) swap drop enum-member-extract! ;
-: or! ( _ Option.None -> _ ) drop ;
+: or! ( _ Option.Some ) swap drop enum-member-extract! ;
+: or! ( _ Option.None ) drop ;
 
-: must! ( _ Option.Some -> _ ) enum-member-extract! Result.Ok ;
-: must! ( _ Option.None -> _ ) drop Result.Err ;
+: must! ( _ Option.Some ) enum-member-extract! Result.Ok ;
+: must! ( _ Option.None ) drop Result.Err ;
 
-# TODO: docs: takes when_none when_some Option
-: must_not! ( _ _ Option.Some -> _ ) drop swap drop Result.Err ;
-: must_not! ( _ _ Option.None -> _ ) drop drop Result.Ok ;
+/* TODO: docs: takes when_none when_some Option */
+: must_not! ( _ _ Option.Some ) drop swap drop Result.Err ;
+: must_not! ( _ _ Option.None ) drop drop Result.Ok ;

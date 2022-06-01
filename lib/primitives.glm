@@ -1,8 +1,61 @@
-# This file should probably be renamed to prelude.glm which just contains the
-# aliases, since the shapes referred to in here will cause circular references
-# eventually: how can a String be Printable when a Printable/repr must return a
-# String? We'll need a series of unsafe shape compositions to actually land on
-# a type-safe shape definition for pretty much any of these primitives.
+$ Option T
+	| Some T
+	| None
+;
+$ Result OkKind ErrKind
+	| Ok OkKind
+	| Err ErrKind
+;
+
+% Comment ;
+:%?? Comment drop Option.None! Result.Ok! ;
+:% Comment */ ( SingleVocabLifespan< Comment > -> ) drop ;
+:% __@GLOBAL /*
+	( -> SingleVocabLifespan< Comment > )
+	Comment enter-single-vocabulary
+;
+
+/* Ahh, comments. Yep: gluumy's Vocabularies (TODO: should they be called
+ * Modes? Like how Vim/Kakoune/Helix are "modal editors", gluumy is kinda
+ * a "modal language") are so powerful, they can be used to implement core
+ * language syntax that in many languages would be part of the "host"
+ * language (or part of the compiler), and the implementations are even
+ * type-safe (unlike, perhaps, FORTH's immediate words which can be used
+ * to implement comments in many FORTH dialects).
+ */
+
+/* Docstrings are semantically-meaningful comments, in a sense: they are tied to
+ * whatever object they reference as the first word, and will remain tied to that
+ * object forever (see (TODO: WHERE?) for how the underlying runtime handles
+ * this). There are very few semantically meaningful Words in docstrings - almost
+ * everything is simply passed through to the underlying String object verbatim.
+ * However, there's a few methods to reference other Words, Vocabularies, and
+ * Shapes, and of course, the escape word.
+ *
+ * We'll abuse gluumy's lazy reference allowance here and refer to String, which
+ * will be defined in a moment. As long as we don't attempt to actually use
+ * Docstrings before String exists, we're safe: this does mean that String will
+ * be the one Shape in this prelude where the docstring *follows* the
+ * implementation. Whatever, man, rules are for squares.
+ */
+% Docstring ;
+:%?? Docstring ( String )
+
+$ String
+	Comparable ..
+	Equatable ..
+	Printable ..
+	DebugPrintable ..
+	
+	=> { __@PRIMITIVES } __@STRING ;
+;
+?$ String
+	Contains a UTF-8 encoded string.
+;
+
+/* Alright. Order has been restored to the cosmos; docstrings will proceed
+ * implementations now.
+ */
 
 ?: swap
 	Reverses the order of the top two items on the stack in-place. This
@@ -25,81 +78,113 @@
 :!!! { __@PRIMITIVES } drop ( @1 -> ) __@DROP ;
 
 ?: dup
-	Duplicates the top item of the stack if it exists, or panics the execution
-	unit. The entire object, whatever it may be, is cloned in memory, which may
-	cause an out-of-memory panic if allocation fails. This operation otherwise
-	happens in O(n) time based on the size of the object being cloned.
+	Creates another reference to the top item of the stack if it exists, or
+	panics the execution unit. This operation happens in O(1) time: since 
+	all values in gluumy are immutable, duplication just creates another
+	pointer to the same underlying data, which does not itself need to be
+	cloned.
+	
+	--
+	
+	TODO: An implementation-specific exception to this should be numbers, since
+	a pointer to a usize is pretty silly.
 ;
-:!!! { __@PRIMITIVES } dup ( @1 -> @1 @1 ) __@DROP ;
+:!!! { __@PRIMITIVES } dup ( @1 <- @1 ) __@DUP ;
 
 ?$ SignedInt
 	Contains an unsigned integer that is the size of a pointer on the target
 	platform (eg. on a 64-bit system, it is 64 bits / 8 bytes long).
 ;
 $ SignedInt
-	.. Comparable
-	.. Equatable
-	.. Printable
-	.. DebugPrintable
+	Comparable ..
+	Equatable ..
+	Printable ..
+	DebugPrintable ..
 
-	* { __@PRIMITIVES } __@SIGNED_INT ;
+	=> { __@PRIMITIVES } __@SIGNED_INT ;
 ;
-:!!! eq ( SignedInt SignedInt -> SignedInt SignedInt Boolean ) __@SIGNED_INT_EQ ;
-:!!! gt ( SignedInt SignedInt -> SignedInt SignedInt Boolean ) __@SIGNED_INT_GT ;
-:!!! gte ( SignedInt SignedInt -> SignedInt SignedInt Boolean ) __@SIGNED_INT_GTE ;
-:!!! lt ( SignedInt SignedInt -> SignedInt SignedInt Boolean ) __@SIGNED_INT_LT ;
-:!!! lte ( SignedInt SignedInt -> SignedInt SignedInt Boolean ) __@SIGNED_INT_LTE ;
-:!!! repr ( SignedInt SignedInt -> SignedInt SignedInt String ) __@SIGNED_INT_REPR ;
+:!!! { __@PRIMITIVES } eq ( SignedInt SignedInt <- Boolean ) __@EQ ;
+:!!! { __@PRIMITIVES } gt ( SignedInt SignedInt <- Boolean ) __@GT ;
+:!!! { __@PRIMITIVES } gte ( SignedInt SignedInt <- Boolean ) __@GTE ;
+:!!! { __@PRIMITIVES } lt ( SignedInt SignedInt <- Boolean ) __@LT ;
+:!!! { __@PRIMITIVES } lte ( SignedInt SignedInt <- Boolean ) __@LTE ;
+:!!! { __@PRIMITIVES } repr ( SignedInt SignedInt <- String ) __@REPR ;
+:!!! { __@PRIMITIVES } + ( SignedInt SignedInt -> SignedInt ) __@ADD ;
+:!!! { __@PRIMITIVES } - ( SignedInt SignedInt -> SignedInt ) __@SUB ;
+:!!! { __@PRIMITIVES } * ( SignedInt SignedInt -> SignedInt ) __@MUL ;
 
 ?$ UnsignedInt
 	Contains an unsigned integer that is the size of a pointer on the target
 	platform (eg. on a 64-bit system, it is 64 bits / 8 bytes long).
 ;
 $ UnsignedInt
-	.. Comparable
-	.. Equatable
-	.. Printable
-	.. DebugPrintable
+	Comparable ..
+	Equatable ..
+	Printable ..
+	DebugPrintable ..
 
-	* { __@PRIMITIVES } __@UNSIGNED_INT ;
+	=> { __@PRIMITIVES } __@UNSIGNED_INT;
 ;
-:!!! eq ( UnsignedInt UnsignedInt -> UnsignedInt UnsignedInt Boolean ) __@UNSIGNED_INT_EQ ;
-:!!! gt ( UnsignedInt UnsignedInt -> UnsignedInt UnsignedInt Boolean ) __@UNSIGNED_INT_GT ;
-:!!! gte ( UnsignedInt UnsignedInt -> UnsignedInt UnsignedInt Boolean ) __@UNSIGNED_INT_GTE ;
-:!!! lt ( UnsignedInt UnsignedInt -> UnsignedInt UnsignedInt Boolean ) __@UNSIGNED_INT_LT ;
-:!!! lte ( UnsignedInt UnsignedInt -> UnsignedInt UnsignedInt Boolean ) __@UNSIGNED_INT_LTE ;
-:!!! repr ( UnsignedInt UnsignedInt -> UnsignedInt UnsignedInt String ) __@UNSIGNED_INT_REPR ;
+:!!! { __@PRIMITIVES } eq ( UnsignedInt UnsignedInt <- Boolean ) __@EQ ;
+:!!! { __@PRIMITIVES } gt ( UnsignedInt UnsignedInt <- Boolean ) __@GT ;
+:!!! { __@PRIMITIVES } gte ( UnsignedInt UnsignedInt <- Boolean ) __@GTE ;
+:!!! { __@PRIMITIVES } lt ( UnsignedInt UnsignedInt <- Boolean ) __@LT ;
+:!!! { __@PRIMITIVES } lte ( UnsignedInt UnsignedInt <- Boolean ) __@LTE ;
+:!!! { __@PRIMITIVES } repr ( UnsignedInt UnsignedInt <- String ) __@REPR ;
+:!!! { __@PRIMITIVES } + ( UnsignedInt UnsignedInt -> UnsignedInt ) __@ADD ;
+:!!! { __@PRIMITIVES } - ( UnsignedInt UnsignedInt -> UnsignedInt ) __@SUB ;
+:!!! { __@PRIMITIVES } * ( UnsignedInt UnsignedInt -> UnsignedInt ) __@MUL;
 
 ?$ Float32
 	Contains a 32-bit floating number (IEEE 754-2008's binary32 type).
 ;
 $ Float32
-	.. Equatable
-	.. Printable
-	.. DebugPrintable
+	Equatable ..
+	Printable ..
+	DebugPrintable ..
 
-	* { __@PRIMITIVES } __@FLOAT32 ;
+	=> { __@PRIMITIVES } __@FLOAT32 ;
 ;
-:!!! eq ( Float32 Float32 -> Float32 Float32 Boolean ) __@FLOAT32_EQ ;
-:!!! gt ( Float32 Float32 -> Float32 Float32 Boolean ) __@FLOAT32_GT ;
-:!!! gte ( Float32 Float32 -> Float32 Float32 Boolean ) __@FLOAT32_GTE ;
-:!!! lt ( Float32 Float32 -> Float32 Float32 Boolean ) __@FLOAT32_LT ;
-:!!! lte ( Float32 Float32 -> Float32 Float32 Boolean ) __@FLOAT32_LTE ;
-:!!! repr ( Float32 Float32 -> Float32 Float32 String ) __@FLOAT32_REPR ;
+:!!! { __@PRIMITIVES } eq ( Float32 Float32 <- Boolean ) __@EQ ;
+:!!! { __@PRIMITIVES } gt ( Float32 Float32 <- Boolean ) __@GT ;
+:!!! { __@PRIMITIVES } gte ( Float32 Float32 <- Boolean ) __@GTE ;
+:!!! { __@PRIMITIVES } lt ( Float32 Float32 <- Boolean ) __@LT ;
+:!!! { __@PRIMITIVES } lte ( Float32 Float32 <- Boolean ) __@LTE ;
+:!!! { __@PRIMITIVES } repr ( Float32 Float32 <- String ) __@REPR ;
+:!!! { __@PRIMITIVES } + ( Float32 Float32 -> Float32 ) __@ADD ;
+:!!! { __@PRIMITIVES } - ( Float32 Float32 -> Float32 ) __@SUB ;
+:!!! { __@PRIMITIVES } * ( Float32 Float32 -> Float32 ) __@MUL ;
+:!!! { __@PRIMITIVES } / ( Float32 Float32 -> Float32 ) __@DIV ;
 
 ?$ Float64
 	Contains a 64-bit floating number (IEEE 754-2008's binary64 type).
 ;
 $ Float64
-	.. Equatable
-	.. Printable
-	.. DebugPrintable
+	Equatable ..
+	Printable ..
+	DebugPrintable ..
 
-	* { __@PRIMITIVES } __@FLOAT64 ;
+	=> { __@PRIMITIVES } __@FLOAT64 ;
 ;
-:!!! eq ( Float64 Float64 -> Float64 Float64 Boolean ) __@FLOAT64_EQ ;
-:!!! gt ( Float64 Float64 -> Float64 Float64 Boolean ) __@FLOAT64_GT ;
-:!!! gte ( Float64 Float64 -> Float64 Float64 Boolean ) __@FLOAT64_GTE ;
-:!!! lt ( Float64 Float64 -> Float64 Float64 Boolean ) __@FLOAT64_LT ;
-:!!! lte ( Float64 Float64 -> Float64 Float64 Boolean ) __@FLOAT64_LTE ;
-:!!! repr ( Float64 Float64 -> Float64 Float64 String ) __@FLOAT64_REPR ;
+:!!! { __@PRIMITIVES } eq ( Float64 Float64 <- Boolean ) __@EQ ;
+:!!! { __@PRIMITIVES } gt ( Float64 Float64 <- Boolean ) __@GT ;
+:!!! { __@PRIMITIVES } gte ( Float64 Float64 <- Boolean ) __@GTE ;
+:!!! { __@PRIMITIVES } lt ( Float64 Float64 <- Boolean ) __@LT ;
+:!!! { __@PRIMITIVES } lte ( Float64 Float64 <- Boolean ) __@LTE ;
+:!!! { __@PRIMITIVES } repr ( Float64 Float64 <- String ) __@REPR ;
+:!!! { __@PRIMITIVES } + ( Float64 Float64 -> Float64 ) __@ADD ;
+:!!! { __@PRIMITIVES } + ( Float32 Float64 -> Float64 ) __@ADD ;
+:!!! { __@PRIMITIVES } + ( Float64 Float32 -> Float64 ) __@ADD ;
+:!!! { __@PRIMITIVES } - ( Float64 Float64 -> Float64 ) __@SUB ;
+:!!! { __@PRIMITIVES } - ( Float32 Float64 -> Float64 ) __@SUB ;
+:!!! { __@PRIMITIVES } - ( Float64 Float32 -> Float64 ) __@SUB ;
+:!!! { __@PRIMITIVES } * ( Float64 Float64 -> Float64 ) __@MUL ;
+:!!! { __@PRIMITIVES } * ( Float32 Float64 -> Float64 ) __@MUL ;
+:!!! { __@PRIMITIVES } * ( Float64 Float32 -> Float64 ) __@MUL ;
+:!!! { __@PRIMITIVES } / ( Float64 Float64 -> Float64 ) __@DIV ;
+:!!! { __@PRIMITIVES } / ( Float32 Float64 -> Float64 ) __@DIV ;
+:!!! { __@PRIMITIVES } / ( Float64 Float32 -> Float64 ) __@DIV ;
+:!!! { __@PRIMITIVES } / ( UnsignedInt UnsignedInt -> Float64 ) __@DIV ;
+:!!! { __@PRIMITIVES } / ( SignedInt SignedInt -> Float64 ) __@DIV ;
+:!!! { __@PRIMITIVES } / ( SignedInt UnsignedInt -> Float64 ) __@DIV ;
+:!!! { __@PRIMITIVES } / ( UnsignedInt SignedInt -> Float64 ) __@DIV ;

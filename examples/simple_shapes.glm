@@ -5,7 +5,7 @@ $ Track
 
 # this implicitly implements Printable for Track despite us not declaring
 # Track as a Printable
-: repr ( Track -> Song String )
+: repr ( Track <- String )
 	.num
 	.total[ 2 ]
 	format< "Track %d/%d" >

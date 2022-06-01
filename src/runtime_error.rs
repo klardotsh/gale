@@ -1,18 +1,18 @@
-use std::io::{self};
+use std::io::Error as IOError;
+
+use crate::internal_error::InternalError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RuntimeError {
-    //InternalError(InternalError),
+    InternalError(InternalError),
     StackUnderflow,
     StackOverflow,
     IncompatibleTypes,
     NoWordsByName(String),
 }
 
-/*
-impl From<io::Error> for RuntimeError {
-    fn from(src: io::Error) -> Self {
+impl From<IOError> for RuntimeError {
+    fn from(src: IOError) -> Self {
         Self::InternalError(src.into())
     }
 }
-*/

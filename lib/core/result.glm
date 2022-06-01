@@ -1,3 +1,8 @@
+/* This implementation lives in lib/primitives.glm, as it is a foundational
+ * primitive required to implement almost anything (notably comments and
+ * docstrings within that file).
+ */
+
 ?$ Result
 	Represents success (via Ok(Val)) and failure (via Err(Err)) of a given
 	operation (as a structured alternative to using error code numbers,
@@ -6,10 +11,6 @@
 	--
 
 	Not to be confused with #?[ Option ] .
-;
-$ Result OkKind ErrKind
-	| Ok OkKind
-	| Err ErrKind
 ;
 
 # TODO: docs, takes when_false when_true bool
