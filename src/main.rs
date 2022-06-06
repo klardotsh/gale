@@ -14,6 +14,7 @@ mod store;
 mod vocabulary;
 mod word;
 
+use object::Object;
 use runtime::Runtime;
 use runtime_error::RuntimeError;
 use word::Word;
@@ -31,7 +32,7 @@ use std::ops::{Deref, DerefMut};
 // moving the _entire_ language implementation into the host language if one so desired. Of
 // particular note, that'll be necessary for a gluumy that targets constrained environments like
 // Uxn, which simply doesn't have the RAM to be storing more HashMaps than strictly necessary.
-const MAX_SIMULTANEOUS_VOCABULARIES: usize = 32;
+const DEFAULT_VOCABULARIES_CAPACITY: usize = 32;
 
 const DEFAULT_DICTIONARY_CAPACITY_WORDS: usize = 1024;
 const DEFAULT_DICTIONARY_CAPACITY_PER_WORD: usize = 3;
@@ -135,23 +136,23 @@ fn main() -> Result<(), RuntimeError> {
     }
 }
 
-fn attempt_parse_iint_literal(candidate: &str) -> Option<StoreEntry> {
+fn attempt_parse_iint_literal(candidate: &str) -> Option<Object> {
     candidate
         .parse::<isize>()
-        .map(|parsed| StoreEntry(Object::Primitive(Primitive::SignedInt(parsed))))
+        .map(|parsed| Object::SignedInt(parsed))
         .ok()
 }
 
-fn attempt_parse_uint_literal(candidate: &str) -> Option<StoreEntry> {
+fn attempt_parse_uint_literal(candidate: &str) -> Option<Object> {
     candidate
         .parse::<usize>()
-        .map(|parsed| StoreEntry(Object::Primitive(Primitive::UnsignedInt(parsed))))
+        .map(|parsed| Object::UnsignedInt(parsed))
         .ok()
 }
 
-fn attempt_parse_float_literal(candidate: &str) -> Option<StoreEntry> {
+fn attempt_parse_f64_literal(candidate: &str) -> Option<Object> {
     candidate
         .parse::<StandardFloat>()
-        .map(|parsed| StoreEntry(Object::Primitive(Primitive::Float(parsed))))
+        .map(|parsed| Object::Float64(parsed))
         .ok()
 }

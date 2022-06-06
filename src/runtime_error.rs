@@ -6,9 +6,8 @@ use crate::internal_error::InternalError;
 pub enum RuntimeError {
     InternalError(InternalError),
     StackUnderflow,
-    StackOverflow,
     IncompatibleTypes,
-    NoWordsByName(String),
+    // NoWordsByName(String),
 }
 
 impl From<IOError> for RuntimeError {

@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 use crate::vocabulary::Vocabulary;
 use crate::word::Word;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Object {
     Vocabulary(Vocabulary),
     Word(Word),
@@ -12,6 +12,7 @@ pub enum Object {
     UnsignedInt(usize),
     Float32(f32),
     Float64(f64),
+    // String(String),
 }
 
 impl Display for Object {

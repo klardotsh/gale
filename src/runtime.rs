@@ -1,26 +1,27 @@
 use std::collections::HashMap;
+#[cfg(test)]
 use std::rc::Rc;
 
 use crate::object::Object;
 use crate::runtime_error::RuntimeError;
 use crate::store::Store;
+#[cfg(test)]
+use crate::store::StoredObject;
 use crate::vocabulary::{Vocabularies, Vocabulary};
 use crate::word::{Word, WordResult};
 
-pub struct Runtime<'rt> {
+pub struct Runtime {
     pub store: Store,
-    pub vocabularies: Vocabularies<'rt>,
-    pub current_vocabularies: [bool; crate::MAX_SIMULTANEOUS_VOCABULARIES],
-    pub vocabulary_index: HashMap<Rc<String>, usize>,
+    pub vocabularies: Vocabularies,
 }
 
-impl Runtime<'_> {
+impl Runtime {
     pub fn feed_word(&mut self, written: &str) -> Result<(), RuntimeError> {
         Ok(())
     }
 }
 
-impl Default for Runtime<'_> {
+impl Default for Runtime {
     fn default() -> Self {
         let store = Store::default();
         // TODO: impl Default for Dictionary instead (needs refactor of Dictionary to be a wrapper
@@ -32,12 +33,10 @@ impl Default for Runtime<'_> {
 
         Self {
             store,
-            vocabularies: Vocabularies::new_with_primitives(primitives_dictionary),
-            current_vocabularies: [false; crate::MAX_SIMULTANEOUS_VOCABULARIES],
-            vocabulary_index: {
-                let hm = HashMap::with_capacity(crate::MAX_SIMULTANEOUS_VOCABULARIES);
-                hm.insert(primitives_dictionary.name.clone(), 0);
-                hm
+            vocabularies: {
+                let mut vocabs = HashMap::with_capacity(crate::DEFAULT_VOCABULARIES_CAPACITY);
+                vocabs.insert(primitives_dictionary.name.clone(), primitives_dictionary);
+                Vocabularies(vocabs)
             },
         }
     }
@@ -83,18 +82,16 @@ fn prim_word_add(rt: &mut Runtime) -> WordResult {
     let right = rt.store.pop()?;
     let left = rt.store.pop()?;
 
-    rt.store.push(match (*left, *right) {
-        (Object::SignedInt(l), Object::SignedInt(r)) => Ok(Object::SignedInt(l + r)),
-        (Object::UnsignedInt(l), Object::UnsignedInt(r)) => Ok(Object::UnsignedInt(l + r)),
-        (Object::Float32(l), Object::Float32(r)) => Ok(Object::Float32(l + r)),
-        (Object::Float32(l), Object::Float64(r)) => Ok(Object::Float64(l as f64 + r)),
-        (Object::Float64(l), Object::Float32(r)) => Ok(Object::Float64(l + r as f64)),
-        (Object::Float64(l), Object::Float64(r)) => Ok(Object::Float64(l + r)),
+    rt.store
+        .push(match (&*left, &*right) {
+            (Object::SignedInt(l), Object::SignedInt(r)) => Ok(Object::SignedInt(l + r)),
+            (Object::UnsignedInt(l), Object::UnsignedInt(r)) => Ok(Object::UnsignedInt(l + r)),
+            (Object::Float32(l), Object::Float32(r)) => Ok(Object::Float32(l + r)),
+            (Object::Float64(l), Object::Float64(r)) => Ok(Object::Float64(l + r)),
 
-        (_, _) => Err(RuntimeError::IncompatibleTypes),
-    }?);
-
-    Ok(())
+            (_, _) => Err(RuntimeError::IncompatibleTypes),
+        }?)
+        .map(|_| ())
 }
 
 fn prim_word_sub(rt: &mut Runtime) -> WordResult {
@@ -105,18 +102,16 @@ fn prim_word_sub(rt: &mut Runtime) -> WordResult {
     let to_subtract = rt.store.pop()?;
     let subtract_from = rt.store.pop()?;
 
-    rt.store.push(match (*subtract_from, *to_subtract) {
-        (Object::SignedInt(sf), Object::SignedInt(ts)) => Ok(Object::SignedInt(sf - ts)),
-        (Object::UnsignedInt(sf), Object::UnsignedInt(ts)) => Ok(Object::UnsignedInt(sf - ts)),
-        (Object::Float32(sf), Object::Float32(ts)) => Ok(Object::Float32(sf - ts)),
-        (Object::Float32(sf), Object::Float64(ts)) => Ok(Object::Float64(sf as f64 - ts)),
-        (Object::Float64(sf), Object::Float32(ts)) => Ok(Object::Float64(sf - ts as f64)),
-        (Object::Float64(sf), Object::Float64(ts)) => Ok(Object::Float64(sf - ts)),
+    rt.store
+        .push(match (&*subtract_from, &*to_subtract) {
+            (Object::SignedInt(sf), Object::SignedInt(ts)) => Ok(Object::SignedInt(sf - ts)),
+            (Object::UnsignedInt(sf), Object::UnsignedInt(ts)) => Ok(Object::UnsignedInt(sf - ts)),
+            (Object::Float32(sf), Object::Float32(ts)) => Ok(Object::Float32(sf - ts)),
+            (Object::Float64(sf), Object::Float64(ts)) => Ok(Object::Float64(sf - ts)),
 
-        (_, _) => Err(RuntimeError::IncompatibleTypes),
-    }?);
-
-    Ok(())
+            (_, _) => Err(RuntimeError::IncompatibleTypes),
+        }?)
+        .map(|_| ())
 }
 
 fn prim_word_mul(rt: &mut Runtime) -> WordResult {
@@ -127,17 +122,16 @@ fn prim_word_mul(rt: &mut Runtime) -> WordResult {
     let right = rt.store.pop()?;
     let left = rt.store.pop()?;
 
-    rt.store.push(match (*left, *right) {
-        (Object::SignedInt(l), Object::SignedInt(r)) => Ok(Object::SignedInt(l * r)),
-        (Object::UnsignedInt(l), Object::UnsignedInt(r)) => Ok(Object::UnsignedInt(l * r)),
-        (Object::Float32(l), Object::Float32(r)) => Ok(Object::Float32(l * r)),
-        (Object::Float32(l), Object::Float64(r)) => Ok(Object::Float64(l as f64 * r)),
-        (Object::Float64(l), Object::Float32(r)) => Ok(Object::Float64(l * r as f64)),
-        (Object::Float64(l), Object::Float64(r)) => Ok(Object::Float64(l * r)),
+    rt.store
+        .push(match (&*left, &*right) {
+            (Object::SignedInt(l), Object::SignedInt(r)) => Ok(Object::SignedInt(l * r)),
+            (Object::UnsignedInt(l), Object::UnsignedInt(r)) => Ok(Object::UnsignedInt(l * r)),
+            (Object::Float32(l), Object::Float32(r)) => Ok(Object::Float32(l * r)),
+            (Object::Float64(l), Object::Float64(r)) => Ok(Object::Float64(l * r)),
 
-        (_, _) => Err(RuntimeError::IncompatibleTypes),
-    }?);
-    Ok(())
+            (_, _) => Err(RuntimeError::IncompatibleTypes),
+        }?)
+        .map(|_| ())
 }
 
 fn prim_word_div(rt: &mut Runtime) -> WordResult {
@@ -148,30 +142,32 @@ fn prim_word_div(rt: &mut Runtime) -> WordResult {
     let divisor = rt.store.pop()?;
     let dividend = rt.store.pop()?;
 
-    rt.store.push(match (*dividend, *divisor) {
-        // divide by zero returns a DivideByZero error further up the stack; if we end up
-        // here, something is broken with the type system
-        (
-            _,
-            Object::SignedInt(0)
-            | Object::UnsignedInt(0)
-            | Object::Float32(0.0)
-            | Object::Float64(0.0),
-        ) => unreachable!("type system allowed division by zero"),
+    rt.store
+        .push(match (&*dividend, &*divisor) {
+            // divide by zero returns a DivideByZero error further up the stack; if we end up
+            // here, something is broken with the type system
+            (_, Object::SignedInt(0) | Object::UnsignedInt(0)) => {
+                unreachable!("type system allowed division by zero")
+            }
+            (_, Object::Float32(x)) if x.eq(&0.0) => {
+                unreachable!("type system allowed division by zero")
+            }
+            (_, Object::Float64(x)) if x.eq(&0.0) => {
+                unreachable!("type system allowed division by zero")
+            }
 
-        (Object::SignedInt(dend), Object::SignedInt(dsor)) => Ok(Object::SignedInt(dend / dsor)),
-        (Object::UnsignedInt(dend), Object::UnsignedInt(dsor)) => {
-            Ok(Object::UnsignedInt(dend / dsor))
-        }
-        (Object::Float32(dend), Object::Float32(dsor)) => Ok(Object::Float32(dend / dsor)),
-        (Object::Float32(dend), Object::Float64(dsor)) => Ok(Object::Float64(dend as f64 / dsor)),
-        (Object::Float64(dend), Object::Float32(dsor)) => Ok(Object::Float64(dend / dsor as f64)),
-        (Object::Float64(dend), Object::Float64(dsor)) => Ok(Object::Float64(dend / dsor)),
+            (Object::SignedInt(dend), Object::SignedInt(dsor)) => {
+                Ok(Object::SignedInt(dend / dsor))
+            }
+            (Object::UnsignedInt(dend), Object::UnsignedInt(dsor)) => {
+                Ok(Object::UnsignedInt(dend / dsor))
+            }
+            (Object::Float32(dend), Object::Float32(dsor)) => Ok(Object::Float32(dend / dsor)),
+            (Object::Float64(dend), Object::Float64(dsor)) => Ok(Object::Float64(dend / dsor)),
 
-        (_, _) => Err(RuntimeError::IncompatibleTypes),
-    }?);
-
-    Ok(())
+            (_, _) => Err(RuntimeError::IncompatibleTypes),
+        }?)
+        .map(|_| ())
 }
 
 // fn prim_word_mod(rt: &mut Runtime) -> WordResult {
@@ -193,16 +189,20 @@ mod tests {
         assert_eq!(store.len(), 0);
     }
 
-    fn push_uint_to_stack(store: &mut Store, val: usize) {
-        store.push(StoreEntry(Object::Primitive(Primitive::UnsignedInt(val))))
+    fn push_uint_to_stack(store: &mut Store, val: usize) -> Result<&StoredObject, RuntimeError> {
+        store.push(Object::UnsignedInt(val))
     }
 
-    fn push_int_to_stack(store: &mut Store, val: isize) {
-        store.push(StoreEntry(Object::Primitive(Primitive::SignedInt(val))))
+    fn push_int_to_stack(store: &mut Store, val: isize) -> Result<&StoredObject, RuntimeError> {
+        store.push(Object::SignedInt(val))
     }
 
-    fn push_float_to_stack(store: &mut Store, val: StandardFloat) {
-        store.push(StoreEntry(Object::Primitive(Primitive::Float(val))))
+    fn push_f32_to_stack(store: &mut Store, val: f32) -> Result<&StoredObject, RuntimeError> {
+        store.push(Object::Float32(val))
+    }
+
+    fn push_f64_to_stack(store: &mut Store, val: f64) -> Result<&StoredObject, RuntimeError> {
+        store.push(Object::Float64(val))
     }
 
     #[test]
@@ -211,16 +211,16 @@ mod tests {
 
         assert_store_empty(&runtime.store);
 
-        push_uint_to_stack(&mut runtime.store, 1);
-        push_uint_to_stack(&mut runtime.store, 2);
-        runtime.feed_word("swap")?;
+        push_uint_to_stack(&mut runtime.store, 1)?;
+        push_uint_to_stack(&mut runtime.store, 2)?;
+        prim_word_swap(&mut runtime)?;
         assert_eq!(
-            runtime.store.pop()?,
-            StoreEntry(Object::Primitive(Primitive::UnsignedInt(1))),
+            Rc::try_unwrap(runtime.store.pop()?),
+            Ok(Object::UnsignedInt(1)),
         );
         assert_eq!(
-            runtime.store.pop()?,
-            StoreEntry(Object::Primitive(Primitive::UnsignedInt(2))),
+            Rc::try_unwrap(runtime.store.pop()?),
+            Ok(Object::UnsignedInt(2)),
         );
 
         Ok(())
@@ -232,16 +232,22 @@ mod tests {
 
         assert_store_empty(&runtime.store);
 
-        push_uint_to_stack(&mut runtime.store, 1);
-        runtime.feed_word("dup")?;
-        assert_eq!(
-            runtime.store.pop()?,
-            StoreEntry(Object::Primitive(Primitive::UnsignedInt(1))),
-        );
-        assert_eq!(
-            runtime.store.pop()?,
-            StoreEntry(Object::Primitive(Primitive::UnsignedInt(1))),
-        );
+        push_uint_to_stack(&mut runtime.store, 1)?;
+        prim_word_dup(&mut runtime)?;
+        let top = runtime.store.pop()?;
+        let second = runtime.store.pop()?;
+
+        // dup will always share memory (remember that gluumy is immutable
+        // at its core!)
+        assert!(Rc::ptr_eq(&top, &second));
+
+        // now we know we can safely just discard the top entry: using
+        // try_unwrap on this to pattern match the underlying object will
+        // fail anyway since the strong_count is > 1
+        drop(top);
+
+        assert_eq!(Rc::strong_count(&second), 1);
+        assert_eq!(Rc::try_unwrap(second), Ok(Object::UnsignedInt(1)));
 
         Ok(())
     }
@@ -251,61 +257,9 @@ mod tests {
         let mut runtime = Runtime::default();
 
         assert_store_empty(&runtime.store);
-        push_uint_to_stack(&mut runtime.store, 1);
-        runtime.feed_word("drop")?;
+        push_uint_to_stack(&mut runtime.store, 1)?;
+        prim_word_drop(&mut runtime)?;
         assert_store_empty(&runtime.store);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_str_literal() -> Result<(), RuntimeError> {
-        let mut runtime = Runtime::default();
-
-        assert_store_empty(&runtime.store);
-
-        runtime.feed_word("\"hello world\"")?;
-        assert_eq!(
-            runtime.store.pop()?,
-            StoreEntry(Object::Primitive(Primitive::String("hello world".into()))),
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_uint_literal() -> Result<(), RuntimeError> {
-        let mut runtime = Runtime::default();
-
-        assert_store_empty(&runtime.store);
-
-        runtime.feed_word("1")?;
-        assert_eq!(
-            runtime.store.pop()?,
-            StoreEntry(Object::Primitive(Primitive::UnsignedInt(1))),
-        );
-
-        runtime.feed_word("1")?;
-        runtime.feed_word("2")?;
-        assert_eq!(
-            runtime.store.pop()?,
-            StoreEntry(Object::Primitive(Primitive::UnsignedInt(2))),
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_iint_literal() -> Result<(), RuntimeError> {
-        let mut runtime = Runtime::default();
-
-        assert_store_empty(&runtime.store);
-
-        runtime.feed_word("-1")?;
-        assert_eq!(
-            runtime.store.pop()?,
-            StoreEntry(Object::Primitive(Primitive::SignedInt(-1))),
-        );
 
         Ok(())
     }
@@ -314,12 +268,12 @@ mod tests {
     fn test_mul_underflow() -> Result<(), RuntimeError> {
         let mut runtime = Runtime::default();
         assert_eq!(
-            prim_word_mul(&mut runtime.store),
+            prim_word_mul(&mut runtime),
             Err(RuntimeError::StackUnderflow),
         );
-        push_uint_to_stack(&mut runtime.store, 1);
+        push_uint_to_stack(&mut runtime.store, 1)?;
         assert_eq!(
-            prim_word_mul(&mut runtime.store),
+            prim_word_mul(&mut runtime),
             Err(RuntimeError::StackUnderflow),
         );
         Ok(())
@@ -329,13 +283,13 @@ mod tests {
     fn test_mul_uints() -> Result<(), RuntimeError> {
         let mut runtime = Runtime::default();
 
-        push_uint_to_stack(&mut runtime.store, 2);
-        push_uint_to_stack(&mut runtime.store, 2);
-        prim_word_mul(&mut runtime.store)?;
+        push_uint_to_stack(&mut runtime.store, 2)?;
+        push_uint_to_stack(&mut runtime.store, 2)?;
+        prim_word_mul(&mut runtime)?;
 
         assert_eq!(
-            runtime.store.pop()?,
-            StoreEntry(Object::Primitive(Primitive::UnsignedInt(4)),),
+            Rc::try_unwrap(runtime.store.pop()?),
+            Ok(Object::UnsignedInt(4)),
         );
 
         assert_store_empty(&runtime.store);
@@ -347,13 +301,13 @@ mod tests {
     fn test_mul_iints() -> Result<(), RuntimeError> {
         let mut runtime = Runtime::default();
 
-        push_int_to_stack(&mut runtime.store, 2);
-        push_int_to_stack(&mut runtime.store, 2);
-        prim_word_mul(&mut runtime.store)?;
+        push_int_to_stack(&mut runtime.store, 2)?;
+        push_int_to_stack(&mut runtime.store, 2)?;
+        prim_word_mul(&mut runtime)?;
 
         assert_eq!(
-            runtime.store.pop()?,
-            StoreEntry(Object::Primitive(Primitive::SignedInt(4)),),
+            Rc::try_unwrap(runtime.store.pop()?),
+            Ok(Object::SignedInt(4)),
         );
 
         assert_store_empty(&runtime.store);
@@ -369,13 +323,13 @@ mod tests {
     fn test_mul_floats() -> Result<(), RuntimeError> {
         let mut runtime = Runtime::default();
 
-        push_float_to_stack(&mut runtime.store, 2.0);
-        push_float_to_stack(&mut runtime.store, 2.0);
-        prim_word_mul(&mut runtime.store)?;
+        push_f64_to_stack(&mut runtime.store, 2.0)?;
+        push_f64_to_stack(&mut runtime.store, 2.0)?;
+        prim_word_mul(&mut runtime)?;
 
         assert_eq!(
-            runtime.store.pop()?,
-            StoreEntry(Object::Primitive(Primitive::Float(4.0)),),
+            Rc::try_unwrap(runtime.store.pop()?),
+            Ok(Object::Float64(4.0))
         );
 
         assert_store_empty(&runtime.store);

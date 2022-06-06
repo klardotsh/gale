@@ -11,6 +11,14 @@ pub enum Word {
     PrimitiveImplementation(PrimitiveImplementation),
 }
 
+impl fmt::Debug for Word {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Word::PrimitiveImplementation(_) => Display::fmt(self, formatter),
+        }
+    }
+}
+
 impl Display for Word {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
@@ -20,5 +28,13 @@ impl Display for Word {
                 Self::PrimitiveImplementation(_) => "(primitive word)",
             }
         )
+    }
+}
+
+impl PartialEq for Word {
+    fn eq(&self, _: &Self) -> bool {
+        // for now, naively claim no two primitives are the same, which frankly
+        // may be a permanent and non-naive assertion anyway
+        false
     }
 }

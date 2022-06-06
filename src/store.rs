@@ -4,37 +4,38 @@ use crate::runtime_error::RuntimeError;
 use std::fmt::{self, Display};
 use std::rc::Rc;
 
-const MAX_STORE_SIZE: usize = 4096; // arbitrary for now
-
 pub type StoredObject = Rc<Object>;
 
-pub struct Store {
-    stack: [Option<StoredObject>; MAX_STORE_SIZE],
-    next_idx: usize,
-}
+// frankly arbitrary for now
+pub const DEFAULT_STORE_CAPACITY: usize = 4096;
+
+// TODO: general note for the future: Rust is working on allocator APIs
+// which would allow us to properly catch "stack overflows" (alloc
+// failures) here. Not entirely sure whether there's actual UX
+// improvements to be found there in most cases: a SO in a REPL is maybe
+// useful to be able to continue onwards from, but an SO in most other
+// running applications is almost certainly going to be fatal anyway,
+// and just noise for a developer to have to explicitly handle in 90%+
+// of desktop usecases.
+pub struct Store(Vec<StoredObject>);
 
 impl Store {
     pub fn len(&self) -> usize {
-        self.stack.len()
+        self.0.len()
     }
 
     pub fn push(&mut self, item: Object) -> Result<&StoredObject, RuntimeError> {
-        if self.next_idx > MAX_STORE_SIZE - 1 {
-            return Err(RuntimeError::StackOverflow);
-        }
-        self.stack[self.next_idx] = Some(StoredObject::new(item));
-        self.next_idx += 1;
-        Ok(self.stack[self.next_idx - 1].as_ref().unwrap())
+        self.0.push(StoredObject::new(item));
+        self.peek()
+    }
+
+    pub fn push_boxed(&mut self, item: StoredObject) -> Result<&StoredObject, RuntimeError> {
+        self.0.push(item);
+        self.peek()
     }
 
     pub fn pop(&mut self) -> Result<StoredObject, RuntimeError> {
-        if self.next_idx == 0 {
-            return Err(RuntimeError::StackUnderflow);
-        }
-        self.next_idx -= 1;
-        let top = self.stack[self.next_idx].unwrap();
-        self.stack[self.next_idx] = None;
-        Ok(top)
+        self.0.pop().ok_or(RuntimeError::StackUnderflow)
     }
 
     /// Returns a reference to the top object on the stack.
@@ -43,38 +44,32 @@ impl Store {
     }
 
     /// Returns a reference to the nth object on the stack, where 0 is the top.
-    pub fn npeek(&mut self, n: usize) -> Result<&StoredObject, RuntimeError> {
-        if self.next_idx == n {
-            return Err(RuntimeError::StackUnderflow);
-        }
-        Ok(self.stack[self.next_idx + n - 1].as_ref().unwrap())
+    pub fn npeek(&self, n: usize) -> Result<&StoredObject, RuntimeError> {
+        self.0
+            .get(self.0.len() - 1 - n)
+            .ok_or(RuntimeError::StackUnderflow)
     }
 
-    /// Returns references to the now-second and first items on the stack, in that order.
-    pub fn dup(&mut self) -> Result<(&StoredObject, &StoredObject), RuntimeError> {
-        if self.next_idx == 0 {
-            return Err(RuntimeError::StackUnderflow);
-        }
-        self.stack[self.next_idx] = self.stack[self.next_idx - 1].clone();
-        self.next_idx += 1;
-        Ok((
-            self.stack[self.next_idx - 2].as_ref().unwrap(),
-            self.stack[self.next_idx - 1].as_ref().unwrap(),
-        ))
+    /// Returns a reference to the top object on the stack.
+    pub fn dup(&mut self) -> Result<&StoredObject, RuntimeError> {
+        self.push_boxed(self.peek()?.clone())
     }
 
     /// Returns references to the now-second and first items on the stack, in that order.
     pub fn swap(&mut self) -> Result<(&StoredObject, &StoredObject), RuntimeError> {
-        if self.next_idx == 1 {
-            return Err(RuntimeError::StackUnderflow);
-        }
+        // normally "ask forgiveness and not permission" applies, but since pop()
+        // mutates state, let's do the barely-slower thing and ask permission
+        // this time, by npeek-ing the second object on the stack as a way of
+        // detecting underflows
+        self.npeek(1)?;
+        let old_top = self.pop()?;
+        let old_second = self.pop()?;
+        self.push_boxed(old_top)?;
+        self.push_boxed(old_second)?;
 
-        let old_i = self.stack[self.next_idx - 2];
-        let old_j = self.stack[self.next_idx - 1];
-        self.stack[self.next_idx - 1] = old_i;
-        self.stack[self.next_idx - 2] = old_j;
-
-        Ok((old_j.as_ref().unwrap(), old_i.as_ref().unwrap()))
+        // TODO: implement some peek_unchecked methods much like how rust
+        // stdlib does, for perf. should also use them in methods like push
+        Ok((self.npeek(1)?, self.peek()?))
     }
 
     /// Moves the third item (from the top) of the stack to the top, pushing the next two items
@@ -82,31 +77,27 @@ impl Store {
     ///
     /// Returns references to the now-third, second, and first items on the stack, in that order.
     pub fn rot(&mut self) -> Result<(&StoredObject, &StoredObject, &StoredObject), RuntimeError> {
-        if self.next_idx == 2 {
-            return Err(RuntimeError::StackUnderflow);
-        }
+        // normally "ask forgiveness and not permission" applies, but since pop()
+        // mutates state, let's do the barely-slower thing and ask permission
+        // this time, by npeek-ing the third object on the stack as a way of
+        // detecting underflows
+        self.npeek(2)?;
+        let old_top = self.pop()?;
+        let old_second = self.pop()?;
+        let old_third = self.pop()?;
+        self.push_boxed(old_second)?;
+        self.push_boxed(old_top)?;
+        self.push_boxed(old_third)?;
 
-        let old_i = self.stack[self.next_idx - 3];
-        let old_j = self.stack[self.next_idx - 2];
-        let old_k = self.stack[self.next_idx - 1];
-        self.stack[self.next_idx - 1] = old_i;
-        self.stack[self.next_idx - 2] = old_k;
-        self.stack[self.next_idx - 3] = old_j;
-
-        Ok((
-            old_j.as_ref().unwrap(),
-            old_k.as_ref().unwrap(),
-            old_i.as_ref().unwrap(),
-        ))
+        // TODO: implement some peek_unchecked methods much like how rust
+        // stdlib does, for perf. should also use them in methods like push
+        Ok((self.npeek(2)?, self.npeek(1)?, self.peek()?))
     }
 }
 
 impl Default for Store {
     fn default() -> Self {
-        Self {
-            stack: [None; MAX_STORE_SIZE],
-            next_idx: 0,
-        }
+        Self(Vec::with_capacity(DEFAULT_STORE_CAPACITY))
     }
 }
 
@@ -114,15 +105,8 @@ impl Display for Store {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Store[ ")?;
 
-        for entry in &self.stack {
-            write!(
-                f,
-                "{}, ",
-                match entry {
-                    None => "(missing)",
-                    Some(obj) => &obj.to_string(),
-                }
-            )?;
+        for entry in &self.0 {
+            write!(f, "{}, ", entry.to_string())?;
         }
 
         write!(f, "]")?;
