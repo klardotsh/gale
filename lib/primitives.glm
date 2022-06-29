@@ -1,12 +1,10 @@
-: % 
-
 $ Option T
 	| Some T
 	| None
 ;
 $ Result OkKind ErrKind
-	| Ok OkKind
-	| Err ErrKind
+	| Ok 'OkKind
+	| Err 'ErrKind
 ;
 
 % Comment ;
