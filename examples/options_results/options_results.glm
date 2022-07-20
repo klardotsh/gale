@@ -1,0 +1,37 @@
+# admittedly this shape alias is a bit redundant and exists solely as an
+# example, because the Printable constraint already exists in this call chain
+# via repr
+$@ PrintableResult Result< Printable @ErrKind > ;
+
+?: output_result
+	Consume a #?[ PrintableResult ] , printing the inner contents to stdout (in
+	the event of success) or stderr (in the event of an error).
+;
+: output_result ( PrintableResult.Ok -> ) PrintableResult.Ok! repr println ;
+: output_result ( PrintableResult.Err -> ) PrintableResult.Err! repr eprintln ;
+
+?: maybe_something
+	Randomly generate either Option.Some("body once told me") or None. How
+	silly, right? The world's gonna roll me...
+;
+: maybe_something
+	"body once told me"
+	<~ random Boolean >
+	<~ into Option >
+;
+
+?: get_ten_somes
+	A silly statistics-defying method that tries to build an array of 10
+	Some("body once told me") values randomly. It will almost certainly return
+	an error, but on the off chance that RNGesus smiles upon you, it may return
+	an ok. Regardless, it makes for a nice silly example of the Result and
+	Option types in one swing.
+;
+: get_ten_somes
+	"as expected, at least one None found" # String for Result.Err
+	"against all odds, the array is all Somes" # String for Result.Ok
+	<& maybe_something > 10 <~ Vec with_capacity_filled >
+	<& is_none > find
+;
+
+: main get_ten_somes output_result ;

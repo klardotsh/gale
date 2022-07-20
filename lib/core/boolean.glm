@@ -1,0 +1,25 @@
+?$ Boolean
+	The representation of "yes" (True) and "no" (False)
+;
+$ Boolean
+	.. Equatable
+	.. Printable
+	.. DebugPrintable
+
+	| True
+	| False
+;
+
+: true Boolean.True ;
+: false Boolean.False ;
+
+: eq ( Boolean.False Boolean.False -> _ ) true ;
+: eq ( Boolean.False Boolean.True -> _ ) false ;
+: eq ( Boolean.True Boolean.True -> _ ) true ;
+: eq ( Boolean.True Boolean.False -> _ ) false ;
+
+: repr ( Boolean.True -> _ _ ) "true" ;
+: repr ( Boolean.False -> _ _ ) "false" ;
+
+: repr_debug ( Boolean.True -> _ _ ) "Boolean.True" ;
+: repr_debug ( Boolean.False -> _ _ ) "Boolean.False" ;

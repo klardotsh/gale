@@ -1,0 +1,45 @@
+$ Track
+	* Number num ;
+	* Number total ;
+;
+
+# this implicitly implements Printable for Track despite us not declaring
+# Track as a Printable
+: repr ( Track <- String )
+	.num
+	.total[ 2 ]
+	format< "Track %d/%d" >
+;
+
+$ Song
+	.. Printable
+
+	* String artist ;
+	* Option< String > album_artist ;
+	* String title ;
+	* Option< Track > track ;
+;
+
+: repr ( Song -> Song String )
+	.title
+	.album_artist[ 2 ] .artist[ 3 ] or
+	format< "%s by %s" >
+;
+
+: main
+	Track(
+		5 >.num
+		7 >.total
+	)
+	Option.Some!
+
+	Song(
+		"Wandering Star" >.title
+		"Portishead" >.artist
+		>.album_artist?! # fills field with the default value of its shape
+		>.track[ 2 ]
+	)
+
+	# this prints "Wandering Star by Portishead"
+	repr println
+;

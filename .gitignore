@@ -1,0 +1,6 @@
+.envrc
+.ignore
+.pijul
+zig-cache
+src/zig-cache
+zig-out
