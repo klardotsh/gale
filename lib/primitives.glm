@@ -1,45 +1,40 @@
-$ Option T
-	| Some T
-	| None
-;
-$ Result OkKind ErrKind
-	| Ok 'OkKind
-	| Err 'ErrKind
-;
+'Maybe create-shape
+'None swap shape-enum-member
+1 Generic 'Some rot shape-enum-member-containing
+drop
 
-% Comment ;
-:%?? Comment drop Option.None! Result.Ok! ;
-:% Comment */ ( SingleVocabLifespan< Comment > ) drop ;
-:% Global /*
-	( -> SingleVocabLifespan< Comment > )
-	Comment+
-;
+'Result create-shape
+1 Generic 'Ok rot shape-enum-member-containing
+1 Generic 'Err rot shape-enum-member-containing
+drop
 
-/* Ahh, comments. Yep: gluumy's Vocabularies (TODO: should they be called
- * Modes? Like how Vim/Kakoune/Helix are "modal editors", gluumy is kinda
- * a "modal language") are so powerful, they can be used to implement core
- * language syntax that in many languages would be part of the "host"
- * language (or part of the compiler), and the implementations are even
- * type-safe (unlike, perhaps, FORTH's immediate words which can be used
- * to implement comments in many FORTH dialects).
+'Comment create-mode
+'@word-missing swap
+	1 Generic word-signature-takes
+	Result< Maybe.None > word-signature-gives
+	word-signature
+	create-word-body
+	'drop +
+	'Maybe.None +
+	'Result.Ok +
+	create-modal-word!
+'*/ Comment
+	ModeLifespan< Comment > word-signature-takes word-signature
+	create-word-body
+	'drop +
+	create-modal-word!
+'/*
+	ModeLifespan< Comment > word-signature-gives word-signature
+	create-word-body
+	'Comment! +
+	create-global-word!
+
+/* Ahh, comments. Yep: gluumy's Modes are so powerful, they can be used to
+ * implement core language syntax that in many languages would be part of the
+ * "host" language (or part of the compiler), and the implementations are even
+ * type-safe (unlike, perhaps, FORTH's immediate words which can be used to
+ * implement comments in many FORTH dialects).
  */
-
-/* Docstrings are semantically-meaningful comments, in a sense: they are tied to
- * whatever object they reference as the first word, and will remain tied to that
- * object forever (see (TODO: WHERE?) for how the underlying runtime handles
- * this). There are very few semantically meaningful Words in docstrings - almost
- * everything is simply passed through to the underlying String object verbatim.
- * However, there's a few methods to reference other Words, Vocabularies, and
- * Shapes, and of course, the escape word.
- *
- * We'll abuse gluumy's lazy reference allowance here and refer to String, which
- * will be defined in a moment. As long as we don't attempt to actually use
- * Docstrings before String exists, we're safe: this does mean that String will
- * be the one Shape in this prelude where the docstring *follows* the
- * implementation. Whatever, man, rules are for squares.
- */
-% Docstring ;
-/* :%?? Docstring ( String ) */
 
 $ String
 	Comparable ..

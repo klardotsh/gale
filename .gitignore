@@ -1,7 +1,6 @@
 .envrc
 .ignore
 .pijul
-
-# Added by cargo
-
-/target
+zig-cache
+src/zig-cache
+zig-out
