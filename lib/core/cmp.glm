@@ -7,7 +7,7 @@
 	A subset of #?[ Comparable ] .
 ;
 $ Equatable
-	.: eq ( @1 @1 -> @1 @1 Boolean )
+	.: eq ( @1 @1 <- Boolean )
 ;
 
 ?$ Comparable
@@ -22,8 +22,8 @@ $ Equatable
 $ Comparable
 	.. Equatable
 
-	.: gt ( @1 @1 -> @1 @1 Boolean )
-	.: gte ( @1 @1 -> @1 @1 Boolean )
-	.: lt ( @1 @1 -> @1 @1 Boolean )
-	.: lte ( @1 @1 -> @1 @1 Boolean )
+	.: gt ( @1 @1 <- Boolean )
+	.: gte ( @1 @1 <- Boolean )
+	.: lt ( @1 @1 <- Boolean )
+	.: lte ( @1 @1 <- Boolean )
 ;

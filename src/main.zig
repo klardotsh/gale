@@ -235,13 +235,13 @@ const STRING_WORD_DELIMITER = '"';
 /// for defining names of low-level things (say, Shapes and their members).
 const SYMBOL_WORD_DELIMITER = '\'';
 
-/// Finally, borrowing an idea from the Lisp family (and syntax from C et. al),
-/// identifiers starting with ampersands are also reserved: the & will
-/// be dropped, and the remaining characters will be used as the name of the
-/// thing to look up following the exact same rules as we'd normally use for
-/// execution flow (meaning we'll search only relevant Modes and will
-/// disambiguate based on the current Deque Signature - more on that later),
-/// but rather than calling the Word, we'll return a Reference to it.
+/// Finally, borrowing an idea from countless languages, identifiers starting
+/// with ampersands are also reserved: the & will be dropped, and the
+/// remaining characters will be used as the name of the thing to look up
+/// following the exact same rules as we'd normally use for execution flow
+/// (meaning we'll search only relevant Modes and will disambiguate based on
+/// the current Deque Signature - more on that later), but rather than calling
+/// the Word, we'll return a Reference to it.
 ///
 /// Referencing a primitive type, for example with '1, is redundant, and will
 /// still place the primitive type onto the Deque.

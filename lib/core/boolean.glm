@@ -13,13 +13,13 @@ $ Boolean
 : true Boolean.True ;
 : false Boolean.False ;
 
-: eq ( Boolean.False Boolean.False -> _ ) true ;
-: eq ( Boolean.False Boolean.True -> _ ) false ;
-: eq ( Boolean.True Boolean.True -> _ ) true ;
-: eq ( Boolean.True Boolean.False -> _ ) false ;
+: eq ( Boolean.False Boolean.False <- _ ) true ;
+: eq ( Boolean.False Boolean.True <- _ ) false ;
+: eq ( Boolean.True Boolean.True <- _ ) true ;
+: eq ( Boolean.True Boolean.False <- _ ) false ;
 
-: repr ( Boolean.True -> _ _ ) "true" ;
-: repr ( Boolean.False -> _ _ ) "false" ;
+: repr ( Boolean.True <- String ) "true" ;
+: repr ( Boolean.False <- String ) "false" ;
 
-: repr_debug ( Boolean.True -> _ _ ) "Boolean.True" ;
-: repr_debug ( Boolean.False -> _ _ ) "Boolean.False" ;
+: repr_debug ( Boolean.True <- String ) "Boolean.True" ;
+: repr_debug ( Boolean.False <- String ) "Boolean.False" ;

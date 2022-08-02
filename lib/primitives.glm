@@ -1,23 +1,25 @@
-'Maybe create-shape
-'None swap shape-enum-member
-1 Generic 'Some rot shape-enum-member-containing
-drop
+Shape!
+	'None swap enum-member
+	1 Generic 'Some rot enum-member-containing
+	'Maybe register-globally
 
-'Result create-shape
-1 Generic 'Ok rot shape-enum-member-containing
-1 Generic 'Err rot shape-enum-member-containing
-drop
+Shape!
+	1 Generic 'Ok rot enum-member-containing
+	1 Generic 'Err rot enum-member-containing
+	'Result register-globally
 
 'Comment create-mode
-'@word-missing swap
-	1 Generic word-signature-takes
-	Result< Maybe.None > word-signature-gives
-	word-signature
-	create-word-body
+
+WordSignature!
+	1 Generic takes
+	Result< Maybe.None > gives
+WordBody!
 	&drop +
 	&Maybe.None +
 	&Result.Ok +
-	create-modal-word!
+Word!
+'@word-missing rot register-modally
+
 '*/ Comment
 	ModeLifespan< Comment > word-signature-takes word-signature
 	create-word-body
