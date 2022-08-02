@@ -22,27 +22,31 @@ implementation to make "object in memory" assertions.
 All of these live in the Global mode, as they apply regardless of execution
 state.
 
-- id @1 -> @1
-- dup @1 -> @1 @1
-- dupn2 @2 @1 -> @2 @1 @2
-- dupn3 @3 @2 @1 -> @3 @2 @1 @3
-- dupn4 @4 @3 @2 @1 -> @4 @3 @2 @1 @4
-- 2dup @2 @1 -> @2 @2 @1 @1
-- 2dupshuf @2 @1 -> @2 @1 @2 @1
-- swap @2 @1 -> @1 @2
-- pairswap @4 @3 @2 @1 -> @2 @1 @4 @3
-- yoinkn3 @3 @2 @1 -> @2 @1 @3
-- yoinkn4 @4 @3 @2 @1 -> @3 @2 @1 @4
-  * There is no yoink or yoinkn2. yoink would just be id, and yoinkn2 is swap
-- cartwheel @4 @3 @2 @1 -> @1 @2 @3 @4
-- drop @1 -> nothing
-- 2drop @2 @1 -> nothing
-- 3drop @3 @2 @1 -> nothing
-- 4drop @4 @3 @2 @1 -> nothing
-- zap @1 -> nothing /* == drop */
-- zapn2 @2 @1 -> @1 /* == swap drop */
-- zapn3 @3 @2 @1 -> @2 @1 /* == rot drop */
-- zapn4 @4 @3 @2 @1 -> @3 @2 @1
+| Word      | Signature                             | Notes |
+|-----------|---------------------------------------|-------|
+| id        | `@1 -> @1`                            | |
+| dup       | `@1 -> @1 @1`                         | |
+| dupn2     | `@2 @1 -> @2 @1 @2`                   | |
+| dupn3     | `@3 @2 @1 -> @3 @2 @1 @3`             | |
+| dupn4     | `@4 @3 @2 @1 -> @4 @3 @2 @1 @4`       | |
+| 2dup      | `@2 @1 -> @2 @2 @1 @1`                | |
+| 2dupshuf  | `@2 @1 -> @2 @1 @2 @1`                | |
+| swap      | `@2 @1 -> @1 @2`                      | |
+| pairswap  | `@4 @3 @2 @1 -> @2 @1 @4 @3`          | |
+| yoinkn3   | `@3 @2 @1 -> @2 @1 @3`                | [1] |
+| yoinkn4   | `@4 @3 @2 @1 -> @3 @2 @1 @4`          | [1] |
+| cartwheel | `@4 @3 @2 @1 -> @1 @2 @3 @4`          | |
+| drop      | `@1 -> nothing`                       | |
+| 2drop     | `@2 @1 -> nothing`                    | |
+| 3drop     | `@3 @2 @1 -> nothing`                 | |
+| 4drop     | `@4 @3 @2 @1 -> nothing`              | |
+| zap       | `@1 -> nothing /* == drop */`         | |
+| zapn2     | `@2 @1 -> @1 /* == swap drop */`      | |
+| zapn3     | `@3 @2 @1 -> @2 @1 /* == rot drop */` | |
+| zapn4     | `@4 @3 @2 @1 -> @3 @2 @1`             | |
+
+[1]: There is no `yoink` or `yoinkn2`. `yoink` would just be `id`, and
+`yoinkn2` is `swap`.
 
 ## Word, Mode, and Shape Manipulation
 
