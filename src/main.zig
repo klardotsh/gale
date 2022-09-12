@@ -85,50 +85,45 @@ const Object = union(enum) {
     /// Strings are just the slice type we defined above, with all the same
     /// footgun notes, but wrapped into a RefCounter to allow `dup` et. al. to
     /// create new objects that refer to the same underlying memory.
-    String: Rc(String),
+    String: *Rc(String),
     /// Symbols are just special flavors of Strings from above.
-    Symbol: Rc(String),
-    /// Recall that we have exactly one collection type, the Deque. While there
-    /// is of course a root Deque, userspace can make as many sub-deques as
-    /// they'd like, at unlimited depths. Unlike Strings, these are *not*
-    /// RefCounted, because Deques are mutable and trying to reuse mutable
-    /// memory is a recipe for pain and suffering.
-    Deque: Deque,
+    Symbol: *Rc(String),
+    // TODO: Maps and Arrays of some flavor. Should these be primitives, or
+    // should some sort of Opaque be allowed to exist that allocates a block
+    // of memory, somewhat like an ALLOCATE word in FORTH?
     /// We'll learn more about the Shape later, but they are first-class
     /// objects all the same as anything else and can be referenced and
     /// manipulated as such.
-    Shape: Rc(Shape),
+    Shape: *Rc(Shape),
     /// We'll also learn more about Words later, but these are fairly analogous
     /// to functions or commands in other languages. These are "first-class" in
     /// the sense that they can be passed around after being pulled by
     /// Reference, but are immutable and can only be shadowed by other
     /// immutable Word implementations.
-    Word: Rc(Word),
+    Word: *Rc(Word),
     /// Lastly, Modes are a concept that will be familiar to users of editors
     /// like Vim, Kakoune, or Helix: they toggle the vocabulary of Words
     /// available in a given execution context. We'll learn plenty about these
     /// later.
-    Mode: Rc(Mode),
+    Mode: *Rc(Mode),
 };
 
 /// Several of the above referred to an Rc type, which is a concept lifted
 /// straight from Rust. For now, only strong references are supported.
 fn Rc(comptime T: type) type {
     return struct {
-        strong_count: *usize,
-        value: *T,
+        strong_count: usize,
+        value: T,
 
-        fn clone(self: *Rc) Rc {
-            self.strong_count.* += 1;
-
-            return Rc{
-                .strong_count = self.strong_count,
-                .value = self.value,
+        fn init(contents: T) @This() {
+            return @This(){
+                .strong_count = 1,
+                .value = contents,
             };
         }
 
         fn deinit(self: *Rc) !InternalError {
-            if (self.strong_count.* == 0) {
+            if (self.strong_count == 0) {
                 unreachable;
             }
         }
@@ -148,12 +143,17 @@ const Shape = union(enum) {
     // and Concrete is (relatively) huge, we may as well allow as many
     // generics as fit here.
     Generic: usize,
+    Concrete: ConcreteShape,
 
-    Concrete: struct {
-        derives: std.TailQueue(*Shape.Concrete),
-        responds_to: std.StringArrayHashMap(std.SinglyLinkedList(Signature)),
-    },
-    
+    comptime {
+        std.testing.refAllDecls(@This());
+    }
+};
+
+const ConcreteShape = struct {
+    derives: std.TailQueue(*@This()),
+    responds_to: std.StringArrayHashMap(std.SinglyLinkedList(Signature)),
+
     comptime {
         std.testing.refAllDecls(@This());
     }
@@ -166,11 +166,11 @@ const Signature = struct {
 
 const Word = struct {
     implementation: union(enum) {
-        Native: fn(Deque) Deque,
+        Native: fn (Deque) Deque,
         Sequence: []*Word,
     },
     signature: *Signature,
-    
+
     comptime {
         std.testing.refAllDecls(@This());
     }
@@ -197,7 +197,7 @@ const Mode = union(enum) {
         table: *WordTable,
     },
     Multi: []Rc(Mode),
-    
+
     comptime {
         std.testing.refAllDecls(@This());
     }
@@ -207,7 +207,7 @@ const Runtime = struct {
     current_mode: Rc(Mode),
     all_modes: std.StringArrayHashMap(Rc(Mode)),
     root_deque: Deque,
-    
+
     comptime {
         std.testing.refAllDecls(@This());
     }
