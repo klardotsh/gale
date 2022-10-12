@@ -1,18 +1,18 @@
 Shape!
 	'None swap enum-member
-	1 Generic 'Some rot enum-member-containing
+	1 Generic! 'Some rot enum-member-containing
 	'Maybe register-globally
 
 Shape!
-	1 Generic 'Ok rot enum-member-containing
-	1 Generic 'Err rot enum-member-containing
+	1 Generic! 'Ok rot enum-member-containing
+	1 Generic! 'Err rot enum-member-containing
 	'Result register-globally
 
 'Comment create-mode
 
 WordSignature!
-	1 Generic takes
-	Result< Maybe.None > gives
+	1 Generic! takes
+	&Maybe.None Result! gives
 WordBody!
 	&drop +
 	&Maybe.None +
@@ -21,12 +21,12 @@ Word!
 '@word-missing rot register-modally
 
 '*/ Comment
-	ModeLifespan< Comment > word-signature-takes word-signature
+	&Comment ModeLifespan! word-signature-takes word-signature
 	create-word-body
 	&drop +
 	create-modal-word!
 '/*
-	ModeLifespan< Comment > word-signature-gives word-signature
+	&Comment ModeLifespan! word-signature-gives word-signature
 	create-word-body
 	&Comment! +
 	create-global-word!
@@ -38,15 +38,18 @@ Word!
  * implement comments in many FORTH dialects).
  */
 
-$ String
+$ 'String
+	"Contains a UTF-8 encoded string."
+	---
+
 	Comparable ..
 	Equatable ..
 	Printable ..
 	DebugPrintable ..
 ;
-?$ String
-	Contains a UTF-8 encoded string.
-;
+
+/* That docstring could have instead been attached as follows: */
+?$ &String "Contains a UTF-8 encoded string." ;
 
 /* Alright. Order has been restored to the cosmos; docstrings will proceed
  * implementations now.

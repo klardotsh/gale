@@ -1,4 +1,4 @@
-# gluumy: a hackable, type-safe, minimalist, stack-based programming language
+# gluumy: a minimalist, type-safe, stack-based programming language
 
 > it's pronounced "gloomy" (or maybe "glue me"), and is spelled in lowercase,
 > always
@@ -9,29 +9,19 @@
        _|                 /           _|                   _|
 ```
 
-gluumy is a strongly-typed Forth-inspired language........ (to be continued).
-What it lacks in academic background it tries to make up for in simplicity,
-extreme flexibility, and a general Get Shit Done vibe.
-
 ## Philosophy
 
-gluumy is designed to be usable by developers at any level from recent bootcamp
-grad or bedroom hacker, on up to principal engineers who surely will find
-countless problems in my implementation. It's designed to be usable by folks on
-gigabit fibre in the city, or folks on terrible sattelite connections in the
-mountains or at sea somewhere. It's designed to be usable on what are, in
-mainstream terms, relatively "weak" computers, such as Raspberry Pis or
-recycled machines from eras past, as well as the hyper-modern beasts you can
-spend thousands of USD on. But most of all, it's designed to be _usable_, and
-not just by "application developers" - the spirit of gluumy is that programs
-are built up of flexible and end-user-replaceable bits and bobs, and are not
-opaque monoliths handed down by powers that be.
+gluumy is a strongly-typed Forth-inspired language designed around being easy
+to learn and teach, logically consistent, reasonably performant, and a general
+Get Shit Done vibe.
+
+\< snip for now \>
 
 gluumy does not exist in a zero-sum vaccuum of languages, and is not the
 correct tool for every job. It sits somewhere approximately in the altitude of
 languages like Python, Ruby, JavaScript, and can even be considered in some
 places where Go or Haskell might be used, but is not always an appropriate
-replacement for low-level languages in the domains where such low-level control
+replacement for low-level languages in the domains where such precise control
 is necessary. It's expected, for example, that a functional gluumy stack is
 likely made up of C, Zig, and/or Rust componentry and FFI bindings thereto.
 
@@ -99,15 +89,8 @@ alphabetical order, here's some of those people:
 ## Legal Yadda-Yadda
 
 `gluumy` (inclusive of all _original_ code found in this repository) is
-released under your choice of either of the following terms. Whichever you
-choose, have fun with it, build cool stuff with it, don't exploit your fellow
-humans or the world at large with it, and generally don't be an ass within or
-outside of the project or anything written with it.
-
-- The [Guthrie Public
-  License](https://web.archive.org/web/20180407192134/https://witches.town/@ThatVeryQuinn/3540091)
-  as written by `@ThatVeryQuinn@witches.town`
-
-- The [Creative Commons Zero 1.0
-  dedication](https://creativecommons.org/publicdomain/zero/1.0/), which is
-  public domain or maximally-permissive, as your jurisdiction allows.
+released under the Creative Commons Zero 1.0 dedication, found in `COPYING`.
+While not a legally binding mandate, I ask that you have fun with it, build
+cool stuff with it, don't exploit your fellow humans or the world at large with
+it, and generally don't be an ass within or outside of the project or anything
+written with it.

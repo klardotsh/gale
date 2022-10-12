@@ -8,10 +8,9 @@
 //        _|                 /           _|                   _|
 //
 // gluumy's canonical implementation and standard library is released to the
-// public domain (or your jurisdiction's closest legal equivalent) under your
-// choice of the Creative Commons Zero 1.0 dedication, or the lighter-hearted
-// Guthrie Public License, both of which are distributed alongside copies of
-// this source code in the LICENSES directory.
+// public domain (or your jurisdiction's closest legal equivalent) under the
+// Creative Commons Zero 1.0 dedication, distributed alongside this source in a
+// file called COPYING.
 
 // Welcome to what is at this point approximately the One Billionth draft of
 // the gluumy implementation, written in Zig. Unfortunately, at time of
@@ -268,6 +267,22 @@ pub fn getenv_boolean(name: []const u8) bool {
 
     return false;
 }
+
+const ParsedWord = union(enum) {
+    String: String,
+    Symbol: String,
+    Ref: String,
+    NumFloat: f64,
+    NumInt: isize,
+    Simple: String,
+
+    pub fn from_input(input: []const u8) ParsedWord!InternalError {
+    }
+
+    comptime {
+        std.testing.refAllDecls(@This());
+    }
+};
 
 pub fn main() anyerror!void {
     std.log.info("All your codebase are belong to us.", .{});
