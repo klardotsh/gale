@@ -44,6 +44,8 @@ const InternalError = union(enum) {
 };
 const _InternalError = error{
     Unknown,
+    UnparsableWord,
+    EmptyWord,
 };
 
 /// Let's also define what a String is internally: a series of 8-bit
@@ -259,13 +261,34 @@ const WORD_BUF_LEN = 1024;
 /// anything else is false.
 pub fn getenv_boolean(name: []const u8) bool {
     const from_env = std.os.getenv(name) orelse "";
+    return bool_from_human_str(from_env);
+}
+
+fn bool_from_human_str(val: []const u8) bool {
+    if (std.mem.eql(u8, val, "")) {
+        return false;
+    }
+
     inline for (.{ "1", "true", "TRUE", "yes", "YES" }) |pattern| {
-        if (std.mem.eql(u8, from_env, pattern)) {
+        if (std.mem.eql(u8, val, pattern)) {
             return true;
         }
     }
 
     return false;
+}
+
+test "bool_from_human_str" {
+    try std.testing.expect(bool_from_human_str("1"));
+    try std.testing.expect(bool_from_human_str("true"));
+    try std.testing.expect(bool_from_human_str("TRUE"));
+    try std.testing.expect(bool_from_human_str("yes"));
+    try std.testing.expect(bool_from_human_str("YES"));
+    try std.testing.expect(bool_from_human_str("") == false);
+    try std.testing.expect(bool_from_human_str("0") == false);
+    try std.testing.expect(bool_from_human_str("no") == false);
+    try std.testing.expect(bool_from_human_str("2") == false);
+    try std.testing.expect(bool_from_human_str("narp") == false);
 }
 
 const ParsedWord = union(enum) {
@@ -276,11 +299,35 @@ const ParsedWord = union(enum) {
     NumInt: isize,
     Simple: String,
 
-    pub fn from_input(input: []const u8) ParsedWord!InternalError {
+    pub fn from_input(input: []const u8) !ParsedWord {
+        if (std.mem.eql(u8, "", input)) {
+            return _InternalError.EmptyWord;
+        }
+
+        // TODO parse strings first, or this will fail since . is valid in a
+        // string
+        if (std.mem.indexOfScalar(u8, input, '.') != input.len) {
+            var parsed = try std.fmt.parseFloat(f64, input);
+            return ParsedWord{ .NumFloat = parsed };
+        }
+
+        return _InternalError.UnparsableWord;
     }
 
     comptime {
         std.testing.refAllDecls(@This());
+    }
+
+    test "errors on empty words" {
+        try std.testing.expectError(_InternalError.EmptyWord, from_input(""));
+    }
+
+    test "parses floats" {
+        try std.testing.expectApproxEqAbs(
+            @as(f64, 3.14),
+            (try from_input("3.14")).NumFloat,
+            @as(f64, 0.1),
+        );
     }
 };
 
