@@ -32,6 +32,13 @@
 // It's well-written, well-commented, and most importantly: always available
 // wherever a Zig compiler is.
 const std = @import("std");
+const testAllocator = std.testing.allocator;
+
+// Just silly stuff that's nice to access by name
+const CHAR_DOT = '.';
+const CHAR_QUOTE_SGL = '\'';
+const CHAR_QUOTE_DBL = '"';
+const EMPTY_STRING = "";
 
 /// Internal errors in the Kernel are codified here, and can be packed
 /// alongside a message string in a tuple to provide extra context when
@@ -44,7 +51,6 @@ const InternalError = union(enum) {
 };
 const _InternalError = error{
     Unknown,
-    UnparsableWord,
     EmptyWord,
 };
 
@@ -55,7 +61,7 @@ const _InternalError = error{
 /// down later, since userspace will validate that strings are valid (and for
 /// all other purposes, such as windows-1251 encoding or some such, there's
 /// always userspace shapes stored in Deques with converter functions!)
-const String = []u8;
+const String = []const u8;
 
 /// The core storage primitive in gluumy is in layman's terms able to be thought
 /// of as a loaf of bread, moreso than a stack of plates as we tend to
@@ -299,19 +305,46 @@ const ParsedWord = union(enum) {
     NumInt: isize,
     Simple: String,
 
+    /// In any event of ambiguity, input strings are parsed in the following
+    /// order of priority:
+    ///
+    /// - Empty input (returns EmptyWord error)
+    /// - Strings
+    /// - Symbols
+    /// - Ref strings
+    /// - Floats
+    /// - Ints
+    /// - Assumed actual words ("Simples")
+    //
+    // TODO: symbols should be interned somewhere for memory savings. How,
+    // exactly, to do this, is left as an exercise to my future self.
     pub fn from_input(input: []const u8) !ParsedWord {
-        if (std.mem.eql(u8, "", input)) {
+        if (input.len == 0 or std.mem.eql(u8, EMPTY_STRING, input)) {
             return _InternalError.EmptyWord;
         }
 
-        // TODO parse strings first, or this will fail since . is valid in a
-        // string
-        if (std.mem.indexOfScalar(u8, input, '.') != input.len) {
-            var parsed = try std.fmt.parseFloat(f64, input);
-            return ParsedWord{ .NumFloat = parsed };
+        // TODO: This presumes that string quote handling actually happens a
+        // level above (read: that the word splitter understands that "these
+        // are all one word"), which probably isn't the cleanest design
+        if (input[0] == CHAR_QUOTE_DBL and input[input.len - 1] == CHAR_QUOTE_DBL) {
+            return ParsedWord{ .String = input[1 .. input.len - 1] };
         }
 
-        return _InternalError.UnparsableWord;
+        if (input[0] == CHAR_QUOTE_SGL) {
+            return ParsedWord{ .Symbol = input[1..input.len] };
+        }
+
+        if (std.mem.indexOfScalar(u8, input, CHAR_DOT) != null) {
+            if (std.fmt.parseFloat(f64, input) catch null) |parsed| {
+                return ParsedWord{ .NumFloat = parsed };
+            }
+        }
+
+        if (std.fmt.parseInt(isize, input, 10) catch null) |parsed| {
+            return ParsedWord{ .NumInt = parsed };
+        }
+
+        return ParsedWord{ .Simple = input };
     }
 
     comptime {
@@ -319,14 +352,75 @@ const ParsedWord = union(enum) {
     }
 
     test "errors on empty words" {
-        try std.testing.expectError(_InternalError.EmptyWord, from_input(""));
+        try std.testing.expectError(_InternalError.EmptyWord, from_input(EMPTY_STRING));
+    }
+
+    test "parses strings: basic" {
+        const result = (try from_input(
+            "\"I don't know me and you don't know you\"",
+        )).String;
+
+        try std.testing.expectEqualStrings(
+            "I don't know me and you don't know you",
+            result,
+        );
+    }
+
+    test "parses strings: unicodey" {
+        const result = (try from_input(
+            "\"yeee 🐸☕ hawwww\"",
+        )).String;
+
+        try std.testing.expectEqualStrings(
+            "yeee 🐸☕ hawwww",
+            result,
+        );
+    }
+
+    test "parses symbols: basic" {
+        const result = (try from_input(
+            "'Testable",
+        )).Symbol;
+
+        try std.testing.expectEqualStrings(
+            "Testable",
+            result,
+        );
+    }
+
+    test "parses symbols: unicodey" {
+        const result = (try from_input(
+            "'🐸☕",
+        )).Symbol;
+
+        try std.testing.expectEqualStrings(
+            "🐸☕",
+            result,
+        );
     }
 
     test "parses floats" {
         try std.testing.expectApproxEqAbs(
             @as(f64, 3.14),
             (try from_input("3.14")).NumFloat,
-            @as(f64, 0.1),
+            @as(f64, 0.001),
+        );
+        try std.testing.expectApproxEqAbs(
+            @as(f64, 0.0),
+            (try from_input("0.0")).NumFloat,
+            @as(f64, 0.0000001),
+        );
+        try std.testing.expectApproxEqAbs(
+            @as(f64, 0.0),
+            (try from_input("0.000000000000000")).NumFloat,
+            @as(f64, 0.0000001),
+        );
+    }
+
+    test "parses ints" {
+        try std.testing.expectEqual(
+            (try from_input("420")).NumInt,
+            420,
         );
     }
 };
