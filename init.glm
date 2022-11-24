@@ -1,0 +1,121 @@
+// gluumy: a hackable, type-safe, minimalist, stack-based programming language
+//
+// (it's pronounced "gloomy" (or maybe "glue me"), and is spelled in lowercase,
+// always)
+//
+//  _.    _  |         ._ _       ._  o  _  |_ _|_   |_   _   _  o ._   _
+// (_|   (_| | |_| |_| | | | \/   | | | (_| | | |_   |_) (/_ (_| | | | _>
+//        _|                 /           _|                   _|
+//
+// gluumy's canonical implementation and standard library is released to the
+// public domain (or your jurisdiction's closest legal equivalent) under the
+// Creative Commons Zero 1.0 dedication, distributed alongside this source in a
+// file called COPYING.
+
+// Welcome to init.glm, the bring-up file for the canonical gluumy
+// implementation, which is designed around using the host language (in our
+// case, Zig) as little as possible, and self-hosting as much as possible in
+// gluumy itself. As such, this is almost certainly not the most performant
+// possible implementation of gluumy: whether I circle back to address this is
+// left as a debate for my future self. That said, the desire to
+// nearly-entirely self-host gluumy led to many of its design decisions,
+// especially the ability to be both a relatively high-level language and a
+// (perhaps less performant than C/Zig/Rust) lower-ish level language at the
+// same time. It is also where the concept of "Trusting Words", which we'll
+// learn more about in a bit, came from. From here on, we'll take "gluumy",
+// "the gluumy Kernel", etc. to refer to this canonical implementation.
+
+// Out of the box, the gluumy Kernel provides us with almost nothing: this file
+// is read off the disk as a buffered stream and run through the exceptionally
+// primitive word parser which understands:
+//
+// - // through end of line as a comment
+// - signed and unsigned integers (42, -42, 42/u, 42/i, etc.)
+//     * TODO: suffixes impl
+// - symbols, references, and bare-word references ('Foo, &Bar, swap)
+//
+// The default collection of words is also extremely sparse: we have some basic
+// Trusting Word implementations of each of the Generic Stack Manipulation
+// words described in `WORDS.md`, of each of the Memory Manipulation words from
+// the same document, and then some words specific to this implementation of
+// gluumy to provide hooks to the runtime, and ways to override default
+// behaviors. However, *not* included are pretty much any of the
+// actually-interesting details of the language: ergonomic ways to define
+// words, any concept of shapes or signatures or dynamic word dispatch,
+// docstrings, etc. We'll build all of that right here. We'll be building this
+// in "top-down" fashion: given a "userspace" concept as advertized in the
+// documentation or example files, we'll build it, and any of its dependent
+// concepts and structures that have yet to be built. Thus, the ordering of
+// this file will be a *bit* more jumbly than, say, JonesFORTH if you've read
+// that (which in general takes a more bottom-up approach, which is admittedly
+// more readable even to me...).
+
+// Before we get into defining our first bits of functionality, this is a great
+// time to go over a bit of Style and Convention: both in this file, and for
+// gluumy as a language ecosystem:
+//
+// - Words generally are lower-kebab-cased (eg. `say-hello-world`)
+//     - Exception 1: Trusting Words are always screaming-snake-cased with a
+//       leading exclamation point (eg. `!ALLOCATE_SOMETHING`)
+//     - Exception 2: Kernel Words are always screaming-snake-cased with a
+//       leading at-sign (eg. `@NUM_OBJECTS_ALLOCATED`)
+// - Shapes are almost always Pascal-cased (eg. `FooBarAble`)
+// - As a general guideline, the acting working stack for a word should quite
+//   rarely be deeper than four objects
+
+// First, let's get some prettier syntax in here by creating our first word -
+// :!, to create a Trusting Word. Since we have no type system yet (nor Shapes
+// to populate it with), this is not yet the spec-compliant version of this
+// word, just a low-level helper for bootstrapping.
+//
+// Usage: :! !ALLOCATE_BLOCK @SIZED_OPAQUE ;
+//           ^ This is not actually the implementation of !ALLOCATE_BLOCK we'll
+//             land on, read along for that.
+
+// I really, really, do not want to implement Immediate Words in gluumy, not
+// even in this weird bootstrappy form of the language that will never see
+// userspace light of day. If you write a gluumy, you're welcome to use
+// Immediate Words to solve problems like this. I will instead abuse a "private
+// space" (implementation and documentation found over in Zig-land), and start
+// prescribing meaning to the empty data therein. Our first contestant: a u8
+// byte dedicated to an enumeration of interpreter states, enabling us to move
+// from "execution mode" into "symbol mode" (where bare words immediately
+// become symbols, even if they exist in the Word or Shape dictionaries) or
+// into "ref mode" (bare words become refs to whatever the identifier points
+// to, if they are defined. At this low level, unresolveable refs simply panic
+// the interpreter).
+//
+// Since enums in the gluumy sense require a type system too, we'll just define
+// words to put names to these enum members. See? We're not so unlike a FORTH
+// after all :) Since ! and @ are taken, my non-kernel "private" words will be
+// %-prefixed.
+0/u @HEAPWRAP '%INTERP_MODE_EXEC @DEFINE-WORD-VA1
+1/u @HEAPWRAP '%INTERP_MODE_SYMBOL @DEFINE-WORD-VA1
+2/u @HEAPWRAP '%INTERP_MODE_REF @DEFINE-WORD-VA1
+//  ^ Not sure if I love this word name, but it beats @LIT I think: it
+//  functionally works similarly to LIT in FORTH or Uxn to some degree, but is
+//  also unique in that it will create an anonymous nullary word wrapping the
+//  literal.
+
+// For convenience, let's make some toggle words for these states:
+0/u @HEAPWRAP '%PS_INTERP_MODE @DEFINE-WORD-VA1
+&@PRIV_SPACE_SET_BYTE %PS_INTERP_MODE %INTERP_MODE_EXEC
+	'%>EXEC @DEFINE-WORD-VA3
+&@PRIV_SPACE_SET_BYTE %PS_INTERP_MODE %INTERP_MODE_SYMBOL
+	'%>SYMBOL @DEFINE-WORD-VA3
+&@PRIV_SPACE_SET_BYTE %PS_INTERP_MODE %INTERP_MODE_REF
+	'%>REF @DEFINE-WORD-VA3
+
+// @PRIV_SPACE_SET_BYTE ( UInt8 UInt8 -> )
+//                        |     |
+//                        |     +-> value to set
+//                        +-------> address to set
+
+// As discussed over in the Kernel source, interpreter modes take effect for
+// exactly one word by default. However, we can override this behavior using
+// @BEFORE_WORD ( &Word -> nothing ), where the word referenced is of the
+// signature ( Symbol <- nothing ). The symbol represents the word about to be
+// processed exactly as it was passed to the interpreter. It must be left on
+// the stack for the word to be handled (if removed, the word is silently
+// ignored. This can almost certainly be used for all sorts of insane stuff I
+// haven't thought of yet, have fun.)
