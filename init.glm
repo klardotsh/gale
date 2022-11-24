@@ -121,9 +121,24 @@
 
 // As discussed over in the Kernel source, interpreter modes take effect for
 // exactly one word by default. However, we can override this behavior using
-// @BEFORE_WORD ( &Word -> nothing ), where the word referenced is of the
+// @BEFORE_WORD ( Word -> nothing ), where the word referenced is of the
 // signature ( Symbol <- nothing ). The symbol represents the word about to be
 // processed exactly as it was passed to the interpreter. It must be left on
 // the stack for the word to be handled (if removed, the word is silently
 // ignored. This can almost certainly be used for all sorts of insane stuff I
 // haven't thought of yet, have fun.)
+
+// @CONDJMP2 ( Word Word Boolean -> nothing )
+//
+// Immediately executes the near word if the boolean is truthy, and the far
+// word otherwise. Effectively all userspace conditionals can be built with
+// this primitive and its else-less counterpart,
+// @CONDJMP ( Word Boolean -> nothing )
+
+// :! %REF_WORDS_UNTIL_SEMICOLON '; @EQ! %>REF %>EXEC @CONDJMP2 ;
+&@CONDJMP2
+	&%>EXEC
+	&%>REF
+	&@ZAPN2
+	&@EQ '; '%REF_WORDS_UNTIL_SEMICOLON @DEFINE-WORD-VA
+//  ^ ( @2 @1 <- Boolean )
