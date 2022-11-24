@@ -4,17 +4,45 @@ This document describes all words in gluumy's Core - in the reference
 implementation, this refers to any words provided by the Kernel or Prelude.
 
 All word signatures in this document use the fully qualified right-pointing
-form, which is to say, the deque will be taken from the arrow leftwards, and
+form, which is to say, the stack will be taken from the arrow leftwards, and
 given from the arrow rightwards. Thus, `@2 @1 -> @1 @2` will take a generic
-(kind 1) from the top of the deque, then another generic (kind 2) from the
-now-top of the deque, do... whatever with them, and eventually place objects of
-kind 1 and kind 2, respectively and orderly, onto the top of the deque,
-performing an effective swap. Technically word signatures alone aren't enough
-to know that @1 and @1 are the same objects in memory: they'll simply be the
-same Shape. You'll need to read the docs and/or implementation to make "object
-in memory" assertions.
+(kind 1) from the top of the stack, then another generic (kind 2) from the
+now-top of the stack, do... whatever with them, and eventually place objects
+of kind 1 and kind 2, respectively and orderly, onto the top of the stack,
+performing an effective swap. Technically word signatures alone aren't
+enough to know that @1 and @1 are the same objects in memory: they'll simply
+be the same Shape. You'll need to read the docs and/or implementation to
+make "object in memory" assertions.
 
-## Generic Deque Manipulation
+## Primitives
+
+The Kernel understands a few data types out of the box, as follows.
+Particularly in the case of numbers, trailing slashes and suffixes can be used
+to disambiguate datatypes (eg. between signed and unsigned integers within
+range).
+
+- `42`, `42/u`: unsigned integers, aligned to the native bit-size of the
+  system.
+
+- `-1`, `42/i`: signed integers, aligned to the native bit-size of the system.
+
+- `
+
+- `"strings"`: a sequence of valid UTF-8 codepoints. Double quotes within the
+  string can be escaped with `\`, and thus a raw `\` character must also be
+  escaped as `\\`.
+
+## Trusting Words
+
+These words sit at the absolute lowest level of the gluumy Kernel, implementing
+memory management in "unsafe" ways. Unsafe is a rather strong word with rather
+strong connotations: well-tested code that accesses raw memory is not
+inherently "unsafe", it simply must be heavily tested, and trusted. Thus, they
+are called "Trusting Words". Their risky nature is emphasized stylistically by
+way of their being `!UPPERCASED`, and prefixed with an exclamation point. They
+look a bit more FORTH-y than most of gluumy's vocabulary.
+
+## Generic Stack Manipulation
 
 All of these live in the Global mode, as they apply regardless of execution
 state.
