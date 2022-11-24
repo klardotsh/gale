@@ -13,46 +13,25 @@
 // file called COPYING.
 
 // Welcome to what is at this point approximately the One Billionth draft of
-// the gluumy implementation, written in Zig. Unfortunately, at time of
-// writing, this means this implementation requires the LLVM toolchain at some
-// point, meaning Very Beefy Machines are required (either by you, or by a
-// packager somewhere) to get gluumy off the ground. However, Zig is working on
-// a C codegen backend for their self-hosted compiler, so eventually this
-// should be bootstrappable by way of some primitive compiler (perhaps see
-// Guix's efforts in this space) -> tcc -> zig -> gluumy. Sorry for that, for
-// now, but the future is brighter!
-//
-// This implementation is heavily commented, in part to allow it to be studied,
-// and in part because I am not, by trade or generally, a systems engineer, and
-// I'll need references for my future self to be able to maintain this thing,
-// and in part because dangit, Jones Forth did a cool thing reading like prose
-// that just so happened to also execute: let's do that here, too.
+// the gluumy implementation, written in Zig. This implementation is heavily
+// commented, in part to allow it to be studied, and in part because I am not,
+// by trade or generally, a systems engineer, and I'll need references for my
+// future self to be able to maintain this thing, and in part because dangit,
+// Jones Forth did a cool thing reading like prose that just so happened to
+// also execute: let's do that here, too.
 
 // First of all, we'll be making heavy use of the Zig standard library here.
 // It's well-written, well-commented, and most importantly: always available
 // wherever a Zig compiler is.
 const std = @import("std");
-const testAllocator = std.testing.allocator;
+const IAllocator = std.mem.Allocator;
+const testAllocator: IAllocator = std.testing.allocator;
+const expect = std.testing.expect;
 
-// Just silly stuff that's nice to access by name
-const CHAR_DOT = '.';
-const CHAR_QUOTE_SGL = '\'';
-const CHAR_QUOTE_DBL = '"';
-const EMPTY_STRING = "";
-
-/// Internal errors in the Kernel are codified here, and can be packed
-/// alongside a message string in a tuple to provide extra context when
-/// appropriate. This is somewhat of a Zig workaround for the
-/// core::result::Result.Err(String) construct in Rust, since Zig errors
-/// can't carry context with them.
-const InternalError = union(enum) {
-    Simple: _InternalError,
-    Verbose: struct { @"0": _InternalError, @"1": String },
-};
-const _InternalError = error{
-    Unknown,
-    EmptyWord,
-};
+const InternalError = @import("./internal_error.zig").InternalError;
+const ParsedWord = @import("./parsed_word.zig").ParsedWord;
+const Rc = @import("./rc.zig").Rc;
+const helpers = @import("./helpers.zig");
 
 /// Let's also define what a String is internally: a series of 8-bit
 /// characters. The language _actually_ expects all strings to be valid UTF-8
@@ -60,26 +39,21 @@ const _InternalError = error{
 /// now) looser, and will allow anything. It's likely this type will tighten
 /// down later, since userspace will validate that strings are valid (and for
 /// all other purposes, such as windows-1251 encoding or some such, there's
-/// always userspace shapes stored in Deques with converter functions!)
+/// always userspace shapes stored in Opaques with converter functions!)
 const String = []const u8;
 
-/// The core storage primitive in gluumy is in layman's terms able to be thought
-/// of as a loaf of bread, moreso than a stack of plates as we tend to
-/// visualize languages like FORTH. A loaf of sliced bread (imagine the sugary,
-/// bleached crap that comes in plastic bags here in the States moreso than
-/// anything actually edible) is easy and clean to access from either end: I
-/// can choose to eat from the left side, the right side, or alternate between
-/// the two sides equally easily. Where I'll run into some messy, fragmented
-/// problems is if I want the slices somewhere in the middle. Thankfully,
-/// I most often want to eat bread from the ends, because I'm not a monster.
-/// However, because being a monster is sometimes required in life, we'll later
-/// learn about the various ways of accessing the innards of this loaf. For now,
-/// just know that we have a doubly-linked list with pointers to the front and
-/// back, and that this structure is the sole collection type in gluumy, from
-/// which all other collections must be built.
-const Deque = std.TailQueue(Object);
+/// TODO: Docs.
+const Stack = std.atomic.Stack(Object);
 
-/// Within our Deque we can store a few primitive types:
+/// TODO: Docs.
+const Word = union(enum) {
+    // I can see a world where this should return something other than void to
+    // allow for optimizations later...
+    Primitive: *fn (*Stack) void,
+    Compound: []Word,
+};
+
+/// Within our Stack we can store a few primitive types:
 const Object = union(enum) {
     /// The Boolean is unboxed, and simply defers to Zig's bool type.
     Boolean: bool,
@@ -89,134 +63,30 @@ const Object = union(enum) {
     /// The SignedInt is an unboxed value, a signed integer that is the pointer
     /// size of the target platform.
     SignedInt: isize,
-    /// Strings are just the slice type we defined above, with all the same
-    /// footgun notes, but wrapped into a RefCounter to allow `dup` et. al. to
-    /// create new objects that refer to the same underlying memory.
-    String: *Rc(String),
-    /// Symbols are just special flavors of Strings from above.
-    Symbol: *Rc(String),
-    // TODO: Maps and Arrays of some flavor. Should these be primitives, or
-    // should some sort of Opaque be allowed to exist that allocates a block
-    // of memory, somewhat like an ALLOCATE word in FORTH?
-    /// We'll learn more about the Shape later, but they are first-class
-    /// objects all the same as anything else and can be referenced and
-    /// manipulated as such.
-    Shape: *Rc(Shape),
+    String: *Rc(u8),
+    Symbol: *Rc(u8),
+    /// Opaque represents a blob of memory that is left to userspace to manage
+    /// manually. TODO more docs here.
+    Opaque: *Rc(usize),
     /// We'll also learn more about Words later, but these are fairly analogous
     /// to functions or commands in other languages. These are "first-class" in
     /// the sense that they can be passed around after being pulled by
     /// Reference, but are immutable and can only be shadowed by other
     /// immutable Word implementations.
     Word: *Rc(Word),
-    /// Lastly, Modes are a concept that will be familiar to users of editors
-    /// like Vim, Kakoune, or Helix: they toggle the vocabulary of Words
-    /// available in a given execution context. We'll learn plenty about these
-    /// later.
-    Mode: *Rc(Mode),
-};
-
-/// Several of the above referred to an Rc type, which is a concept lifted
-/// straight from Rust. For now, only strong references are supported.
-fn Rc(comptime T: type) type {
-    return struct {
-        strong_count: usize,
-        value: T,
-
-        fn init(contents: T) @This() {
-            return @This(){
-                .strong_count = 1,
-                .value = contents,
-            };
-        }
-
-        fn deinit(self: *Rc) !InternalError {
-            if (self.strong_count == 0) {
-                unreachable;
-            }
-        }
-    };
-}
-
-/// gluumy's type system is actually pretty dumb and/or simple, depending on
-/// how you'd like to look at it, in that it is purely structural. It's also
-/// a touch complex, in that the same object may fit a Shape in one Mode, but
-/// not in another. Thus, our representation of a Shape is somewhat of a
-/// "strong duck typing", and is appropriately abstract.
-//
-// This duck doesn't skip leg day.
-const Shape = union(enum) {
-    // There's no real reason to leave this up to platform choice, but since
-    // the overall union will be padded to its maximum member size anyway,
-    // and Concrete is (relatively) huge, we may as well allow as many
-    // generics as fit here.
-    Generic: usize,
-    Concrete: ConcreteShape,
-
-    comptime {
-        std.testing.refAllDecls(@This());
-    }
-};
-
-const ConcreteShape = struct {
-    derives: std.TailQueue(*@This()),
-    responds_to: std.StringArrayHashMap(std.SinglyLinkedList(Signature)),
-
-    comptime {
-        std.testing.refAllDecls(@This());
-    }
-};
-
-const Signature = struct {
-    takes: ?[]*Shape,
-    gives: ?[]*Shape,
-};
-
-const Word = struct {
-    implementation: union(enum) {
-        Native: fn (Deque) Deque,
-        Sequence: []*Word,
-    },
-    signature: *Signature,
-
-    comptime {
-        std.testing.refAllDecls(@This());
-    }
-};
-
-/// Words within Modes are stored by their string identifiers first and
-/// foremost, as that's the most frequent lookup.
-const WordTable = std.StringArrayHashMap(WordTableInner);
-
-/// Next level in the stacking doll is to disambiguate words within a Mode by
-/// whatever the first thing they pop off the stack is, if anything. This is
-/// again a bit of an optimization: at runtime, we will always know what the
-/// top thing on the Deque is if it exists, so disambiguation can be made
-/// quick.
-const WordTableInner = std.AutoHashMap(?Shape, WordList);
-
-/// Finally, we'll have to brute-force our way through a (now heavily narrowed)
-/// list of Word definitions to find the best fitting candidate.
-const WordList = std.SinglyLinkedList(Word);
-
-const Mode = union(enum) {
-    Single: struct {
-        name: String,
-        table: *WordTable,
-    },
-    Multi: []Rc(Mode),
-
-    comptime {
-        std.testing.refAllDecls(@This());
-    }
 };
 
 const Runtime = struct {
-    current_mode: Rc(Mode),
-    all_modes: std.StringArrayHashMap(Rc(Mode)),
-    root_deque: Deque,
+    //private_space:
+    stack: Stack,
 
-    comptime {
-        std.testing.refAllDecls(@This());
+    _alloc: *IAllocator,
+
+    pub fn init(alloc: *IAllocator) @This() {
+        return .{
+            .stack = Stack{},
+            ._alloc = alloc,
+        };
     }
 };
 
@@ -230,30 +100,6 @@ const Runtime = struct {
 /// power comes great responsibility. Don't be silly.
 const WORD_SPLITTING_CHARS: [3]u8 = .{ ' ', '\t', '\n' };
 
-/// While some FORTHs choose to use s" "s as immediate mode words and then
-/// slurp up the character stream in between to use as the body of the string,
-/// and while that would certainly be an *easier* and more *consistent* thing
-/// to do in the language spec, it's ugly and a horrible user experience, so
-/// instead, " (UTF-8 0x22) is one of the few reserved characters for use
-const STRING_WORD_DELIMITER = '"';
-
-/// Borrowing an idea from Ruby, Elixir, and others, identifiers starting with
-/// a single quote are reserved for denoting raw identifiers, generally used
-/// for defining names of low-level things (say, Shapes and their members).
-const SYMBOL_WORD_DELIMITER = '\'';
-
-/// Finally, borrowing an idea from countless languages, identifiers starting
-/// with ampersands are also reserved: the & will be dropped, and the
-/// remaining characters will be used as the name of the thing to look up
-/// following the exact same rules as we'd normally use for execution flow
-/// (meaning we'll search only relevant Modes and will disambiguate based on
-/// the current Deque Signature - more on that later), but rather than calling
-/// the Word, we'll return a Reference to it.
-///
-/// Referencing a primitive type, for example with '1, is redundant, and will
-/// still place the primitive type onto the Deque.
-const REF_WORD_DELIMITER = '&';
-
 /// Speaking of Words: WORD_BUF_LEN is how big of a buffer we're willing to
 /// allocate to store words as they're input. We have to draw a line
 /// _somewhere_, and since 1KB of RAM is beyond feasible to allocate on most
@@ -262,173 +108,23 @@ const REF_WORD_DELIMITER = '&';
 /// implementation will scale proportionally.
 const WORD_BUF_LEN = 1024;
 
-/// Pluck common boolean representations from an environment variable `name` as
-/// an actual boolean. 1, true, TRUE, yes, and YES are accepted truthy values,
-/// anything else is false.
-pub fn getenv_boolean(name: []const u8) bool {
-    const from_env = std.os.getenv(name) orelse "";
-    return bool_from_human_str(from_env);
-}
-
-fn bool_from_human_str(val: []const u8) bool {
-    if (std.mem.eql(u8, val, "")) {
-        return false;
-    }
-
-    inline for (.{ "1", "true", "TRUE", "yes", "YES" }) |pattern| {
-        if (std.mem.eql(u8, val, pattern)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-test "bool_from_human_str" {
-    try std.testing.expect(bool_from_human_str("1"));
-    try std.testing.expect(bool_from_human_str("true"));
-    try std.testing.expect(bool_from_human_str("TRUE"));
-    try std.testing.expect(bool_from_human_str("yes"));
-    try std.testing.expect(bool_from_human_str("YES"));
-    try std.testing.expect(bool_from_human_str("") == false);
-    try std.testing.expect(bool_from_human_str("0") == false);
-    try std.testing.expect(bool_from_human_str("no") == false);
-    try std.testing.expect(bool_from_human_str("2") == false);
-    try std.testing.expect(bool_from_human_str("narp") == false);
-}
-
-const ParsedWord = union(enum) {
-    String: String,
-    Symbol: String,
-    Ref: String,
-    NumFloat: f64,
-    NumInt: isize,
-    Simple: String,
-
-    /// In any event of ambiguity, input strings are parsed in the following
-    /// order of priority:
-    ///
-    /// - Empty input (returns EmptyWord error)
-    /// - Strings
-    /// - Symbols
-    /// - Ref strings
-    /// - Floats
-    /// - Ints
-    /// - Assumed actual words ("Simples")
-    //
-    // TODO: symbols should be interned somewhere for memory savings. How,
-    // exactly, to do this, is left as an exercise to my future self.
-    pub fn from_input(input: []const u8) !ParsedWord {
-        if (input.len == 0 or std.mem.eql(u8, EMPTY_STRING, input)) {
-            return _InternalError.EmptyWord;
-        }
-
-        // TODO: This presumes that string quote handling actually happens a
-        // level above (read: that the word splitter understands that "these
-        // are all one word"), which probably isn't the cleanest design
-        if (input[0] == CHAR_QUOTE_DBL and input[input.len - 1] == CHAR_QUOTE_DBL) {
-            return ParsedWord{ .String = input[1 .. input.len - 1] };
-        }
-
-        if (input[0] == CHAR_QUOTE_SGL) {
-            return ParsedWord{ .Symbol = input[1..input.len] };
-        }
-
-        if (std.mem.indexOfScalar(u8, input, CHAR_DOT) != null) {
-            if (std.fmt.parseFloat(f64, input) catch null) |parsed| {
-                return ParsedWord{ .NumFloat = parsed };
-            }
-        }
-
-        if (std.fmt.parseInt(isize, input, 10) catch null) |parsed| {
-            return ParsedWord{ .NumInt = parsed };
-        }
-
-        return ParsedWord{ .Simple = input };
-    }
-
-    comptime {
-        std.testing.refAllDecls(@This());
-    }
-
-    test "errors on empty words" {
-        try std.testing.expectError(_InternalError.EmptyWord, from_input(EMPTY_STRING));
-    }
-
-    test "parses strings: basic" {
-        const result = (try from_input(
-            "\"I don't know me and you don't know you\"",
-        )).String;
-
-        try std.testing.expectEqualStrings(
-            "I don't know me and you don't know you",
-            result,
-        );
-    }
-
-    test "parses strings: unicodey" {
-        const result = (try from_input(
-            "\"yeee 🐸☕ hawwww\"",
-        )).String;
-
-        try std.testing.expectEqualStrings(
-            "yeee 🐸☕ hawwww",
-            result,
-        );
-    }
-
-    test "parses symbols: basic" {
-        const result = (try from_input(
-            "'Testable",
-        )).Symbol;
-
-        try std.testing.expectEqualStrings(
-            "Testable",
-            result,
-        );
-    }
-
-    test "parses symbols: unicodey" {
-        const result = (try from_input(
-            "'🐸☕",
-        )).Symbol;
-
-        try std.testing.expectEqualStrings(
-            "🐸☕",
-            result,
-        );
-    }
-
-    test "parses floats" {
-        try std.testing.expectApproxEqAbs(
-            @as(f64, 3.14),
-            (try from_input("3.14")).NumFloat,
-            @as(f64, 0.001),
-        );
-        try std.testing.expectApproxEqAbs(
-            @as(f64, 0.0),
-            (try from_input("0.0")).NumFloat,
-            @as(f64, 0.0000001),
-        );
-        try std.testing.expectApproxEqAbs(
-            @as(f64, 0.0),
-            (try from_input("0.000000000000000")).NumFloat,
-            @as(f64, 0.0000001),
-        );
-    }
-
-    test "parses ints" {
-        try std.testing.expectEqual(
-            (try from_input("420")).NumInt,
-            420,
-        );
-    }
+const PrivateSpace = struct {
+    interpreter_mode: u8,
 };
 
 pub fn main() anyerror!void {
-    std.log.info("All your codebase are belong to us.", .{});
+    const private_space = std.mem.zeroInit(PrivateSpace, .{});
+    std.debug.print("(Sized: {d} - {any}", .{ @sizeOf(PrivateSpace), private_space });
 }
 
-test "reference everything" {
+test {
     std.testing.refAllDecls(@This());
+
+    // So far it appears that union(enum)s aren't "referenced containers" as
+    // far as the zig-0.10.0 test runner is concerned with refAllDecls(), so
+    // for now, manually reference all containers which have tests to ensure
+    // those tests are run.
+    _ = ParsedWord;
+
+    _ = Rc;
 }
