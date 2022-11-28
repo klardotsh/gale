@@ -8,19 +8,8 @@ const Word = @import("./word.zig").Word;
 
 /// Within our Stack we can store a few primitive types:
 pub const Object = union(enum) {
-    /// Contains pointer to the StackTail of the sequentially previous Stack,
-    /// if applicable.
-    StackHead: ?Object.StackTail,
-    /// Contains pointer to the StackHead of the sequentially next Stack, if
-    /// applicable.
-    StackTail: ?Object.StackHead,
-    /// The Boolean is unboxed, and simply defers to Zig's bool type.
     Boolean: bool,
-    /// The UnsignedInt is likewise an unboxed value, an unsigned integer that
-    /// is the pointer size of the target platform.
     UnsignedInt: usize,
-    /// The SignedInt is an unboxed value, a signed integer that is the pointer
-    /// size of the target platform.
     SignedInt: isize,
     String: *Rc(u8),
     Symbol: *Rc(u8),

@@ -33,13 +33,12 @@ pub const Stack = struct {
     const STACK_SIZE = 2048;
 
     const Self = @This();
-    const StackSpace = []Object;
 
     alloc: *IAllocator,
     prev: ?*Stack,
     next: ?*Stack,
     head: usize,
-    contents: [STACK_SIZE]StackSpace,
+    contents: [STACK_SIZE]Object,
 
     pub fn init(alloc: *IAllocator, prev: ?*Stack) !*Self {
         var stack = try alloc.create(Self);
@@ -60,6 +59,14 @@ pub const Stack = struct {
         if (self.head < 2 and self.prev.?.head == 0) {
             unreachable;
         }
+
+        const near_obj = &self.contents[self.head];
+        const far_obj = if (self.head > 1)
+            &self.contents[self.head - 1]
+        else
+            &self.prev.contents[self.prev.head];
+
+        std.mem.swap(Object, near_obj, far_obj);
     }
 
     /// Extend the Stack into a new stack, presumably because we've run out of
