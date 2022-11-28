@@ -15,25 +15,6 @@ gluumy is a strongly-typed Forth-inspired language designed around being easy
 to learn and teach, logically consistent, reasonably performant, and a general
 Get Shit Done vibe.
 
-\< snip for now \>
-
-gluumy does not exist in a zero-sum vaccuum of languages, and is not the
-correct tool for every job. It sits somewhere approximately in the altitude of
-languages like Python, Ruby, JavaScript, and can even be considered in some
-places where Go or Haskell might be used, but is not always an appropriate
-replacement for low-level languages in the domains where such precise control
-is necessary. It's expected, for example, that a functional gluumy stack is
-likely made up of C, Zig, and/or Rust componentry and FFI bindings thereto.
-
-> Please note that gluumy is a personal side project, mostly aimed towards
-> developing things I want to build (which generally means command line and/or
-> networked applications, and glue scripts). The standard library is thus only
-> as complete as is necessary to solve those problems (and, of course, to
-> self-host the toolchain). If you find this language interesting and choose to
-> use it, be prepared to have to fill in holes in the standard library and/or
-> to have to write FFI bindings and most of all, don't expect API stability
-> across versions yet.
-
 ### On Modules and Package Management
 
 gluumy doesn't provide source-level modules, namespaces, or package management.
