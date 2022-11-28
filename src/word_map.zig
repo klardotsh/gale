@@ -3,10 +3,9 @@
 // Creative Commons Zero 1.0 dedication, distributed alongside this source in a
 // file called COPYING.
 
-pub const InternalError = error{
-    Unknown,
-    Unimplemented,
-    EmptyWord,
-    UnknownSlashedSuffix,
-    AttemptedDestructionOfPopulousRc,
-};
+const std = @import("std");
+
+const WordList = @import("./word_list.zig").WordList;
+
+// TODO: Docs.
+pub const WordMap = std.StringArrayHashMap(WordList);

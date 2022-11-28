@@ -3,10 +3,9 @@
 // Creative Commons Zero 1.0 dedication, distributed alongside this source in a
 // file called COPYING.
 
-pub const InternalError = error{
-    Unknown,
-    Unimplemented,
-    EmptyWord,
-    UnknownSlashedSuffix,
-    AttemptedDestructionOfPopulousRc,
-};
+const std = @import("std");
+
+const Word = @import("./word.zig").Word;
+
+// TODO: Docs.
+pub const WordList = std.ArrayListAligned(Word, null);

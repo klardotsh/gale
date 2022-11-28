@@ -116,8 +116,8 @@
 
 // @PRIV_SPACE_SET_BYTE ( UInt8 UInt8 -> )
 //                        |     |
-//                        |     +-> value to set
-//                        +-------> address to set
+//                        |     +-> address to set
+//                        +-------> value to set
 
 // As discussed over in the Kernel source, interpreter modes take effect for
 // exactly one word by default. However, we can override this behavior using
@@ -137,8 +137,8 @@
 
 // :! %REF_WORDS_UNTIL_SEMICOLON '; @EQ! %>REF %>EXEC @CONDJMP2 ;
 &@CONDJMP2
-	&%>EXEC
-	&%>REF
-	&@ZAPN2
-	&@EQ '; '%REF_WORDS_UNTIL_SEMICOLON @DEFINE-WORD-VA
-//  ^ ( @2 @1 <- Boolean )
+	&%>EXEC &%>REF
+	&@ZAPN2 &@EQ ';
+	'%REF_WORDS_UNTIL_SEMICOLON @DEFINE-WORD-VA
+
+// @EQ ( @2 @1 <- Boolean )
