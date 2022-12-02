@@ -20,8 +20,25 @@ pub const StackManipulationError = error{
     YouAlmostCertainlyDidNotMeanToUseThisNonTerminalStack,
 };
 
-/// A doubly-linked list of doubly-linked lists: gluumy's memory model is
-/// optimized around reducing heap allocations
+/// A doubly-linked list of doubly-linked lists: we'll pretend to have infinite
+/// stack space by simply making as many heap-based stacks as we have space
+/// for, and seamlessly (as far as the end-user is concerned) glue them
+/// together. This should serve to make common gluumy stack operations
+/// reasonably performant with reasonable tradeoffs, as we're moving our way
+/// around a block of mass-allocated memory, rather than constantly churning
+/// garbage via alloc() and free() calls for each Object (imagining a
+/// fully-pointer-based doubly linked list implementation of a "stack", for
+/// example std.TailQueue). I suspect it should be uncommon to get anywhere
+/// near the end of even a single stack, but if it does happen, we don't have
+/// to take the perf hit of copying the old stack to a new stack of size N*2,
+/// as one would generally do when resizing lists in most dynamic languages.
+/// Whether this complexity pays itself off at any point is somewhat TBD...
+///
+/// Operations right at the edge of a stack's space bleeding into the next
+/// stack are unlikely to be performant, particularly those that juggle that
+/// boundary repeatedly (imagine swapping the top element of a "lower" stack
+/// and the bottom element of a "higher" stack in a tight loop or some such). I
+/// don't yet have benchmarking data to prove this hypothesis, however.
 ///
 /// Not thread-safe. Use channels or something.
 // TODO:
@@ -229,14 +246,6 @@ pub const Stack = struct {
     /// Extend the Stack into a new stack, presumably because we've run out of
     /// room in the current one (if there is one). Return a pointer to the new
     /// stack, as that stack is what callers should now be working with.
-    ///
-    /// As with all multi-stack juggling operations here, operations right at
-    /// the edge of the stack space bleeding into the next stack are unlikely
-    /// to be performant, particularly those that juggle that boundary
-    /// repeatedly.
-    //
-    // ^ That last tidbit of documentation belongs elsewhere, probably at the
-    // top level of this struct.
     fn onwards(self: *Self) !*Self {
         var next = try Self.init(self.alloc, self);
         self.next = next;
