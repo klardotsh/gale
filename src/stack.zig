@@ -108,6 +108,55 @@ pub const Stack = struct {
         self.alloc.destroy(self);
     }
 
+    /// Ensures there will be enough space in no more than two stacks to store
+    /// `count` new objects. Returns pointer to newly created stack if it was
+    /// necessary to store all items. If no growth was necessary, returns null.
+    /// The ergonomics of this API make a bit more sense in context:
+    ///
+    /// ```
+    /// const target = self.expand_to_fit(1) orelse self;
+    ///
+    /// // or...
+    ///
+    /// if (self.expand_to_fit(5)) |final_destination| {
+    ///     // more complicated logic here to handle stack crossover
+    /// } else {
+    ///     // happy path here, all on one stack
+    /// }
+    /// ```
+    fn expand_to_fit(self: *Self, count: usize) !?*Self {
+        if (self.next_idx + count > STACK_SIZE * 2) {
+            return StackManipulationError.RefuseToGrowMultipleStacks;
+        }
+
+        if (self.next_idx + count > STACK_SIZE) {
+            return try self.onwards();
+        }
+
+        return null;
+    }
+
+    test "expand_to_fit" {
+        const baseStack = try Self.init(testAllocator, null);
+        defer baseStack.deinit();
+        try expectError(StackManipulationError.RefuseToGrowMultipleStacks, baseStack.expand_to_fit(Stack.STACK_SIZE * 2 + 1));
+        try expectEqual(@as(?*Self, null), try baseStack.expand_to_fit(STACK_SIZE / 2 + 1));
+        try expect(try baseStack.expand_to_fit(STACK_SIZE * 2) != null);
+        // Hella unsafe to just yolo a stack pointer forward into null data but
+        // this is a test, whatever.
+        baseStack.next_idx = 1;
+        try expectError(StackManipulationError.RefuseToGrowMultipleStacks, baseStack.expand_to_fit(Stack.STACK_SIZE * 2));
+    }
+
+    /// Extend the Stack into a new stack, presumably because we've run out of
+    /// room in the current one (if there is one). Return a pointer to the new
+    /// stack, as that stack is what callers should now be working with.
+    fn onwards(self: *Self) !*Self {
+        var next = try Self.init(self.alloc, self);
+        self.next = next;
+        return next;
+    }
+
     // Pushes an object to the top of this stack or a newly-created stack, as
     // necessary based on available space. Returns pointer to whichever stack
     // the object ended up on.
@@ -254,55 +303,6 @@ pub const Stack = struct {
         _ = try baseStack.do_drop();
         try expectEqual(@as(usize, 0), baseStack.next_idx);
         try expectEqual(@as(?Object, null), baseStack.contents[0]);
-    }
-
-    /// Ensures there will be enough space in no more than two stacks to store
-    /// `count` new objects. Returns pointer to newly created stack if it was
-    /// necessary to store all items. If no growth was necessary, returns null.
-    /// The ergonomics of this API make a bit more sense in context:
-    ///
-    /// ```
-    /// const target = self.expand_to_fit(1) orelse self;
-    ///
-    /// // or...
-    ///
-    /// if (self.expand_to_fit(5)) |final_destination| {
-    ///     // more complicated logic here to handle stack crossover
-    /// } else {
-    ///     // happy path here, all on one stack
-    /// }
-    /// ```
-    fn expand_to_fit(self: *Self, count: usize) !?*Self {
-        if (self.next_idx + count > STACK_SIZE * 2) {
-            return StackManipulationError.RefuseToGrowMultipleStacks;
-        }
-
-        if (self.next_idx + count > STACK_SIZE) {
-            return try self.onwards();
-        }
-
-        return null;
-    }
-
-    test "expand_to_fit" {
-        const baseStack = try Self.init(testAllocator, null);
-        defer baseStack.deinit();
-        try expectError(StackManipulationError.RefuseToGrowMultipleStacks, baseStack.expand_to_fit(Stack.STACK_SIZE * 2 + 1));
-        try expectEqual(@as(?*Self, null), try baseStack.expand_to_fit(STACK_SIZE / 2 + 1));
-        try expect(try baseStack.expand_to_fit(STACK_SIZE * 2) != null);
-        // Hella unsafe to just yolo a stack pointer forward into null data but
-        // this is a test, whatever.
-        baseStack.next_idx = 1;
-        try expectError(StackManipulationError.RefuseToGrowMultipleStacks, baseStack.expand_to_fit(Stack.STACK_SIZE * 2));
-    }
-
-    /// Extend the Stack into a new stack, presumably because we've run out of
-    /// room in the current one (if there is one). Return a pointer to the new
-    /// stack, as that stack is what callers should now be working with.
-    fn onwards(self: *Self) !*Self {
-        var next = try Self.init(self.alloc, self);
-        self.next = next;
-        return next;
     }
 };
 
