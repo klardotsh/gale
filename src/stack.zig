@@ -26,7 +26,7 @@ pub const StackManipulationError = error{
 // - Docs
 // - Sanitize entries when rolling back stack pointer?
 // - Stop leaking literally everything: keep no more than N+1 stacks allocated
-//   at a time, once self->next->next->head == 0, it's time to start calling
+//   at a time, once self->next->next->next_idx == 0, it's time to start calling
 //   free.
 pub const Stack = struct {
     // Those finding they need more per-stack space should compile their own
@@ -43,7 +43,7 @@ pub const Stack = struct {
     alloc: Allocator,
     prev: ?*Stack,
     next: ?*Stack,
-    head: usize,
+    next_idx: usize,
     contents: [STACK_SIZE]?Object,
 
     pub fn init(alloc: Allocator, prev: ?*Stack) !*Self {
@@ -52,7 +52,7 @@ pub const Stack = struct {
             .alloc = alloc,
             .prev = prev,
             .next = null,
-            .head = 0,
+            .next_idx = 0,
             .contents = .{null} ** STACK_SIZE,
         };
         return stack;
@@ -79,8 +79,8 @@ pub const Stack = struct {
     // the object ended up on.
     pub fn do_push(self: *Self, obj: Object) !*Self {
         const target = try self.expand_to_fit(1) orelse self;
-        target.contents[target.head] = obj;
-        target.head += 1;
+        target.contents[target.next_idx] = obj;
+        target.next_idx += 1;
         return target;
     }
 
@@ -97,37 +97,67 @@ pub const Stack = struct {
             try expectEqual(baseStack, try baseStack.do_push(obj));
             i += 1;
         }
-        try expectEqual(@as(usize, STACK_SIZE), baseStack.head);
+        try expectEqual(@as(usize, STACK_SIZE), baseStack.next_idx);
 
         // Now force a new one to be allocated
         try expect(try baseStack.do_push(obj) != baseStack);
-        try expectEqual(@as(usize, 1), baseStack.next.?.head);
+        try expectEqual(@as(usize, 1), baseStack.next.?.next_idx);
     }
 
     pub fn do_swap(self: *Self) StackManipulationError!void {
-        if (self.head < 2 and self.prev == null) {
+        if (self.next_idx < 2 and self.prev == null) {
             return StackManipulationError.Underflow;
         }
 
-        if (self.head < 2 and self.prev.?.head == 0) {
+        if (self.next_idx < 2 and self.prev.?.next_idx == 0) {
             unreachable;
         }
 
-        const near_obj = &self.contents[self.head];
-        const far_obj = if (self.head > 1)
-            &self.contents[self.head - 1]
+        const near_obj = &self.contents[self.next_idx - 1];
+        const far_obj = if (self.next_idx > 1)
+            &self.contents[self.next_idx - 2]
         else
-            &self.prev.contents[self.prev.head];
+            &self.prev.?.contents[self.prev.?.next_idx - 1];
 
-        std.mem.swap(Object, near_obj, far_obj);
+        std.mem.swap(?Object, near_obj, far_obj);
     }
 
-    test "do_swap" {
+    test "do_swap: single stack" {
         const baseStack = try Self.init(testAllocator, null);
         defer baseStack.deinit();
-        // try expectEqual(@as(?*Self, null), try baseStack.expand_to_fit(Stack.STACK_SIZE / 2 + 1));
-        // try expect(try baseStack.expand_to_fit(Stack.STACK_SIZE / 2 + 1) != null);
-        // try expectError(StackManipulationError.RefuseToGrowMultipleStacks, baseStack.expand_to_fit(Stack.STACK_SIZE + 1));
+        baseStack.contents[0] = Object{ .UnsignedInt = 1 };
+        baseStack.contents[1] = Object{ .UnsignedInt = 2 };
+        // Even with leftover garbage on the stack, the stack pointer is the
+        // source of truth: refuse to swap this manually-mangled stack with the
+        // pointer in the wrong place!
+        try expectError(StackManipulationError.Underflow, baseStack.do_swap());
+        baseStack.next_idx += 2;
+
+        try baseStack.do_swap();
+        try expectEqual(@as(usize, 2), baseStack.contents[0].?.UnsignedInt);
+        try expectEqual(@as(usize, 1), baseStack.contents[1].?.UnsignedInt);
+    }
+
+    test "do_swap: transcend stack boundaries" {
+        const baseStack = try Self.init(testAllocator, null);
+        defer baseStack.deinit();
+
+        const obj = Object{ .UnsignedInt = 1 };
+
+        // First, fill the current stack
+        var i: usize = 0;
+        while (i < STACK_SIZE) {
+            _ = try baseStack.do_push(obj);
+            i += 1;
+        }
+        // Now force a new one to be allocated with a single, different object
+        // on it.
+        const newStack = try baseStack.do_push(Object{ .UnsignedInt = 2 });
+        try expect(baseStack != newStack);
+
+        try newStack.do_swap();
+        try expectEqual(@as(usize, 2), baseStack.contents[STACK_SIZE - 1].?.UnsignedInt);
+        try expectEqual(@as(usize, 1), newStack.contents[0].?.UnsignedInt);
     }
 
     /// Ensures there will be enough space in no more than two stacks to store
@@ -147,11 +177,11 @@ pub const Stack = struct {
     /// }
     /// ```
     fn expand_to_fit(self: *Self, count: usize) !?*Self {
-        if (self.head + count > STACK_SIZE * 2) {
+        if (self.next_idx + count > STACK_SIZE * 2) {
             return StackManipulationError.RefuseToGrowMultipleStacks;
         }
 
-        if (self.head + count > STACK_SIZE) {
+        if (self.next_idx + count > STACK_SIZE) {
             return try self.onwards();
         }
 
@@ -166,7 +196,7 @@ pub const Stack = struct {
         try expect(try baseStack.expand_to_fit(STACK_SIZE * 2) != null);
         // Hella unsafe to just yolo a stack pointer forward into null data but
         // this is a test, whatever.
-        baseStack.head = 1;
+        baseStack.next_idx = 1;
         try expectError(StackManipulationError.RefuseToGrowMultipleStacks, baseStack.expand_to_fit(Stack.STACK_SIZE * 2));
     }
 
