@@ -4,8 +4,8 @@
 // file called COPYING.
 
 const std = @import("std");
-const IAllocator = std.mem.Allocator;
-const testAllocator: IAllocator = std.testing.allocator;
+const Allocator = std.mem.Allocator;
+const testAllocator: Allocator = std.testing.allocator;
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 const expectError = std.testing.expectError;
@@ -40,13 +40,13 @@ pub const Stack = struct {
 
     const Self = @This();
 
-    alloc: IAllocator,
+    alloc: Allocator,
     prev: ?*Stack,
     next: ?*Stack,
     head: usize,
     contents: [STACK_SIZE]?Object,
 
-    pub fn init(alloc: IAllocator, prev: ?*Stack) !*Self {
+    pub fn init(alloc: Allocator, prev: ?*Stack) !*Self {
         var stack = try alloc.create(Self);
         stack.* = .{
             .alloc = alloc,

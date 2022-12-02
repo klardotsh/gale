@@ -4,7 +4,7 @@
 // file called COPYING.
 
 const std = @import("std");
-const IAllocator = std.mem.Allocator;
+const Allocator = std.mem.Allocator;
 const Stack = @import("./stack.zig").Stack;
 
 pub const Runtime = struct {
@@ -28,13 +28,13 @@ pub const Runtime = struct {
 
     const Self = @This();
 
-    alloc: *IAllocator,
+    alloc: *Allocator,
     private_space: struct {
         interpreter_mode: u8,
     },
     stack: Stack,
 
-    pub fn init(alloc: *IAllocator) Self {
+    pub fn init(alloc: *Allocator) Self {
         return .{
             .stack = Stack{},
             ._alloc = alloc,

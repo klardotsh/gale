@@ -4,8 +4,8 @@
 // file called COPYING.
 
 const std = @import("std");
-const IAllocator = std.mem.Allocator;
-const testAllocator: IAllocator = std.testing.allocator;
+const Allocator = std.mem.Allocator;
+const testAllocator: Allocator = std.testing.allocator;
 const expect = std.testing.expect;
 
 // This implementation is nearly exactly as described in the comments of
@@ -18,11 +18,11 @@ pub fn Rc(comptime T: type) type {
         const Self = @This();
         const RefCount = std.atomic.Atomic(u16);
 
-        allocator: IAllocator,
+        allocator: Allocator,
         strong_count: RefCount,
         value: ?[]T,
 
-        fn init(allocator: IAllocator, size: usize) !Self {
+        fn init(allocator: Allocator, size: usize) !Self {
             return @This(){
                 .allocator = allocator,
                 .strong_count = RefCount.init(1),
