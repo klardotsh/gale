@@ -16,6 +16,7 @@ pub const StackManipulationError = error{
     Underflow,
     Overflow,
     RefuseToGrowMultipleStacks,
+    YouAlmostCertainlyDidNotMeanToUseThisNonTerminalStack,
 };
 
 /// A doubly-linked list of doubly-linked lists: gluumy's memory model is
@@ -105,6 +106,14 @@ pub const Stack = struct {
     }
 
     pub fn do_swap(self: *Self) StackManipulationError!void {
+        if (self.next != null) {
+            return StackManipulationError.YouAlmostCertainlyDidNotMeanToUseThisNonTerminalStack;
+        }
+
+        return try self.do_swap_no_really_even_on_inner_stacks();
+    }
+
+    pub inline fn do_swap_no_really_even_on_inner_stacks(self: *Self) StackManipulationError!void {
         if (self.next_idx < 2 and self.prev == null) {
             return StackManipulationError.Underflow;
         }
@@ -154,6 +163,10 @@ pub const Stack = struct {
         // on it.
         const newStack = try baseStack.do_push(Object{ .UnsignedInt = 2 });
         try expect(baseStack != newStack);
+
+        // Save us from ourselves if we call swap on the wrong stack
+        // (presumably, we discarded the output of do_push).
+        try expectError(StackManipulationError.YouAlmostCertainlyDidNotMeanToUseThisNonTerminalStack, baseStack.do_swap());
 
         try newStack.do_swap();
         try expectEqual(@as(usize, 2), baseStack.contents[STACK_SIZE - 1].?.UnsignedInt);
