@@ -4,6 +4,7 @@
 // file called COPYING.
 
 const std = @import("std");
+const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 const testAllocator: Allocator = std.testing.allocator;
 const expect = std.testing.expect;
@@ -37,7 +38,19 @@ pub const Stack = struct {
     // it" basis.
     //
     // TODO: configurable in build.zig
-    const STACK_SIZE = 2048;
+    const STACK_SIZE: usize = 2048;
+
+    comptime {
+        // If STACK_SIZE for some godforsaken reason is MAX_INT of a usize,
+        // we'll overflow .next_idx upon assigning the final item in this
+        // stack. On a 16-bit microcontroller this is vaguely conceivable
+        // (given that STACK_SIZE would only be ~8x bigger than default), on
+        // any larger bitsizes this is a near-laughable concept in practical
+        // usecases, but failure to handle this is an almost-guaranteed CVE
+        // waiting to happen.
+        var overflow_space: usize = undefined;
+        assert(!@addWithOverflow(usize, STACK_SIZE, 1, &overflow_space));
+    }
 
     const Self = @This();
 
