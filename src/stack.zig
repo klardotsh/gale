@@ -102,6 +102,9 @@ pub const Stack = struct {
         if (self.next) |next| {
             next.deinit();
         }
+        if (self.prev) |prev| {
+            prev.next = null;
+        }
         self.alloc.destroy(self);
     }
 
@@ -135,15 +138,22 @@ pub const Stack = struct {
         try expectEqual(@as(usize, 1), baseStack.next.?.next_idx);
     }
 
-    pub fn do_swap(self: *Self) StackManipulationError!void {
+    inline fn non_terminal_stack_guard(self: *Self) StackManipulationError!void {
         if (self.next != null) {
             return StackManipulationError.YouAlmostCertainlyDidNotMeanToUseThisNonTerminalStack;
         }
-
-        return try self.do_swap_no_really_even_on_inner_stacks();
     }
 
-    pub inline fn do_swap_no_really_even_on_inner_stacks(self: *Self) StackManipulationError!void {
+    pub fn do_swap(self: *Self) StackManipulationError!void {
+        try self.non_terminal_stack_guard();
+        return try @call(
+            .{ .modifier = .always_inline },
+            self.do_swap_no_really_even_on_inner_stacks,
+            .{},
+        );
+    }
+
+    pub fn do_swap_no_really_even_on_inner_stacks(self: *Self) StackManipulationError!void {
         if (self.next_idx < 2 and self.prev == null) {
             return StackManipulationError.Underflow;
         }
@@ -201,6 +211,49 @@ pub const Stack = struct {
         try newStack.do_swap();
         try expectEqual(@as(usize, 2), baseStack.contents[STACK_SIZE - 1].?.UnsignedInt);
         try expectEqual(@as(usize, 1), newStack.contents[0].?.UnsignedInt);
+    }
+
+    /// Returns the new "upper" stack.
+    pub fn do_drop(self: *Self) !*Self {
+        try self.non_terminal_stack_guard();
+        return try @call(
+            .{ .modifier = .always_inline },
+            self.do_drop_no_really_even_on_inner_stacks,
+            .{},
+        );
+    }
+
+    /// Returns the new "upper" stack.
+    pub fn do_drop_no_really_even_on_inner_stacks(self: *Self) StackManipulationError!*Self {
+        if (self.next_idx == 0) {
+            if (self.prev) |prev| {
+                // TODO: determine if it would be better to just make this
+                // state unreachable, instead.
+                const ret = try prev.do_drop_no_really_even_on_inner_stacks();
+                self.deinit();
+                return ret;
+            }
+            return StackManipulationError.Underflow;
+        }
+        self.contents[self.next_idx - 1] = null;
+        self.next_idx -= 1;
+        return self;
+    }
+
+    test "do_drop" {
+        const baseStack = try Self.init(testAllocator, null);
+        defer baseStack.deinit();
+        try expectEqual(@as(usize, 0), baseStack.next_idx);
+        try expectEqual(@as(?Object, null), baseStack.contents[0]);
+
+        const obj = Object{ .UnsignedInt = 1 };
+        _ = try baseStack.do_push(obj);
+        try expectEqual(@as(usize, 1), baseStack.next_idx);
+        try expectEqual(@as(usize, 1), baseStack.contents[0].?.UnsignedInt);
+
+        _ = try baseStack.do_drop();
+        try expectEqual(@as(usize, 0), baseStack.next_idx);
+        try expectEqual(@as(?Object, null), baseStack.contents[0]);
     }
 
     /// Ensures there will be enough space in no more than two stacks to store
