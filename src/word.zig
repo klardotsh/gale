@@ -5,6 +5,9 @@
 
 const Stack = @import("./stack.zig").Stack;
 
+// TODO: This should almost certainly not be anyerror.
+pub const PrimitiveWord = fn (*Stack) anyerror!void;
+
 // TODO: Docs.
 pub const Word = struct {
     // Those finding they need more tag space should compile their own
@@ -48,7 +51,7 @@ pub const Word = struct {
         // gluumy pretends to be an immutable-by-default language at the glass,
         // it's still a Good Old Fashioned Mutable Ball Of Bit Spaghetti under
         // the hood for performance reasons.
-        Primitive: *fn (*Stack) void,
+        Primitive: *PrimitiveWord,
         Compound: []Word,
     },
 };
