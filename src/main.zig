@@ -27,6 +27,8 @@ const Word = @import("./word.zig").Word;
 const WordList = @import("./word_list.zig").WordList;
 const WordMap = @import("./word_map.zig").WordMap;
 
+const nucleus_words = @import("./nucleus_words.zig");
+
 fn heapwrap_impl() void {}
 
 pub fn main() anyerror!void {
@@ -52,4 +54,6 @@ test {
     _ = Word;
     _ = WordList;
     _ = WordMap;
+
+    _ = nucleus_words;
 }
