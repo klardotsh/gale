@@ -90,21 +90,22 @@
 // after all :) Since ! and @ are taken, my non-kernel "private" words will be
 // %-prefixed.
 
+// @LIT ( @1 -> Word )
+// Wraps any value type in an anonymous word which will return that value when
+// called. Generally useful when defining words which need to refer to numbers,
+// strings, symbols, etc. at runtime.
+
 // :! %INTERP_MODE_EXEC 0/u ;
-0/u @HEAPWRAP '%INTERP_MODE_EXEC @DEFINE-WORD-VA1
+0/u @LIT '%INTERP_MODE_EXEC @DEFINE-WORD-VA1
 // :! %INTERP_MODE_SYMBOL 1/u ;
-1/u @HEAPWRAP '%INTERP_MODE_SYMBOL @DEFINE-WORD-VA1
+1/u @LIT '%INTERP_MODE_SYMBOL @DEFINE-WORD-VA1
 // :! %INTERP_MODE_REF 2/u ;
-2/u @HEAPWRAP '%INTERP_MODE_REF @DEFINE-WORD-VA1
-//  ^ Not sure if I love this word name, but it beats @LIT I think: it
-//  functionally works similarly to LIT in FORTH or Uxn to some degree, but is
-//  also unique in that it will create an anonymous nullary word wrapping the
-//  literal.
+2/u @LIT '%INTERP_MODE_REF @DEFINE-WORD-VA1
 
 // For convenience, let's make some toggle words for these states:
 
 // :! %PS_INTERP_MODE 0/u ;
-0/u @HEAPWRAP '%PS_INTERP_MODE @DEFINE-WORD-VA1
+0/u @LIT '%PS_INTERP_MODE @DEFINE-WORD-VA1
 // :! %>_ %PS_INTERP_MODE @PRIV_SPACE_SET_BYTE ;
 &@PRIV_SPACE_SET_BYTE %PS_INTERP_MODE '%>_ @DEFINE-WORD-VA1
 // :! %>EXEC %INTERP_MODE_EXEC %>_ ;
@@ -114,7 +115,7 @@
 // :! %>REF %INTERP_MODE_REF %>_ ;
 &%>_ %INTERP_MODE_REF '%>REF @DEFINE-WORD-VA3
 
-// @PRIV_SPACE_SET_BYTE ( UInt8 UInt8 -> )
+// @PRIV_SPACE_SET_BYTE ( UInt8 UInt8 -> nothing )
 //                        |     |
 //                        |     +-> address to set
 //                        +-------> value to set
