@@ -3,11 +3,15 @@
 // Creative Commons Zero 1.0 dedication, distributed alongside this source in a
 // file called COPYING.
 
+const std = @import("std");
+
 const Rc = @import("./rc.zig").Rc;
 const Word = @import("./word.zig").Word;
 
 /// Within our Stack we can store a few primitive types:
 pub const Object = union(enum) {
+    const Self = @This();
+
     Boolean: bool,
     UnsignedInt: usize,
     SignedInt: isize,
@@ -16,10 +20,42 @@ pub const Object = union(enum) {
     /// Opaque represents a blob of memory that is left to userspace to manage
     /// manually. TODO more docs here.
     Opaque: *Rc(usize),
-    /// We'll also learn more about Words later, but these are fairly analogous
-    /// to functions or commands in other languages. These are "first-class" in
-    /// the sense that they can be passed around after being pulled by
-    /// Reference, but are immutable and can only be shadowed by other
-    /// immutable Word implementations.
     Word: *Rc(Word),
+
+    pub fn eq(self: *Self, other: *Self) !bool {
+        if (self == other) {
+            return true;
+        }
+
+        return switch (self.*) {
+            Self.Boolean => |self_val| switch (other.*) {
+                Self.Boolean => |other_val| self_val == other_val,
+                else => error.CannotCompareDisparateTypes,
+            },
+            Self.UnsignedInt => |self_val| switch (other.*) {
+                Self.UnsignedInt => |other_val| self_val == other_val,
+                else => error.CannotCompareDisparateTypes,
+            },
+            Self.SignedInt => |self_val| switch (other.*) {
+                Self.SignedInt => |other_val| self_val == other_val,
+                else => error.CannotCompareDisparateTypes,
+            },
+            Self.String => |self_val| switch (other.*) {
+                Self.String => |other_val| self_val == other_val,
+                else => error.CannotCompareDisparateTypes,
+            },
+            Self.Symbol => |self_val| switch (other.*) {
+                Self.Symbol => |other_val| self_val == other_val,
+                else => error.CannotCompareDisparateTypes,
+            },
+            Self.Opaque => |self_val| switch (other.*) {
+                Self.Opaque => |other_val| self_val == other_val,
+                else => error.CannotCompareDisparateTypes,
+            },
+            Self.Word => |self_val| switch (other.*) {
+                Self.Word => |other_val| self_val == other_val,
+                else => error.CannotCompareDisparateTypes,
+            },
+        };
+    }
 };
