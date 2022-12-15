@@ -157,10 +157,74 @@ pub const Stack = struct {
         return next;
     }
 
+    inline fn non_terminal_stack_guard(self: *Self) StackManipulationError!void {
+        if (self.next != null) {
+            return StackManipulationError.YouAlmostCertainlyDidNotMeanToUseThisNonTerminalStack;
+        }
+    }
+
+    pub const PeekPair = struct {
+        top: *Object,
+        bottom: ?*Object,
+    };
+
+    pub fn do_peek_pair(self: *Self) !PeekPair {
+        try self.non_terminal_stack_guard();
+        return try @call(
+            .{ .modifier = .always_inline },
+            self.do_peek_pair_no_really_even_on_inner_stacks,
+            .{},
+        );
+    }
+
+    pub fn do_peek_pair_no_really_even_on_inner_stacks(self: *Self) !PeekPair {
+        if (self.next_idx == 0) {
+            if (self.prev) |prev| {
+                return prev.do_peek_pair_no_really_even_on_inner_stacks();
+            }
+
+            return StackManipulationError.Underflow;
+        }
+
+        if (self.next_idx == 1) {
+            return PeekPair{
+                .top = &self.contents[0].?,
+                .bottom = if (self.prev) |prev|
+                    &prev.contents[prev.next_idx - 1].?
+                else
+                    null,
+            };
+        }
+
+        return PeekPair{
+            .top = &self.contents[self.next_idx - 1].?,
+            .bottom = &self.contents[self.next_idx - 2].?,
+        };
+    }
+
+    test "do_peek_pair" {
+        const baseStack = try Self.init(testAllocator, null);
+        defer baseStack.deinit();
+
+        try expectError(StackManipulationError.Underflow, baseStack.do_peek_pair());
+
+        _ = try baseStack.do_push(Object{ .UnsignedInt = 1 });
+        const top_one = try baseStack.do_peek_pair();
+        try expectEqual(@as(usize, 1), top_one.top.*.UnsignedInt);
+        try expectEqual(@as(?*Object, null), top_one.bottom);
+
+        _ = try baseStack.do_push(Object{ .UnsignedInt = 2 });
+
+        const top_two = try baseStack.do_peek_pair();
+        try expectEqual(@as(usize, 2), top_two.top.*.UnsignedInt);
+        try expectEqual(@as(usize, 1), top_two.bottom.?.*.UnsignedInt);
+    }
+
     // Pushes an object to the top of this stack or a newly-created stack, as
     // necessary based on available space. Returns pointer to whichever stack
     // the object ended up on.
     pub fn do_push(self: *Self, obj: Object) !*Self {
+        try self.non_terminal_stack_guard();
         const target = try self.expand_to_fit(1) orelse self;
         target.contents[target.next_idx] = obj;
         target.next_idx += 1;
@@ -180,6 +244,8 @@ pub const Stack = struct {
             try expectEqual(baseStack, try baseStack.do_push(obj));
             i += 1;
         }
+        try expectEqual(@as(usize, 42), baseStack.contents[baseStack.next_idx - STACK_SIZE / 2].?.UnsignedInt);
+        try expectEqual(@as(usize, 42), baseStack.contents[baseStack.next_idx - 1].?.UnsignedInt);
         try expectEqual(@as(usize, STACK_SIZE), baseStack.next_idx);
 
         // Now force a new one to be allocated
@@ -187,10 +253,34 @@ pub const Stack = struct {
         try expectEqual(@as(usize, 1), baseStack.next.?.next_idx);
     }
 
-    inline fn non_terminal_stack_guard(self: *Self) StackManipulationError!void {
-        if (self.next != null) {
-            return StackManipulationError.YouAlmostCertainlyDidNotMeanToUseThisNonTerminalStack;
-        }
+    // Implemented in terms of do_push to cover boundary cases, and because why
+    // not, I suppose.
+    //
+    // TODO: handle the Rc(_) types which cannot be blindly copied and expected
+    // to do the right thing.
+    pub fn do_dup(self: *Self) !*Self {
+        try self.non_terminal_stack_guard();
+        return switch ((try self.do_peek_pair()).top.*) {
+            Object.String => error.Unimplemented,
+            Object.Symbol => error.Unimplemented,
+            Object.Opaque => error.Unimplemented,
+            Object.Word => error.Unimplemented,
+            else => |it| try self.do_push(it),
+        };
+    }
+
+    test "do_dup" {
+        const stack = try Self.init(testAllocator, null);
+        defer stack.deinit();
+        const obj = Object{
+            .UnsignedInt = 42,
+        };
+        _ = try stack.do_push(obj);
+        _ = try stack.do_dup();
+        try expectEqual(@as(usize, 2), stack.next_idx);
+        const top_two = try stack.do_peek_pair();
+        try expectEqual(@as(usize, 42), top_two.top.*.UnsignedInt);
+        try expectEqual(@as(usize, 42), top_two.bottom.?.*.UnsignedInt);
     }
 
     pub fn do_swap(self: *Self) StackManipulationError!void {
