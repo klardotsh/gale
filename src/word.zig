@@ -17,7 +17,7 @@ pub const WordImplementation = union(enum) {
     // gluumy pretends to be an immutable-by-default language at the glass,
     // it's still a Good Old Fashioned Mutable Ball Of Bit Spaghetti under
     // the hood for performance reasons.
-    Primitive: *PrimitiveWord,
+    Primitive: *const PrimitiveWord,
     Compound: []Word,
     HeapLit: *Object,
 };

@@ -51,6 +51,7 @@ pub fn Rc(comptime T: type) type {
 }
 
 test "Rc(u8): simple set, increments, decrements" {
+    // TODO: use a shared String type of some sort
     const SharedStr = Rc([]u8);
 
     const hello_world = "Hello World!";

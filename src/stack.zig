@@ -9,9 +9,12 @@ const Allocator = std.mem.Allocator;
 const testAllocator: Allocator = std.testing.allocator;
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
+const expectEqualStrings = std.testing.expectEqualStrings;
 const expectError = std.testing.expectError;
 
 const Object = @import("./object.zig").Object;
+const Rc = @import("./rc.zig").Rc;
+const WordImplementation = @import("./word.zig").WordImplementation;
 
 pub const StackManipulationError = error{
     Underflow,
@@ -414,7 +417,7 @@ pub const Stack = struct {
     ///
     // TODO: handle the Rc(_) types, deinit() if appropriate (when final copy
     // falls out of scope)
-    pub fn do_drop_no_really_even_on_inner_stacks(self: *Self) StackManipulationError!*Self {
+    pub fn do_drop_no_really_even_on_inner_stacks(self: *Self) !*Self {
         if (self.next_idx == 0) {
             if (self.prev) |prev| {
                 // TODO: determine if it would be better to just make this
@@ -425,25 +428,124 @@ pub const Stack = struct {
             }
             return StackManipulationError.Underflow;
         }
+
+        // Save a ref to the "dead" object immediately, since we may need to do
+        // lifecycle management on it.
+        const dead = self.contents[self.next_idx - 1];
+
+        // Now clean out the stack slot for future use, as this must be done
+        // whether we had a boxed or unboxed type here.
         self.contents[self.next_idx - 1] = null;
         self.next_idx -= 1;
+
+        // Finally, for boxed types, we need to at least decrement the
+        // refcount, and potentially free the underlying memory.
+        if (dead) |dead_deref| {
+            switch (dead_deref) {
+                Object.UnsignedInt, Object.SignedInt, Object.Boolean => {},
+                // TODO: should Opaque really be handled the same here? if
+                // "Opaque" means "gluumy doesn't know about this data, it's
+                // managed by userspace", then yes (and the name needs changed,
+                // maybe to ByteBlock?), if it means "gluumy truly knows
+                // nothing about this data, at all, it's managed by FFI", then
+                // attempting to free it should either be a panic, a call to an
+                // underlying cleanup function provided by the FFI, or (I can't
+                // imagine why we'd want to do this) a silent leak, assuming
+                // the FFI library will clean it up somehow, eventually, maybe.
+                //
+                // Anyway this is a long philosophical tangent about how
+                // developers suck at naming things and also how actually using
+                // your APIs teaches you how little you knew when sketching
+                // them out originally.
+                Object.String, Object.Symbol, Object.Opaque => |obj| {
+                    if (obj.value) |objval| {
+                        if (!obj.decrement()) {
+                            // Free the underlying string as this stack slot
+                            // held the final reference to those bytes.
+                            self.alloc.free(objval);
+                            // Now kill off the Rc(_) itself.
+                            self.alloc.destroy(obj);
+                        }
+                    }
+                },
+                Object.Word => |word| {
+                    if (word.value) |wordval| {
+                        if (!word.decrement()) {
+                            try switch (wordval.impl) {
+                                WordImplementation.Primitive => {
+                                    // We never want to nuke a primitive
+                                    // word... not that we could anyway.
+                                    // However, we still need to kill the
+                                    // Rc(Word). Since Primitive
+                                    // implementations are always *const fn,
+                                    // the memory doesn't "leak" in the
+                                    // traditional sense: it was always going
+                                    // to be loaded as part of the binary
+                                    // anyway.
+                                    self.alloc.destroy(word);
+                                },
+                                WordImplementation.Compound => error.Unimplemented,
+                                WordImplementation.HeapLit => |hl| {
+                                    // Free the underlying heap-mapped object
+                                    // as this stack slot held the final
+                                    // reference to those bytes.
+                                    self.alloc.destroy(hl);
+                                    // Now kill off the Rc(Word) itself.
+                                    self.alloc.destroy(word);
+                                },
+                            };
+                        }
+                    }
+                },
+            }
+        }
+
         return self;
     }
 
-    test "do_drop" {
-        const baseStack = try Self.init(testAllocator, null);
-        defer baseStack.deinit();
-        try expectEqual(@as(usize, 0), baseStack.next_idx);
-        try expectEqual(@as(?Object, null), baseStack.contents[0]);
+    test "do_drop: unboxed" {
+        const stack = try Self.init(testAllocator, null);
+        defer stack.deinit();
+        try expectEqual(@as(usize, 0), stack.next_idx);
+        try expectEqual(@as(?Object, null), stack.contents[0]);
 
-        const obj = Object{ .UnsignedInt = 1 };
-        _ = try baseStack.do_push(obj);
-        try expectEqual(@as(usize, 1), baseStack.next_idx);
-        try expectEqual(@as(usize, 1), baseStack.contents[0].?.UnsignedInt);
+        _ = try stack.do_push(Object{ .UnsignedInt = 1 });
+        try expectEqual(@as(usize, 1), stack.next_idx);
+        try expectEqual(@as(usize, 1), stack.contents[0].?.UnsignedInt);
 
-        _ = try baseStack.do_drop();
-        try expectEqual(@as(usize, 0), baseStack.next_idx);
-        try expectEqual(@as(?Object, null), baseStack.contents[0]);
+        _ = try stack.do_drop();
+        try expectEqual(@as(usize, 0), stack.next_idx);
+        try expectEqual(@as(?Object, null), stack.contents[0]);
+    }
+
+    // N.B. the auto-freeing mechanics of do_drop are being tested here, so
+    // explicitly no defer->free() setups here *except* for the Stack itself.
+    test "do_drop: boxed frees underlying data" {
+        // TODO: use a shared String type of some sort
+        const SharedStr = Rc([]u8);
+        const hello_world = "Hello World!";
+        // Freed by do_drop since we'll only have one reference to it
+        var str = try testAllocator.alloc(u8, hello_world.len);
+        std.mem.copy(u8, str[0..], hello_world);
+        var shared_str = try testAllocator.create(SharedStr);
+        shared_str.* = SharedStr.init(str);
+
+        const stack = try Self.init(testAllocator, null);
+        defer stack.deinit();
+        try expectEqual(@as(usize, 0), stack.next_idx);
+        try expectEqual(@as(?Object, null), stack.contents[0]);
+
+        _ = try stack.do_push(Object{ .String = shared_str });
+        try expectEqual(@as(usize, 1), stack.next_idx);
+        try expectEqualStrings(hello_world, stack.contents[0].?.String.value.?);
+
+        _ = try stack.do_drop();
+        try expectEqual(@as(usize, 0), stack.next_idx);
+        try expectEqual(@as(?Object, null), stack.contents[0]);
+
+        // No further assertions required because Zig is awesome: the
+        // GeneralPurposeAllocator will fail our tests if we've leaked anything
+        // at this point.
     }
 };
 
