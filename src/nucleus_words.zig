@@ -12,8 +12,11 @@ const expectError = std.testing.expectError;
 
 const Object = @import("./object.zig").Object;
 const PrimitiveWord = @import("./word.zig").PrimitiveWord;
+const Rc = @import("./rc.zig").Rc;
 const Stack = @import("./stack.zig").Stack;
 const StackManipulationError = @import("./stack.zig").StackManipulationError;
+const Word = @import("./word.zig").Word;
+const WordImplementation = @import("./word.zig").WordImplementation;
 
 // As a general rule, only write tests for methods in this file that actually
 // do something noteworthy of their own. Some of these words call directly into
@@ -121,8 +124,78 @@ pub fn DUP(stack: *Stack) !*Stack {
 /// Wraps any value type in an anonymous word which will return that value when
 /// called. Generally useful when defining words which need to refer to
 /// numbers, strings, symbols, etc. at runtime.
-pub fn LIT(_: *Stack) !void {
-    // TODO
+///
+/// Used to be called @HEAPWRAP, which might hint at why it's implemented the
+/// way it is.
+pub fn LIT(stack: *Stack) !void {
+    const banished = try stack.banish_top_object();
+
+    // TODO: make helper function on Word to create a sane default
+    const heaplit_word = Word{
+        .flags = .{
+            .hidden = false,
+        },
+        .tags = [_]u8{0} ** Word.TAG_ARRAY_SIZE,
+        .impl = .{
+            .HeapLit = banished,
+        },
+    };
+
+    // TODO: move to common location
+    const HeapedWord = Rc(Word);
+
+    // TODO: stop reaching into the stack here to borrow its allocator
+    const heap_for_word = try stack.alloc.create(HeapedWord);
+    errdefer stack.alloc.destroy(heap_for_word);
+    heap_for_word.* = try HeapedWord.init(stack.alloc, 1);
+    heap_for_word.value.?[0] = heaplit_word;
+
+    _ = try stack.do_push(Object{ .Word = heap_for_word });
+
+    return;
+}
+
+// The name here might be silly, but it tries to emphasize that this test is
+// scoped only to being able to yeet something from the working stack onto the
+// heap (exactly where should be considered irrelevant to the end user) without
+// leaving anything behind, but that we're not actually testing the ability to
+// place that value back onto the working stack. Since the signature of
+// PrimitiveWord doesn't really give us enough to work with (storing a pointer
+// to the heap object is required), recall happens through a third branch of
+// the WordImplementation enum, "HeapLit", and as such the recall process
+// should be tested at the Word or perhaps Runtime level (it's a "glue" or
+// "integration" type of test, moreso than the "units" here).
+test "LIT: banishment, but not recall" {
+    var stack = try Stack.init(testAllocator, null);
+    defer stack.deinit();
+    _ = try stack.do_push(Object{ .UnsignedInt = 1 });
+
+    try LIT(stack);
+    const top_two = try stack.do_peek_pair();
+    // TODO: document this free sequence, or otherwise guard around it in
+    // userspace, it's *nasty* right now, presumably because I'm working around
+    // not really having Runtime here (which may be a smell that these tests
+    // belong at a different altitude)
+    defer {
+        // TODO: this should use whatever the new allocator is after fixing
+        // heap_for_word in LIT implementation above
+        stack.alloc.destroy(top_two.top.Word.value.?[0].impl.HeapLit);
+        top_two.top.Word.decrement();
+        stack.alloc.destroy(top_two.top.Word);
+    }
+
+    // First, ascertain that we still have just one thing on the stack.
+    try expectEqual(@as(?*Object, null), top_two.bottom);
+
+    // Now, let's validate that that thing is an Rc(Word->impl->HeapLit).
+    try expect(@as(WordImplementation, top_two.top.Word.value.?[0].impl) == WordImplementation.HeapLit);
+
+    // And finally, validate the actual value that would be restored to the
+    // stack if this word were called is correct.
+    //
+    // TODO: should this test be reaching into such deeply nested foreign
+    // concerns?
+    try expectEqual(@as(usize, 1), top_two.top.Word.value.?[0].impl.HeapLit.UnsignedInt);
 }
 
 /// @PRIV_SPACE_SET_BYTE ( UInt8 UInt8 -> nothing )

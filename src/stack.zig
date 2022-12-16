@@ -108,6 +108,50 @@ pub const Stack = struct {
         self.alloc.destroy(self);
     }
 
+    pub fn banish_top_object(self: *Self) !*Object {
+        const banish_target = try self.alloc.create(Object);
+        errdefer self.deinit_banished_object(banish_target);
+
+        const top = (try self.do_peek_pair()).top;
+        return switch (top.*) {
+            Object.Word, Object.Opaque => error.Unimplemented,
+            else => |it| {
+                banish_target.* = it;
+
+                // TODO handle stack hopping: move to POP definition
+                if (self.next_idx > 0) {
+                    self.contents[self.next_idx - 1] = null;
+                    self.next_idx -= 1;
+                } else if (self.prev) |prev| {
+                    prev.contents[prev.next_idx - 1] = null;
+                    prev.next_idx -= 1;
+                } else {
+                    unreachable;
+                }
+
+                return banish_target;
+            },
+        };
+    }
+
+    pub fn deinit_banished_object(self: *Self, ptr: *Object) void {
+        self.alloc.destroy(ptr);
+    }
+
+    test "banish_top_object" {
+        const stack = try Self.init(testAllocator, null);
+        defer stack.deinit();
+
+        try expectError(StackManipulationError.Underflow, stack.banish_top_object());
+
+        _ = try stack.do_push(Object{ .UnsignedInt = 1 });
+        const one_ptr = try stack.banish_top_object();
+        defer stack.deinit_banished_object(one_ptr);
+        try expectEqual(@as(usize, 1), one_ptr.*.UnsignedInt);
+
+        try expectError(StackManipulationError.Underflow, stack.banish_top_object());
+    }
+
     /// Ensures there will be enough space in no more than two stacks to store
     /// `count` new objects. Returns pointer to newly created stack if it was
     /// necessary to store all items. If no growth was necessary, returns null.
@@ -218,6 +262,10 @@ pub const Stack = struct {
         const top_two = try baseStack.do_peek_pair();
         try expectEqual(@as(usize, 2), top_two.top.*.UnsignedInt);
         try expectEqual(@as(usize, 1), top_two.bottom.?.*.UnsignedInt);
+    }
+
+    pub fn do_peek(self: *Self) !*Object {
+        return (try self.do_peek_pair()).top;
     }
 
     // Pushes an object to the top of this stack or a newly-created stack, as
@@ -363,6 +411,9 @@ pub const Stack = struct {
     }
 
     /// Returns the new "upper" stack.
+    ///
+    // TODO: handle the Rc(_) types, deinit() if appropriate (when final copy
+    // falls out of scope)
     pub fn do_drop_no_really_even_on_inner_stacks(self: *Self) StackManipulationError!*Self {
         if (self.next_idx == 0) {
             if (self.prev) |prev| {

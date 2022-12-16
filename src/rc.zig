@@ -20,9 +20,12 @@ pub fn Rc(comptime T: type) type {
 
         allocator: Allocator,
         strong_count: RefCount,
+        // TODO: Figure out a better way of storing this in the event that I
+        // have just a single object, right now Words and so forth end up
+        // requiring a double heap jump which is ugly and non-performant
         value: ?[]T,
 
-        fn init(allocator: Allocator, size: usize) !Self {
+        pub fn init(allocator: Allocator, size: usize) !Self {
             return @This(){
                 .allocator = allocator,
                 .strong_count = RefCount.init(1),
@@ -30,11 +33,11 @@ pub fn Rc(comptime T: type) type {
             };
         }
 
-        fn increment(self: *Self) void {
+        pub fn increment(self: *Self) void {
             _ = self.strong_count.fetchAdd(1, .Monotonic);
         }
 
-        fn decrement(self: *Self) void {
+        pub fn decrement(self: *Self) void {
             // Release ensures code before unref() happens-before the count is
             // decremented as dropFn could be called by then.
             if (self.strong_count.fetchSub(1, .Release) == 1) {

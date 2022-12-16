@@ -3,10 +3,24 @@
 // Creative Commons Zero 1.0 dedication, distributed alongside this source in a
 // file called COPYING.
 
+const Object = @import("./object.zig").Object;
 const Stack = @import("./stack.zig").Stack;
 
 // TODO: This should almost certainly not be anyerror.
 pub const PrimitiveWord = fn (*Stack) anyerror!void;
+pub const WordImplementation = union(enum) {
+    // I can see a world where this should return something other than void
+    // to allow for optimizations later... probably an enum/bitfield of
+    // what, if any, changes were made to the stack or its objects?
+    //
+    // Note that by the function signature alone we can infer that, while
+    // gluumy pretends to be an immutable-by-default language at the glass,
+    // it's still a Good Old Fashioned Mutable Ball Of Bit Spaghetti under
+    // the hood for performance reasons.
+    Primitive: *PrimitiveWord,
+    Compound: []Word,
+    HeapLit: *Object,
+};
 
 // TODO: Docs.
 pub const Word = struct {
@@ -17,7 +31,8 @@ pub const Word = struct {
     // it" basis.
     //
     // TODO: configurable in build.zig
-    const MAX_GLOBAL_TAGS = 256;
+    pub const MAX_GLOBAL_TAGS = 256;
+    pub const TAG_ARRAY_SIZE = MAX_GLOBAL_TAGS / 8;
 
     flags: packed struct {
         hidden: bool,
@@ -40,18 +55,7 @@ pub const Word = struct {
     //
     // These are simple bitmasks, and so with the default of 256 global tags,
     // we'll use 32 bytes per word.
-    tags: [MAX_GLOBAL_TAGS / 8]u8,
+    tags: [TAG_ARRAY_SIZE]u8,
 
-    impl: union(enum) {
-        // I can see a world where this should return something other than void
-        // to allow for optimizations later... probably an enum/bitfield of
-        // what, if any, changes were made to the stack or its objects?
-        //
-        // Note that by the function signature alone we can infer that, while
-        // gluumy pretends to be an immutable-by-default language at the glass,
-        // it's still a Good Old Fashioned Mutable Ball Of Bit Spaghetti under
-        // the hood for performance reasons.
-        Primitive: *PrimitiveWord,
-        Compound: []Word,
-    },
+    impl: WordImplementation,
 };
