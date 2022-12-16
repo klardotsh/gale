@@ -61,8 +61,6 @@ test "Rc(u8): simple set, increments, decrements" {
     defer testAllocator.free(str);
     std.mem.copy(u8, str[0..], hello_world);
 
-    // Now pack that thing into an Rc which auto-frees once the final ref falls
-    // off.
     var shared_str = SharedStr.init(str);
 
     try std.testing.expectEqualStrings(hello_world, shared_str.value.?);
