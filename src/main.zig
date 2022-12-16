@@ -13,9 +13,6 @@
 // file called COPYING.
 
 const std = @import("std");
-const Allocator = std.mem.Allocator;
-const testAllocator: Allocator = std.testing.allocator;
-const expect = std.testing.expect;
 
 const InternalError = @import("./internal_error.zig").InternalError;
 const Object = @import("./object.zig").Object;

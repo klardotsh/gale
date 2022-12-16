@@ -3,8 +3,6 @@
 // Creative Commons Zero 1.0 dedication, distributed alongside this source in a
 // file called COPYING.
 
-const std = @import("std");
-
 const Rc = @import("./rc.zig").Rc;
 const Word = @import("./word.zig").Word;
 

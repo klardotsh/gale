@@ -10,13 +10,15 @@ const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 const expectError = std.testing.expectError;
 
+const _stack = @import("./stack.zig");
+const _word = @import("./word.zig");
+
 const Object = @import("./object.zig").Object;
-const PrimitiveWord = @import("./word.zig").PrimitiveWord;
 const Rc = @import("./rc.zig").Rc;
-const Stack = @import("./stack.zig").Stack;
-const StackManipulationError = @import("./stack.zig").StackManipulationError;
-const Word = @import("./word.zig").Word;
-const WordImplementation = @import("./word.zig").WordImplementation;
+const Stack = _stack.Stack;
+const StackManipulationError = _stack.StackManipulationError;
+const Word = _word.Word;
+const WordImplementation = _word.WordImplementation;
 
 // As a general rule, only write tests for methods in this file that actually
 // do something noteworthy of their own. Some of these words call directly into
