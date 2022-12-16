@@ -15,11 +15,11 @@ pub const Object = union(enum) {
     Boolean: bool,
     UnsignedInt: usize,
     SignedInt: isize,
-    String: *Rc(u8),
-    Symbol: *Rc(u8),
+    String: *Rc([]u8),
+    Symbol: *Rc([]u8),
     /// Opaque represents a blob of memory that is left to userspace to manage
     /// manually. TODO more docs here.
-    Opaque: *Rc(usize),
+    Opaque: *Rc([]u8),
     Word: *Rc(Word),
 
     pub fn eq(self: *Self, other: *Self) !bool {

@@ -147,9 +147,7 @@ pub fn LIT(stack: *Stack) !void {
     // TODO: stop reaching into the stack here to borrow its allocator
     const heap_for_word = try stack.alloc.create(HeapedWord);
     errdefer stack.alloc.destroy(heap_for_word);
-    heap_for_word.* = try HeapedWord.init(stack.alloc, 1);
-    heap_for_word.value.?[0] = heaplit_word;
-
+    heap_for_word.* = HeapedWord.init(heaplit_word);
     _ = try stack.do_push(Object{ .Word = heap_for_word });
 
     return;
@@ -179,8 +177,8 @@ test "LIT: banishment, but not recall" {
     defer {
         // TODO: this should use whatever the new allocator is after fixing
         // heap_for_word in LIT implementation above
-        stack.alloc.destroy(top_two.top.Word.value.?[0].impl.HeapLit);
-        top_two.top.Word.decrement();
+        stack.alloc.destroy(top_two.top.Word.value.?.impl.HeapLit);
+        _ = top_two.top.Word.decrement();
         stack.alloc.destroy(top_two.top.Word);
     }
 
@@ -188,14 +186,14 @@ test "LIT: banishment, but not recall" {
     try expectEqual(@as(?*Object, null), top_two.bottom);
 
     // Now, let's validate that that thing is an Rc(Word->impl->HeapLit).
-    try expect(@as(WordImplementation, top_two.top.Word.value.?[0].impl) == WordImplementation.HeapLit);
+    try expect(@as(WordImplementation, top_two.top.Word.value.?.impl) == WordImplementation.HeapLit);
 
     // And finally, validate the actual value that would be restored to the
     // stack if this word were called is correct.
     //
     // TODO: should this test be reaching into such deeply nested foreign
     // concerns?
-    try expectEqual(@as(usize, 1), top_two.top.Word.value.?[0].impl.HeapLit.UnsignedInt);
+    try expectEqual(@as(usize, 1), top_two.top.Word.value.?.impl.HeapLit.UnsignedInt);
 }
 
 /// @PRIV_SPACE_SET_BYTE ( UInt8 UInt8 -> nothing )
