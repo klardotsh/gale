@@ -16,7 +16,7 @@ const _word = @import("./word.zig");
 const InternalError = @import("./internal_error.zig").InternalError;
 const Object = @import("./object.zig").Object;
 const Rc = @import("./rc.zig").Rc;
-const Stack = _stack.Stack;
+const Runtime = @import("./runtime.zig").Runtime;
 const StackManipulationError = _stack.StackManipulationError;
 const Word = _word.Word;
 const WordImplementation = _word.WordImplementation;
@@ -29,16 +29,16 @@ const WordImplementation = _word.WordImplementation;
 /// @BEFORE_WORD ( Word -> nothing )
 ///                |
 ///                +-> ( Symbol <- nothing )
-pub fn BEFORE_WORD(_: *Stack) !void {
+pub fn BEFORE_WORD(_: *Runtime) !void {
     // TODO
 }
 
-fn push_one(stack: *Stack) anyerror!void {
-    _ = try stack.do_push(Object{ .UnsignedInt = 1 });
+fn push_one(runtime: *Runtime) anyerror!void {
+    runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 1 });
 }
 
-fn push_two(stack: *Stack) anyerror!void {
-    _ = try stack.do_push(Object{ .UnsignedInt = 2 });
+fn push_two(runtime: *Runtime) anyerror!void {
+    runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 2 });
 }
 
 // @CONDJMP ( Word Boolean -> nothing )
@@ -48,8 +48,8 @@ fn push_two(stack: *Stack) anyerror!void {
 // incantations will lose data. You've been warned.
 //
 // See also: @CONDJMP2
-pub fn CONDJMP(stack: *Stack) !void {
-    const pairing = try stack.do_pop_pair();
+pub fn CONDJMP(runtime: *Runtime) !void {
+    const pairing = try runtime.stack.do_pop_pair();
     const condition = pairing.near;
     const callback = pairing.far;
 
@@ -72,13 +72,13 @@ pub fn CONDJMP(stack: *Stack) !void {
         // TODO: should this be handled here, in Runtime, or in a helper util?
         WordImplementation.HeapLit => error.Unimplemented,
         // TODO: handle stack juggling
-        WordImplementation.Primitive => |impl| try impl(stack),
+        WordImplementation.Primitive => |impl| try impl(runtime),
     };
 }
 
 test "CONDJMP" {
-    var stack = try Stack.init(testAllocator, null);
-    defer stack.deinit();
+    var runtime = try Runtime.init(testAllocator);
+    defer runtime.deinit();
 
     // TODO: make helper function on Word to create a sane default
     const push_one_word = Word{
@@ -94,21 +94,20 @@ test "CONDJMP" {
     // TODO: move to common location
     const HeapedWord = Rc(Word);
 
-    // TODO: stop reaching into the stack here to borrow its allocator
-    const heap_for_word = try stack.alloc.create(HeapedWord);
-    defer stack.alloc.destroy(heap_for_word);
+    const heap_for_word = try runtime.alloc.create(HeapedWord);
+    defer runtime.alloc.destroy(heap_for_word);
     heap_for_word.* = HeapedWord.init(push_one_word);
 
-    _ = try stack.do_push(Object{ .Word = heap_for_word });
-    _ = try stack.do_push(Object{ .Boolean = true });
-    try CONDJMP(stack);
-    const should_be_1 = try stack.do_pop();
+    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_word });
+    runtime.stack = try runtime.stack.do_push(Object{ .Boolean = true });
+    try CONDJMP(&runtime);
+    const should_be_1 = try runtime.stack.do_pop();
     try expectEqual(@as(usize, 1), should_be_1.UnsignedInt);
 
-    _ = try stack.do_push(Object{ .Word = heap_for_word });
-    _ = try stack.do_push(Object{ .Boolean = false });
-    try CONDJMP(stack);
-    try expectError(StackManipulationError.Underflow, stack.do_pop());
+    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_word });
+    runtime.stack = try runtime.stack.do_push(Object{ .Boolean = false });
+    try CONDJMP(&runtime);
+    try expectError(StackManipulationError.Underflow, runtime.stack.do_pop());
 }
 
 // @CONDJMP2 ( Word Word Boolean -> nothing )
@@ -117,8 +116,8 @@ test "CONDJMP" {
 // word otherwise. Consumes all three inputs.
 //
 // See also: @CONDJMP
-pub fn CONDJMP2(stack: *Stack) !void {
-    const trio = try stack.do_pop_trio();
+pub fn CONDJMP2(runtime: *Runtime) !void {
+    const trio = try runtime.stack.do_pop_trio();
     const condition = trio.near;
     const truthy_callback = trio.far;
     const falsey_callback = trio.farther;
@@ -144,13 +143,13 @@ pub fn CONDJMP2(stack: *Stack) !void {
         // TODO: should this be handled here, in Runtime, or in a helper util?
         WordImplementation.HeapLit => error.Unimplemented,
         // TODO: handle stack juggling
-        WordImplementation.Primitive => |impl| try impl(stack),
+        WordImplementation.Primitive => |impl| try impl(runtime),
     };
 }
 
 test "CONDJMP2" {
-    var stack = try Stack.init(testAllocator, null);
-    defer stack.deinit();
+    var runtime = try Runtime.init(testAllocator);
+    defer runtime.deinit();
 
     // TODO: make helper function on Word to create a sane default
     const push_one_word = Word{
@@ -178,27 +177,27 @@ test "CONDJMP2" {
     const HeapedWord = Rc(Word);
 
     // TODO: stop reaching into the stack here to borrow its allocator
-    const heap_for_one_word = try stack.alloc.create(HeapedWord);
-    const heap_for_two_word = try stack.alloc.create(HeapedWord);
-    defer stack.alloc.destroy(heap_for_one_word);
-    defer stack.alloc.destroy(heap_for_two_word);
+    const heap_for_one_word = try runtime.alloc.create(HeapedWord);
+    const heap_for_two_word = try runtime.alloc.create(HeapedWord);
+    defer runtime.alloc.destroy(heap_for_one_word);
+    defer runtime.alloc.destroy(heap_for_two_word);
     heap_for_one_word.* = HeapedWord.init(push_one_word);
     heap_for_two_word.* = HeapedWord.init(push_two_word);
 
-    _ = try stack.do_push(Object{ .Word = heap_for_two_word });
-    _ = try stack.do_push(Object{ .Word = heap_for_one_word });
-    _ = try stack.do_push(Object{ .Boolean = true });
-    try CONDJMP2(stack);
-    const should_be_1 = try stack.do_pop();
+    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_two_word });
+    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_one_word });
+    runtime.stack = try runtime.stack.do_push(Object{ .Boolean = true });
+    try CONDJMP2(&runtime);
+    const should_be_1 = try runtime.stack.do_pop();
     try expectEqual(@as(usize, 1), should_be_1.UnsignedInt);
 
-    _ = try stack.do_push(Object{ .Word = heap_for_two_word });
-    _ = try stack.do_push(Object{ .Word = heap_for_one_word });
-    _ = try stack.do_push(Object{ .Boolean = false });
-    try CONDJMP2(stack);
-    const should_be_2 = try stack.do_pop();
+    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_two_word });
+    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_one_word });
+    runtime.stack = try runtime.stack.do_push(Object{ .Boolean = false });
+    try CONDJMP2(&runtime);
+    const should_be_2 = try runtime.stack.do_pop();
     try expectEqual(@as(usize, 2), should_be_2.UnsignedInt);
-    try expectError(StackManipulationError.Underflow, stack.do_pop());
+    try expectError(StackManipulationError.Underflow, runtime.stack.do_pop());
 }
 
 /// @EQ ( @2 @1 <- Boolean )
@@ -206,28 +205,29 @@ test "CONDJMP2" {
 /// Non-destructive equality check of the top two items of the stack. At this
 /// low a level, there is no type system, so checking equality of disparate
 /// primitive types will panic.
-pub fn EQ(stack: *Stack) !*Stack {
-    const peek = try stack.do_peek_pair();
+pub fn EQ(runtime: *Runtime) !void {
+    const peek = try runtime.stack.do_peek_pair();
 
     if (peek.bottom) |bottom| {
-        return try stack.do_push(Object{ .Boolean = try peek.top.eq(bottom) });
+        runtime.stack = try runtime.stack.do_push(Object{ .Boolean = try peek.top.eq(bottom) });
+        return;
     }
 
     return StackManipulationError.Underflow;
 }
 
 test "EQ" {
-    var stack = try Stack.init(testAllocator, null);
-    defer stack.deinit();
-    _ = try stack.do_push(Object{ .UnsignedInt = 1 });
+    var runtime = try Runtime.init(testAllocator);
+    defer runtime.deinit();
+    runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 1 });
     // Can't compare with just one Object on the Stack.
-    try expectError(StackManipulationError.Underflow, EQ(stack));
-    _ = try stack.do_push(Object{ .UnsignedInt = 1 });
+    try expectError(StackManipulationError.Underflow, EQ(&runtime));
+    runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 1 });
     // 1 == 1, revelatory, truly.
-    stack = try EQ(stack);
-    try expect((try stack.do_peek_pair()).top.*.Boolean);
+    try EQ(&runtime);
+    try expect((try runtime.stack.do_peek_pair()).top.*.Boolean);
     // Now compare that boolean to the UnsignedInt... or don't, preferably.
-    try expectError(error.CannotCompareDisparateTypes, EQ(stack));
+    try expectError(error.CannotCompareDisparateTypes, EQ(&runtime));
 }
 
 // TODO: comptime away these numerous implementations of DEFINE-WORD-VA*, I
@@ -236,38 +236,38 @@ test "EQ" {
 // have time for that right now.
 
 /// DEFINE-WORD-VA1 ( Word Symbol -> nothing )
-pub fn DEFINE_WORD_VA1(_: *Stack) !void {
+pub fn DEFINE_WORD_VA1(_: *Runtime) !void {
     // TODO
 }
 
 /// DEFINE-WORD-VA2 ( Word Word Symbol -> nothing )
-pub fn DEFINE_WORD_VA2(_: *Stack) !void {
+pub fn DEFINE_WORD_VA2(_: *Runtime) !void {
     // TODO
 }
 
 /// DEFINE-WORD-VA3 ( Word Word Word Symbol -> nothing )
-pub fn DEFINE_WORD_VA3(_: *Stack) !void {
+pub fn DEFINE_WORD_VA3(_: *Runtime) !void {
     // TODO
 }
 
 /// DEFINE-WORD-VA4 ( Word Word Word Word Symbol -> nothing )
-pub fn DEFINE_WORD_VA4(_: *Stack) !void {
+pub fn DEFINE_WORD_VA4(_: *Runtime) !void {
     // TODO
 }
 
 /// DEFINE-WORD-VA5 ( Word Word Word Word Word Symbol -> nothing )
-pub fn DEFINE_WORD_VA5(_: *Stack) !void {
+pub fn DEFINE_WORD_VA5(_: *Runtime) !void {
     // TODO
 }
 
 /// @DROP ( @1 -> nothing )
-pub fn DROP(stack: *Stack) !void {
-    _ = try stack.do_drop();
+pub fn DROP(runtime: *Runtime) !void {
+    runtime.stack = try runtime.stack.do_drop();
 }
 
 /// @DUP ( @1 -> @1 )
-pub fn DUP(stack: *Stack) !*Stack {
-    return try stack.do_dup();
+pub fn DUP(runtime: *Runtime) !void {
+    runtime.stack = try runtime.stack.do_dup();
 }
 
 /// @LIT ( @1 -> Word )
@@ -278,8 +278,8 @@ pub fn DUP(stack: *Stack) !*Stack {
 ///
 /// Used to be called @HEAPWRAP, which might hint at why it's implemented the
 /// way it is.
-pub fn LIT(stack: *Stack) !void {
-    const banished = try stack.banish_top_object();
+pub fn LIT(runtime: *Runtime) !void {
+    const banished = try runtime.stack.banish_top_object();
 
     // TODO: make helper function on Word to create a sane default
     const heaplit_word = Word{
@@ -296,10 +296,10 @@ pub fn LIT(stack: *Stack) !void {
     const HeapedWord = Rc(Word);
 
     // TODO: stop reaching into the stack here to borrow its allocator
-    const heap_for_word = try stack.alloc.create(HeapedWord);
-    errdefer stack.alloc.destroy(heap_for_word);
+    const heap_for_word = try runtime.stack.alloc.create(HeapedWord);
+    errdefer runtime.stack.alloc.destroy(heap_for_word);
     heap_for_word.* = HeapedWord.init(heaplit_word);
-    _ = try stack.do_push(Object{ .Word = heap_for_word });
+    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_word });
 
     return;
 }
@@ -315,12 +315,12 @@ pub fn LIT(stack: *Stack) !void {
 // should be tested at the Word or perhaps Runtime level (it's a "glue" or
 // "integration" type of test, moreso than the "units" here).
 test "LIT: banishment, but not recall" {
-    var stack = try Stack.init(testAllocator, null);
-    defer stack.deinit();
-    _ = try stack.do_push(Object{ .UnsignedInt = 1 });
+    var runtime = try Runtime.init(testAllocator);
+    defer runtime.deinit();
+    runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 1 });
 
-    try LIT(stack);
-    const top_two = try stack.do_peek_pair();
+    try LIT(&runtime);
+    const top_two = try runtime.stack.do_peek_pair();
     // TODO: document this free sequence, or otherwise guard around it in
     // userspace, it's *nasty* right now, presumably because I'm working around
     // not really having Runtime here (which may be a smell that these tests
@@ -328,9 +328,9 @@ test "LIT: banishment, but not recall" {
     defer {
         // TODO: this should use whatever the new allocator is after fixing
         // heap_for_word in LIT implementation above
-        stack.alloc.destroy(top_two.top.Word.value.?.impl.HeapLit);
+        runtime.stack.alloc.destroy(top_two.top.Word.value.?.impl.HeapLit);
         _ = top_two.top.Word.decrement();
-        stack.alloc.destroy(top_two.top.Word);
+        runtime.stack.alloc.destroy(top_two.top.Word);
     }
 
     // First, ascertain that we still have just one thing on the stack.
@@ -351,13 +351,13 @@ test "LIT: banishment, but not recall" {
 ///                        |     |
 ///                        |     +-> address to set
 ///                        +-------> value to set
-pub fn PRIV_SPACE_SET_BYTE(_: *Stack) !void {
+pub fn PRIV_SPACE_SET_BYTE(_: *Runtime) !void {
     // TODO
 }
 
 /// @SWAP ( @2 @1 -> @2 @1 )
-pub fn SWAP(stack: *Stack) !void {
-    return stack.do_swap();
+pub fn SWAP(runtime: *Runtime) !void {
+    return runtime.stack.do_swap();
 }
 
 test {

@@ -4,11 +4,11 @@
 // file called COPYING.
 
 const Object = @import("./object.zig").Object;
-const Stack = @import("./stack.zig").Stack;
+const Runtime = @import("./runtime.zig").Runtime;
 
 // TODO: This should almost certainly not be anyerror.
 // TODO: handle stack juggling
-pub const PrimitiveWord = fn (*Stack) anyerror!void;
+pub const PrimitiveWord = fn (*Runtime) anyerror!void;
 pub const WordImplementation = union(enum) {
     // I can see a world where this should return something other than void
     // to allow for optimizations later... probably an enum/bitfield of
