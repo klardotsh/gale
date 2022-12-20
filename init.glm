@@ -95,6 +95,7 @@
 // called. Generally useful when defining words which need to refer to numbers,
 // strings, symbols, etc. at runtime.
 
+// Keep these in sync with runtime.zig
 // :! %INTERP_MODE_EXEC 0/u ;
 0/u @LIT '%INTERP_MODE_EXEC @DEFINE-WORD-VA1
 // :! %INTERP_MODE_SYMBOL 1/u ;

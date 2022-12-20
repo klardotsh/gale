@@ -10,4 +10,5 @@ pub const InternalError = error{
     UnknownSlashedSuffix,
     AttemptedDestructionOfPopulousRc,
     TypeError,
+    ValueError, // TODO: rename???
 };
