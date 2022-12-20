@@ -13,7 +13,6 @@ const expectError = std.testing.expectError;
 const _stack = @import("./stack.zig");
 const _word = @import("./word.zig");
 
-const InternalError = @import("./internal_error.zig").InternalError;
 const Object = @import("./object.zig").Object;
 const Rc = @import("./rc.zig").Rc;
 const Runtime = @import("./runtime.zig").Runtime;
@@ -50,16 +49,11 @@ fn push_two(runtime: *Runtime) anyerror!void {
 // See also: @CONDJMP2
 pub fn CONDJMP(runtime: *Runtime) !void {
     const pairing = try runtime.stack.do_pop_pair();
-    const condition = pairing.near;
-    const callback = pairing.far;
+    var condition = pairing.near;
+    var callback = pairing.far;
 
-    if (@as(Object, condition) != Object.Boolean) {
-        return InternalError.TypeError;
-    }
-
-    if (@as(Object, callback) != Object.Word) {
-        return InternalError.TypeError;
-    }
+    try condition.assert_is_kind(Object.Boolean);
+    try callback.assert_is_kind(Object.Word);
 
     if (!condition.Boolean) {
         return;
@@ -118,21 +112,13 @@ test "CONDJMP" {
 // See also: @CONDJMP
 pub fn CONDJMP2(runtime: *Runtime) !void {
     const trio = try runtime.stack.do_pop_trio();
-    const condition = trio.near;
-    const truthy_callback = trio.far;
-    const falsey_callback = trio.farther;
+    var condition = trio.near;
+    var truthy_callback = trio.far;
+    var falsey_callback = trio.farther;
 
-    if (@as(Object, condition) != Object.Boolean) {
-        return InternalError.TypeError;
-    }
-
-    if (@as(Object, truthy_callback) != Object.Word) {
-        return InternalError.TypeError;
-    }
-
-    if (@as(Object, falsey_callback) != Object.Word) {
-        return InternalError.TypeError;
-    }
+    try condition.assert_is_kind(Object.Boolean);
+    try truthy_callback.assert_is_kind(Object.Word);
+    try falsey_callback.assert_is_kind(Object.Word);
 
     const callback = if (condition.Boolean) truthy_callback else falsey_callback;
 
@@ -236,8 +222,12 @@ test "EQ" {
 // have time for that right now.
 
 /// DEFINE-WORD-VA1 ( Word Symbol -> nothing )
-pub fn DEFINE_WORD_VA1(_: *Runtime) !void {
-    // TODO
+///
+/// This is a glorified alias/assignment utility.
+pub fn DEFINE_WORD_VA1(runtime: *Runtime) !void {
+    const pairing = try runtime.stack.do_pop_pair();
+    _ = pairing.near;
+    _ = pairing.far;
 }
 
 /// DEFINE-WORD-VA2 ( Word Word Symbol -> nothing )
@@ -353,16 +343,11 @@ test "LIT: banishment, but not recall" {
 ///                        +-------> value to set
 pub fn PRIV_SPACE_SET_BYTE(runtime: *Runtime) !void {
     const pairing = try runtime.stack.do_pop_pair();
-    const address = pairing.near;
-    const value = pairing.far;
+    var address = pairing.near;
+    var value = pairing.far;
 
-    if (@as(Object, address) != Object.UnsignedInt) {
-        return InternalError.TypeError;
-    }
-
-    if (@as(Object, value) != Object.UnsignedInt) {
-        return InternalError.TypeError;
-    }
+    try address.assert_is_kind(Object.UnsignedInt);
+    try value.assert_is_kind(Object.UnsignedInt);
 
     try runtime.priv_space_set_byte(@truncate(u8, address.UnsignedInt), @truncate(u8, value.UnsignedInt));
 }

@@ -3,6 +3,7 @@
 // Creative Commons Zero 1.0 dedication, distributed alongside this source in a
 // file called COPYING.
 
+const InternalError = @import("./internal_error.zig").InternalError;
 const Rc = @import("./rc.zig").Rc;
 const Word = @import("./word.zig").Word;
 
@@ -19,6 +20,12 @@ pub const Object = union(enum) {
     /// manually. TODO more docs here.
     Opaque: *Rc([]u8),
     Word: *Rc(Word),
+
+    pub fn assert_is_kind(self: *Self, comptime kind: anytype) InternalError!void {
+        if (@as(Self, self.*) != kind) {
+            return InternalError.TypeError;
+        }
+    }
 
     pub fn eq(self: *Self, other: *Self) !bool {
         if (self == other) {
