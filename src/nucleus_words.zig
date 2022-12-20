@@ -351,8 +351,30 @@ test "LIT: banishment, but not recall" {
 ///                        |     |
 ///                        |     +-> address to set
 ///                        +-------> value to set
-pub fn PRIV_SPACE_SET_BYTE(_: *Runtime) !void {
-    // TODO
+pub fn PRIV_SPACE_SET_BYTE(runtime: *Runtime) !void {
+    const pairing = try runtime.stack.do_pop_pair();
+    const address = pairing.near;
+    const value = pairing.far;
+
+    if (@as(Object, address) != Object.UnsignedInt) {
+        return InternalError.TypeError;
+    }
+
+    if (@as(Object, value) != Object.UnsignedInt) {
+        return InternalError.TypeError;
+    }
+
+    try runtime.priv_space_set_byte(@truncate(u8, address.UnsignedInt), @truncate(u8, value.UnsignedInt));
+}
+
+test "PRIV_SPACE_SET_BYTE" {
+    var rt = try Runtime.init(testAllocator);
+    defer rt.deinit();
+    try expectEqual(@as(u8, 0), @enumToInt(rt.private_space.interpreter_mode));
+    rt.stack = try rt.stack.do_push(Object{ .UnsignedInt = 1 }); // value
+    rt.stack = try rt.stack.do_push(Object{ .UnsignedInt = 0 }); // address
+    try PRIV_SPACE_SET_BYTE(&rt);
+    try expectEqual(@as(u8, 1), @enumToInt(rt.private_space.interpreter_mode));
 }
 
 /// @SWAP ( @2 @1 -> @2 @1 )

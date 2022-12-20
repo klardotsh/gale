@@ -75,7 +75,7 @@ pub const Runtime = struct {
         var rt = try Self.init(testAllocator);
         defer rt.deinit();
         try expectEqual(@as(u8, 0), @enumToInt(rt.private_space.interpreter_mode));
-        _ = try rt.priv_space_set_byte(0, 1);
+        try rt.priv_space_set_byte(0, 1);
         try expectEqual(@as(u8, 1), @enumToInt(rt.private_space.interpreter_mode));
     }
 };
