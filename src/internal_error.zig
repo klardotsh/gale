@@ -9,4 +9,5 @@ pub const InternalError = error{
     EmptyWord,
     UnknownSlashedSuffix,
     AttemptedDestructionOfPopulousRc,
+    TypeError,
 };

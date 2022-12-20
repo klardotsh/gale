@@ -61,6 +61,8 @@ pub const Stack = struct {
     const STACK_SIZE: usize = 2048;
 
     comptime {
+        assert(STACK_SIZE >= 1);
+
         // If STACK_SIZE for some godforsaken reason is MAX_INT of a usize,
         // we'll overflow .next_idx upon assigning the final item in this
         // stack. On a 16-bit microcontroller this is vaguely conceivable
@@ -210,6 +212,89 @@ pub const Stack = struct {
         }
     }
 
+    pub const PeekTrio = struct {
+        near: *Object,
+        far: ?*Object,
+        farther: ?*Object,
+    };
+
+    pub fn do_peek_trio(self: *Self) !PeekTrio {
+        try self.non_terminal_stack_guard();
+        return try @call(
+            .{ .modifier = .always_inline },
+            self.do_peek_trio_no_really_even_on_inner_stacks,
+            .{},
+        );
+    }
+
+    pub fn do_peek_trio_no_really_even_on_inner_stacks(self: *Self) !PeekTrio {
+        if (self.next_idx == 0) {
+            if (self.prev) |prev| {
+                return prev.do_peek_trio_no_really_even_on_inner_stacks();
+            }
+
+            return StackManipulationError.Underflow;
+        }
+
+        if (self.next_idx == 1) {
+            return PeekTrio{
+                .near = &self.contents[0].?,
+                .far = if (self.prev) |prev|
+                    &prev.contents[prev.next_idx - 1].?
+                else
+                    null,
+                .farther = if (self.prev) |prev|
+                    &prev.contents[prev.next_idx - 2].?
+                else
+                    null,
+            };
+        }
+
+        if (self.next_idx == 2) {
+            return PeekTrio{
+                .near = &self.contents[1].?,
+                .far = &self.contents[0].?,
+                .farther = if (self.prev) |prev|
+                    &prev.contents[prev.next_idx - 1].?
+                else
+                    null,
+            };
+        }
+
+        return PeekTrio{
+            .near = &self.contents[self.next_idx - 1].?,
+            .far = &self.contents[self.next_idx - 2].?,
+            .farther = &self.contents[self.next_idx - 3].?,
+        };
+    }
+
+    test "do_peek_trio" {
+        const stack = try Self.init(testAllocator, null);
+        defer stack.deinit();
+
+        try expectError(StackManipulationError.Underflow, stack.do_peek_trio());
+
+        _ = try stack.do_push(Object{ .UnsignedInt = 1 });
+        const near_one = try stack.do_peek_trio();
+        try expectEqual(@as(usize, 1), near_one.near.*.UnsignedInt);
+        try expectEqual(@as(?*Object, null), near_one.far);
+        try expectEqual(@as(?*Object, null), near_one.farther);
+
+        _ = try stack.do_push(Object{ .UnsignedInt = 2 });
+
+        const near_two = try stack.do_peek_trio();
+        try expectEqual(@as(usize, 2), near_two.near.*.UnsignedInt);
+        try expectEqual(@as(usize, 1), near_two.far.?.*.UnsignedInt);
+        try expectEqual(@as(?*Object, null), near_one.farther);
+
+        _ = try stack.do_push(Object{ .UnsignedInt = 3 });
+
+        const near_three = try stack.do_peek_trio();
+        try expectEqual(@as(usize, 3), near_three.near.*.UnsignedInt);
+        try expectEqual(@as(usize, 2), near_three.far.?.*.UnsignedInt);
+        try expectEqual(@as(usize, 1), near_three.farther.?.*.UnsignedInt);
+    }
+
     pub const PeekPair = struct {
         top: *Object,
         bottom: ?*Object,
@@ -269,6 +354,103 @@ pub const Stack = struct {
 
     pub fn do_peek(self: *Self) !*Object {
         return (try self.do_peek_pair()).top;
+    }
+
+    pub fn do_pop(self: *Self) !Object {
+        if (self.next_idx == 0) {
+            return StackManipulationError.Underflow;
+        }
+
+        self.next_idx -= 1;
+        if (self.contents[self.next_idx]) |obj| {
+            self.contents[self.next_idx] = null;
+            return obj;
+        }
+
+        unreachable;
+    }
+
+    test "do_pop" {
+        const stack = try Self.init(testAllocator, null);
+        defer stack.deinit();
+        _ = try stack.do_push(Object{
+            .UnsignedInt = 42,
+        });
+        const should_be_42 = try stack.do_pop();
+        try expectEqual(@as(usize, 42), should_be_42.UnsignedInt);
+        try expectError(StackManipulationError.Underflow, stack.do_pop());
+    }
+
+    pub const PopPair = struct {
+        near: Object,
+        far: Object,
+    };
+
+    pub fn do_pop_pair(self: *Self) !PopPair {
+        const top_two = try self.do_peek_pair();
+
+        if (top_two.bottom) |_| {
+            return PopPair{
+                .near = try self.do_pop(),
+                .far = try self.do_pop(),
+            };
+        }
+
+        return StackManipulationError.Underflow;
+    }
+
+    test "do_pop_pair" {
+        const stack = try Self.init(testAllocator, null);
+        defer stack.deinit();
+        _ = try stack.do_push(Object{
+            .UnsignedInt = 41,
+        });
+        _ = try stack.do_push(Object{
+            .UnsignedInt = 42,
+        });
+        const pairing = try stack.do_pop_pair();
+        try expectEqual(@as(usize, 42), pairing.near.UnsignedInt);
+        try expectEqual(@as(usize, 41), pairing.far.UnsignedInt);
+        try expectError(StackManipulationError.Underflow, stack.do_pop_pair());
+    }
+
+    pub const PopTrio = struct {
+        near: Object,
+        far: Object,
+        farther: Object,
+    };
+
+    pub fn do_pop_trio(self: *Self) !PopTrio {
+        const top_three = try self.do_peek_trio();
+
+        if (top_three.farther) |_| {
+            return PopTrio{
+                .near = try self.do_pop(),
+                .far = try self.do_pop(),
+                .farther = try self.do_pop(),
+            };
+        }
+
+        return StackManipulationError.Underflow;
+    }
+
+    test "do_pop_trio" {
+        const stack = try Self.init(testAllocator, null);
+        defer stack.deinit();
+        _ = try stack.do_push(Object{
+            .UnsignedInt = 40,
+        });
+        _ = try stack.do_push(Object{
+            .UnsignedInt = 41,
+        });
+        _ = try stack.do_push(Object{
+            .UnsignedInt = 42,
+        });
+        const trio = try stack.do_pop_trio();
+        try expectEqual(@as(usize, 42), trio.near.UnsignedInt);
+        try expectEqual(@as(usize, 41), trio.far.UnsignedInt);
+        try expectEqual(@as(usize, 40), trio.farther.UnsignedInt);
+        try expectError(StackManipulationError.Underflow, stack.do_pop_trio());
     }
 
     // Pushes an object to the top of this stack or a newly-created stack, as

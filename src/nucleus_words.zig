@@ -13,6 +13,7 @@ const expectError = std.testing.expectError;
 const _stack = @import("./stack.zig");
 const _word = @import("./word.zig");
 
+const InternalError = @import("./internal_error.zig").InternalError;
 const Object = @import("./object.zig").Object;
 const Rc = @import("./rc.zig").Rc;
 const Stack = _stack.Stack;
@@ -32,14 +33,82 @@ pub fn BEFORE_WORD(_: *Stack) !void {
     // TODO
 }
 
+fn push_one(stack: *Stack) anyerror!void {
+    _ = try stack.do_push(Object{ .UnsignedInt = 1 });
+}
+
+fn push_two(stack: *Stack) anyerror!void {
+    _ = try stack.do_push(Object{ .UnsignedInt = 2 });
+}
+
 // @CONDJMP ( Word Boolean -> nothing )
 //
 // Immediately executes the near word if the boolean is truthy, doing nothing
-// otherwise. Consumes both inputs.
+// otherwise. Consumes both inputs, even if either is an invalid type: invalid
+// incantations will lose data. You've been warned.
 //
 // See also: @CONDJMP2
-pub fn CONDJMP(_: *Stack) !void {
-    // TODO
+pub fn CONDJMP(stack: *Stack) !void {
+    const pairing = try stack.do_pop_pair();
+    const condition = pairing.near;
+    const callback = pairing.far;
+
+    if (@as(Object, condition) != Object.Boolean) {
+        return InternalError.TypeError;
+    }
+
+    if (@as(Object, callback) != Object.Word) {
+        return InternalError.TypeError;
+    }
+
+    if (!condition.Boolean) {
+        return;
+    }
+
+    // TODO: safely handle null
+    return switch (callback.Word.value.?.impl) {
+        // TODO
+        WordImplementation.Compound => error.Unimplemented,
+        // TODO: should this be handled here, in Runtime, or in a helper util?
+        WordImplementation.HeapLit => error.Unimplemented,
+        // TODO: handle stack juggling
+        WordImplementation.Primitive => |impl| try impl(stack),
+    };
+}
+
+test "CONDJMP" {
+    var stack = try Stack.init(testAllocator, null);
+    defer stack.deinit();
+
+    // TODO: make helper function on Word to create a sane default
+    const push_one_word = Word{
+        .flags = .{
+            .hidden = false,
+        },
+        .tags = [_]u8{0} ** Word.TAG_ARRAY_SIZE,
+        .impl = .{
+            .Primitive = &push_one,
+        },
+    };
+
+    // TODO: move to common location
+    const HeapedWord = Rc(Word);
+
+    // TODO: stop reaching into the stack here to borrow its allocator
+    const heap_for_word = try stack.alloc.create(HeapedWord);
+    defer stack.alloc.destroy(heap_for_word);
+    heap_for_word.* = HeapedWord.init(push_one_word);
+
+    _ = try stack.do_push(Object{ .Word = heap_for_word });
+    _ = try stack.do_push(Object{ .Boolean = true });
+    try CONDJMP(stack);
+    const should_be_1 = try stack.do_pop();
+    try expectEqual(@as(usize, 1), should_be_1.UnsignedInt);
+
+    _ = try stack.do_push(Object{ .Word = heap_for_word });
+    _ = try stack.do_push(Object{ .Boolean = false });
+    try CONDJMP(stack);
+    try expectError(StackManipulationError.Underflow, stack.do_pop());
 }
 
 // @CONDJMP2 ( Word Word Boolean -> nothing )
@@ -48,8 +117,88 @@ pub fn CONDJMP(_: *Stack) !void {
 // word otherwise. Consumes all three inputs.
 //
 // See also: @CONDJMP
-pub fn CONDJMP2(_: *Stack) !void {
-    // TODO
+pub fn CONDJMP2(stack: *Stack) !void {
+    const trio = try stack.do_pop_trio();
+    const condition = trio.near;
+    const truthy_callback = trio.far;
+    const falsey_callback = trio.farther;
+
+    if (@as(Object, condition) != Object.Boolean) {
+        return InternalError.TypeError;
+    }
+
+    if (@as(Object, truthy_callback) != Object.Word) {
+        return InternalError.TypeError;
+    }
+
+    if (@as(Object, falsey_callback) != Object.Word) {
+        return InternalError.TypeError;
+    }
+
+    const callback = if (condition.Boolean) truthy_callback else falsey_callback;
+
+    // TODO: safely handle null
+    return switch (callback.Word.value.?.impl) {
+        // TODO
+        WordImplementation.Compound => error.Unimplemented,
+        // TODO: should this be handled here, in Runtime, or in a helper util?
+        WordImplementation.HeapLit => error.Unimplemented,
+        // TODO: handle stack juggling
+        WordImplementation.Primitive => |impl| try impl(stack),
+    };
+}
+
+test "CONDJMP2" {
+    var stack = try Stack.init(testAllocator, null);
+    defer stack.deinit();
+
+    // TODO: make helper function on Word to create a sane default
+    const push_one_word = Word{
+        .flags = .{
+            .hidden = false,
+        },
+        .tags = [_]u8{0} ** Word.TAG_ARRAY_SIZE,
+        .impl = .{
+            .Primitive = &push_one,
+        },
+    };
+
+    // TODO: make helper function on Word to create a sane default
+    const push_two_word = Word{
+        .flags = .{
+            .hidden = false,
+        },
+        .tags = [_]u8{0} ** Word.TAG_ARRAY_SIZE,
+        .impl = .{
+            .Primitive = &push_two,
+        },
+    };
+
+    // TODO: move to common location
+    const HeapedWord = Rc(Word);
+
+    // TODO: stop reaching into the stack here to borrow its allocator
+    const heap_for_one_word = try stack.alloc.create(HeapedWord);
+    const heap_for_two_word = try stack.alloc.create(HeapedWord);
+    defer stack.alloc.destroy(heap_for_one_word);
+    defer stack.alloc.destroy(heap_for_two_word);
+    heap_for_one_word.* = HeapedWord.init(push_one_word);
+    heap_for_two_word.* = HeapedWord.init(push_two_word);
+
+    _ = try stack.do_push(Object{ .Word = heap_for_two_word });
+    _ = try stack.do_push(Object{ .Word = heap_for_one_word });
+    _ = try stack.do_push(Object{ .Boolean = true });
+    try CONDJMP2(stack);
+    const should_be_1 = try stack.do_pop();
+    try expectEqual(@as(usize, 1), should_be_1.UnsignedInt);
+
+    _ = try stack.do_push(Object{ .Word = heap_for_two_word });
+    _ = try stack.do_push(Object{ .Word = heap_for_one_word });
+    _ = try stack.do_push(Object{ .Boolean = false });
+    try CONDJMP2(stack);
+    const should_be_2 = try stack.do_pop();
+    try expectEqual(@as(usize, 2), should_be_2.UnsignedInt);
+    try expectError(StackManipulationError.Underflow, stack.do_pop());
 }
 
 /// @EQ ( @2 @1 <- Boolean )
