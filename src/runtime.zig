@@ -8,8 +8,24 @@ const Allocator = std.mem.Allocator;
 const testAllocator: Allocator = std.testing.allocator;
 const expectEqual = std.testing.expectEqual;
 
+const _object = @import("./object.zig");
+const _word = @import("./word.zig");
+
+const CompoundImplementation = _word.CompoundImplementation;
+const HeapLitImplementation = _word.HeapLitImplementation;
 const InternalError = @import("./internal_error.zig").InternalError;
+const Object = _object.Object;
+const PrimitiveImplementation = _word.PrimitiveImplementation;
 const Stack = @import("./stack.zig").Stack;
+const Types = @import("./types.zig");
+const Word = _word.Word;
+const WordList = @import("./word_list.zig").WordList;
+const WordMap = @import("./word_map.zig").WordMap;
+
+// TODO: move to test helpers file
+fn push_one(runtime: *Runtime) anyerror!void {
+    runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 1 });
+}
 
 pub const Runtime = struct {
     const Self = @This();
@@ -48,20 +64,149 @@ pub const Runtime = struct {
     // TODO: configurable in build.zig
     const WORD_BUF_LEN = 1024;
 
+    // TODO: configurable in build.zig
+    const DICTIONARY_DEFAULT_SIZE = 4096;
+
+    // TODO: configurable in build.zig
+    const SYMBOL_POOL_DEFAULT_SIZE = 4096;
+    /// All symbols are interned by their raw "string" contents and stored
+    /// behind a typical garbage collection structure (Rc([]u8)) for later
+    /// pulling onto a stack.
+    const SymbolPool = std.StringHashMap(Types.HeapedSymbol);
+
+    fn GetOrPutResult(comptime T: type) type {
+        return struct {
+            value_ptr: *T,
+            found_existing: bool,
+        };
+    }
+
     alloc: Allocator,
+    dictionary: WordMap,
     private_space: PrivateSpace,
     stack: *Stack,
+    symbols: SymbolPool,
 
     pub fn init(alloc: Allocator) !Self {
+        var dictionary = WordMap.init(alloc);
+        try dictionary.ensureTotalCapacity(DICTIONARY_DEFAULT_SIZE);
+
+        var symbol_pool = SymbolPool.init(alloc);
+        try symbol_pool.ensureTotalCapacity(SYMBOL_POOL_DEFAULT_SIZE);
+
         return .{
             .alloc = alloc,
-            .stack = try Stack.init(alloc, null),
+            .dictionary = dictionary,
             .private_space = PrivateSpace.init(),
+            .stack = try Stack.init(alloc, null),
+            .symbols = symbol_pool,
         };
     }
 
     pub fn deinit(self: *Self) void {
-        self.stack.deinit();
+        // First, nuke everything on the stack using this horribly named method
+        // (TODO for the love of god find better names for these things).
+        self.stack.deinit_from_bottom();
+
+        // Now, we need to nuke all defined words, which is a bit fidgety since
+        // they're referenced by their symbol identifiers which themselves may
+        // need to be garbage collected in this process.
+        var dictionary_iter = self.dictionary.iterator();
+        while (dictionary_iter.next()) |entry| {
+            // Drop our reference to the symbol naming this WordList (and free
+            // the underlying u8 slice if appropriate).
+            _ = entry.key_ptr.*.decrement_and_prune_free_inner(self.alloc);
+            // Now defer to WordList.deinit to clean its own self up, making
+            // the assumption that it, too, will destroy any orphaned objects
+            // along the way.
+            entry.value_ptr.deinit(self.alloc);
+        }
+        // And now these two lines should remove all remaining metadata the
+        // HashMap itself stores and leave us with a defunct HashMap.
+        self.dictionary.clearAndFree();
+        self.dictionary.deinit();
+
+        var symbol_iter = self.symbols.valueIterator();
+        while (symbol_iter.next()) |entry| {
+            if (entry.value) |inner_ptr| {
+                if (!entry.decrement()) {
+                    // TODO: API to stop doing this reach-in manually, ew
+                    self.alloc.free(inner_ptr);
+                }
+            }
+        }
+        self.symbols.clearAndFree();
+        self.symbols.deinit();
+    }
+
+    pub fn get_or_put_symbol(self: *Self, sym: []const u8) !GetOrPutResult(Types.HeapedSymbol) {
+        var entry = try self.symbols.getOrPut(sym);
+        if (!entry.found_existing) {
+            const stored = try self.alloc.alloc(u8, sym.len);
+            std.mem.copy(u8, stored[0..], sym);
+            entry.value_ptr.* = Types.HeapedSymbol.init(stored);
+        }
+        return .{
+            .value_ptr = entry.value_ptr,
+            .found_existing = entry.found_existing,
+        };
+    }
+
+    /// Takes a bare Word struct, wraps it in a refcounter, and returns a
+    /// pointer to the resultant memory. Does not wrap it in an Object for
+    /// direct placement on a Stack.
+    pub fn send_word_to_heap(self: *Self, bare: Word) !Types.GluumyWord {
+        const heap_space = try self.alloc.create(Types.HeapedWord);
+        heap_space.* = Types.HeapedWord.init(bare);
+        return heap_space;
+    }
+
+    /// Frees the underlying memory holding a word implementation. Should never
+    /// be used by external callers on a word stored in the Dictionary (cleared
+    /// by deregistration or via Runtime.deinit()) or on the Stack (cleared
+    /// with any Stack Object destruction method), but explicitly *must* be
+    /// called by external callers to free-floating anonymous words, perhaps as
+    /// part of unit tests.
+    ///
+    /// Will fail in the event the Rc has outstanding references.
+    pub fn guarded_free_word_from_heap(self: *Self, word: Types.GluumyWord) !void {
+        if (!word.decrement()) {
+            return self.alloc.destroy(word);
+        }
+
+        return InternalError.AttemptedDestructionOfPopulousRc;
+    }
+
+    /// Heap-wraps a compound word definition.
+    pub fn word_from_compound_impl(self: *Self, impl: CompoundImplementation) !Types.GluumyWord {
+        return try self.send_word_to_heap(Word.new_compound_untagged(impl));
+    }
+
+    /// Heap-wraps a heaplit word definition. How meta.
+    pub fn word_from_heaplit_impl(self: *Self, impl: HeapLitImplementation) !Types.GluumyWord {
+        return try self.send_word_to_heap(Word.new_heaplit_untagged(impl));
+    }
+
+    /// Heap-wraps a primitive word definition.
+    pub fn word_from_primitive_impl(self: *Self, impl: PrimitiveImplementation) !Types.GluumyWord {
+        return try self.send_word_to_heap(Word.new_primitive_untagged(impl));
+    }
+
+    pub fn define_word_va1(self: *Self, identifier: Types.GluumySymbol, target: Types.GluumyWord) !void {
+        try identifier.increment();
+        var dict_entry = try self.dictionary.getOrPut(identifier);
+        if (!dict_entry.found_existing) {
+            dict_entry.value_ptr.* = WordList.init(self.alloc);
+        }
+
+        const compound_storage = try self.alloc.alloc(Types.GluumyWord, 1);
+        compound_storage[0] = target;
+
+        var heap_for_word = try self.word_from_compound_impl(compound_storage);
+
+        // TODO: how, if at all, do we handle decrementing this at some point,
+        // presumably when word is removed
+        try dict_entry.value_ptr.append(heap_for_word);
     }
 
     pub fn priv_space_set_byte(self: *Self, member: u8, value: u8) InternalError!void {

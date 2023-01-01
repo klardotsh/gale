@@ -14,7 +14,6 @@ const _stack = @import("./stack.zig");
 const _word = @import("./word.zig");
 
 const Object = @import("./object.zig").Object;
-const Rc = @import("./rc.zig").Rc;
 const Runtime = @import("./runtime.zig").Runtime;
 const StackManipulationError = _stack.StackManipulationError;
 const Word = _word.Word;
@@ -32,6 +31,7 @@ pub fn BEFORE_WORD(_: *Runtime) !void {
     // TODO
 }
 
+// TODO: move to test helpers file
 fn push_one(runtime: *Runtime) anyerror!void {
     runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 1 });
 }
@@ -60,37 +60,33 @@ pub fn CONDJMP(runtime: *Runtime) !void {
     }
 
     // TODO: safely handle null
-    return switch (callback.Word.value.?.impl) {
+    // TODO: move this logic into runtime, it should handle running words
+    // itself (probably?)
+    switch (callback.Word.value.?.impl) {
         // TODO
-        WordImplementation.Compound => error.Unimplemented,
+        WordImplementation.Compound => return error.Unimplemented,
         // TODO: should this be handled here, in Runtime, or in a helper util?
-        WordImplementation.HeapLit => error.Unimplemented,
+        WordImplementation.HeapLit => return error.Unimplemented,
         // TODO: handle stack juggling
         WordImplementation.Primitive => |impl| try impl(runtime),
-    };
+    }
+
+    // TODO: should these be handled in a receipt function of sorts on the
+    // stack/runtime itself? pt1: pop trio off stack. pt2: turn in the receipt
+    // gotten in pt1, runtime handles lifecycle teardowns along the way. this
+    // would also allow for clean increment/decrement handling along the way.
+    condition.deinit(runtime.alloc);
+    callback.deinit(runtime.alloc);
 }
 
 test "CONDJMP" {
     var runtime = try Runtime.init(testAllocator);
     defer runtime.deinit();
 
-    // TODO: make helper function on Word to create a sane default
-    const push_one_word = Word{
-        .flags = .{
-            .hidden = false,
-        },
-        .tags = [_]u8{0} ** Word.TAG_ARRAY_SIZE,
-        .impl = .{
-            .Primitive = &push_one,
-        },
-    };
-
-    // TODO: move to common location
-    const HeapedWord = Rc(Word);
-
-    const heap_for_word = try runtime.alloc.create(HeapedWord);
-    defer runtime.alloc.destroy(heap_for_word);
-    heap_for_word.* = HeapedWord.init(push_one_word);
+    // Destructors run when object popped off stack, so this memory should not
+    // be defer-freed here (eg guarded_free_word_from_heap as one might be
+    // tempted to use)
+    const heap_for_word = try runtime.word_from_primitive_impl(&push_one);
 
     runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_word });
     runtime.stack = try runtime.stack.do_push(Object{ .Boolean = true });
@@ -123,52 +119,32 @@ pub fn CONDJMP2(runtime: *Runtime) !void {
     const callback = if (condition.Boolean) truthy_callback else falsey_callback;
 
     // TODO: safely handle null
-    return switch (callback.Word.value.?.impl) {
+    // TODO: move this logic into runtime, it should handle running words
+    // itself (probably?)
+    switch (callback.Word.value.?.impl) {
         // TODO
-        WordImplementation.Compound => error.Unimplemented,
+        WordImplementation.Compound => return error.Unimplemented,
         // TODO: should this be handled here, in Runtime, or in a helper util?
-        WordImplementation.HeapLit => error.Unimplemented,
+        WordImplementation.HeapLit => return error.Unimplemented,
         // TODO: handle stack juggling
         WordImplementation.Primitive => |impl| try impl(runtime),
-    };
+    }
+
+    // TODO: should these be handled in a receipt function of sorts on the
+    // stack/runtime itself? pt1: pop trio off stack. pt2: turn in the receipt
+    // gotten in pt1, runtime handles lifecycle teardowns along the way. this
+    // would also allow for clean increment/decrement handling along the way.
+    condition.deinit(runtime.alloc);
+    truthy_callback.deinit(runtime.alloc);
+    falsey_callback.deinit(runtime.alloc);
 }
 
 test "CONDJMP2" {
     var runtime = try Runtime.init(testAllocator);
     defer runtime.deinit();
 
-    // TODO: make helper function on Word to create a sane default
-    const push_one_word = Word{
-        .flags = .{
-            .hidden = false,
-        },
-        .tags = [_]u8{0} ** Word.TAG_ARRAY_SIZE,
-        .impl = .{
-            .Primitive = &push_one,
-        },
-    };
-
-    // TODO: make helper function on Word to create a sane default
-    const push_two_word = Word{
-        .flags = .{
-            .hidden = false,
-        },
-        .tags = [_]u8{0} ** Word.TAG_ARRAY_SIZE,
-        .impl = .{
-            .Primitive = &push_two,
-        },
-    };
-
-    // TODO: move to common location
-    const HeapedWord = Rc(Word);
-
-    // TODO: stop reaching into the stack here to borrow its allocator
-    const heap_for_one_word = try runtime.alloc.create(HeapedWord);
-    const heap_for_two_word = try runtime.alloc.create(HeapedWord);
-    defer runtime.alloc.destroy(heap_for_one_word);
-    defer runtime.alloc.destroy(heap_for_two_word);
-    heap_for_one_word.* = HeapedWord.init(push_one_word);
-    heap_for_two_word.* = HeapedWord.init(push_two_word);
+    var heap_for_one_word = try runtime.word_from_primitive_impl(&push_one);
+    var heap_for_two_word = try runtime.word_from_primitive_impl(&push_two);
 
     runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_two_word });
     runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_one_word });
@@ -176,6 +152,13 @@ test "CONDJMP2" {
     try CONDJMP2(&runtime);
     const should_be_1 = try runtime.stack.do_pop();
     try expectEqual(@as(usize, 1), should_be_1.UnsignedInt);
+
+    // At this point the Rc(Word) has been freed and will segfault if accessed,
+    // so there's no need (or ability) to check that heap_for_*_word.value ==
+    // null. Instead, just assign over it, and let the
+    // GeneralPurposeAllocator's leak detection serve as that "unit test".
+    heap_for_one_word = try runtime.word_from_primitive_impl(&push_one);
+    heap_for_two_word = try runtime.word_from_primitive_impl(&push_two);
 
     runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_two_word });
     runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_one_word });
@@ -224,10 +207,17 @@ test "EQ" {
 /// DEFINE-WORD-VA1 ( Word Symbol -> nothing )
 ///
 /// This is a glorified alias/assignment utility.
+// TODO: See if there's a better way to lay out "alias words" such as this in
+// memory: can the lookups be more efficient in some way? Can we apply the
+// learnings from this to Shapes later (thinking of a newtype-esque
+// functionality especially...)
 pub fn DEFINE_WORD_VA1(runtime: *Runtime) !void {
     const pairing = try runtime.stack.do_pop_pair();
-    _ = pairing.near;
-    _ = pairing.far;
+    var symbol = pairing.near;
+    var target = pairing.far;
+    try symbol.assert_is_kind(Object.Symbol);
+    try target.assert_is_kind(Object.Word);
+    try runtime.define_word_va1(symbol.Symbol, target.Word);
 }
 
 /// DEFINE-WORD-VA2 ( Word Word Symbol -> nothing )
@@ -250,6 +240,29 @@ pub fn DEFINE_WORD_VA5(_: *Runtime) !void {
     // TODO
 }
 
+test "DEFINE_WORD_VA*" {
+    var runtime = try Runtime.init(testAllocator);
+    // This one's definitely a bit overloaded: we're somewhat also testing
+    // Runtime.deinit() here, as we depend on it cleaning up all this
+    // straggling RAM along the way. This is a rather useful test despite the
+    // mixture of concerns, since this is an actual real-world usecase more
+    // philosophically "pure" unit testing might not (easily) catch.
+    defer runtime.deinit();
+
+    const heap_for_word = try runtime.word_from_primitive_impl(&push_one);
+    const heaped_symbol = (try runtime.get_or_put_symbol("push-one")).value_ptr;
+
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_symbol(heaped_symbol);
+    try DEFINE_WORD_VA1(&runtime);
+
+    var found_word_list = runtime.dictionary.get(heaped_symbol).?;
+    try expectEqual(found_word_list.len(), 1);
+    const word_as_defined = found_word_list.items()[0];
+    try expect(!word_as_defined.value.?.flags.hidden);
+    try expectEqual(word_as_defined.value.?.impl.Compound.len, 1);
+}
+
 /// @DROP ( @1 -> nothing )
 pub fn DROP(runtime: *Runtime) !void {
     runtime.stack = try runtime.stack.do_drop();
@@ -270,27 +283,8 @@ pub fn DUP(runtime: *Runtime) !void {
 /// way it is.
 pub fn LIT(runtime: *Runtime) !void {
     const banished = try runtime.stack.banish_top_object();
-
-    // TODO: make helper function on Word to create a sane default
-    const heaplit_word = Word{
-        .flags = .{
-            .hidden = false,
-        },
-        .tags = [_]u8{0} ** Word.TAG_ARRAY_SIZE,
-        .impl = .{
-            .HeapLit = banished,
-        },
-    };
-
-    // TODO: move to common location
-    const HeapedWord = Rc(Word);
-
-    // TODO: stop reaching into the stack here to borrow its allocator
-    const heap_for_word = try runtime.stack.alloc.create(HeapedWord);
-    errdefer runtime.stack.alloc.destroy(heap_for_word);
-    heap_for_word.* = HeapedWord.init(heaplit_word);
-    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_word });
-
+    const obj = Object{ .Word = try runtime.word_from_heaplit_impl(banished) };
+    runtime.stack = try runtime.stack.do_push(obj);
     return;
 }
 
@@ -311,17 +305,6 @@ test "LIT: banishment, but not recall" {
 
     try LIT(&runtime);
     const top_two = try runtime.stack.do_peek_pair();
-    // TODO: document this free sequence, or otherwise guard around it in
-    // userspace, it's *nasty* right now, presumably because I'm working around
-    // not really having Runtime here (which may be a smell that these tests
-    // belong at a different altitude)
-    defer {
-        // TODO: this should use whatever the new allocator is after fixing
-        // heap_for_word in LIT implementation above
-        runtime.stack.alloc.destroy(top_two.top.Word.value.?.impl.HeapLit);
-        _ = top_two.top.Word.decrement();
-        runtime.stack.alloc.destroy(top_two.top.Word);
-    }
 
     // First, ascertain that we still have just one thing on the stack.
     try expectEqual(@as(?*Object, null), top_two.bottom);

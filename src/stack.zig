@@ -14,6 +14,7 @@ const expectError = std.testing.expectError;
 
 const Object = @import("./object.zig").Object;
 const Rc = @import("./rc.zig").Rc;
+const Types = @import("./types.zig");
 const WordImplementation = @import("./word.zig").WordImplementation;
 
 pub const StackManipulationError = error{
@@ -110,7 +111,22 @@ pub const Stack = struct {
         if (self.prev) |prev| {
             prev.next = null;
         }
+
+        while (self.next_idx > 0) {
+            _ = self.do_drop() catch null;
+        }
         self.alloc.destroy(self);
+    }
+
+    /// TODO: docs about stack jumping behavior here
+    /// TODO: see if this should just be the mainline deinit() function instead
+    /// or if they can otherwise be merged
+    pub fn deinit_from_bottom(self: *Self) void {
+        if (self.prev) |prev| {
+            prev.deinit_from_bottom();
+        } else {
+            self.deinit();
+        }
     }
 
     pub fn banish_top_object(self: *Self) !*Object {
@@ -453,15 +469,23 @@ pub const Stack = struct {
         try expectError(StackManipulationError.Underflow, stack.do_pop_trio());
     }
 
-    // Pushes an object to the top of this stack or a newly-created stack, as
-    // necessary based on available space. Returns pointer to whichever stack
-    // the object ended up on.
+    /// Pushes an object to the top of this stack or a newly-created stack, as
+    /// necessary based on available space. Returns pointer to whichever stack
+    /// the object ended up on.
     pub fn do_push(self: *Self, obj: Object) !*Self {
         try self.non_terminal_stack_guard();
         const target = try self.expand_to_fit(1) orelse self;
         target.contents[target.next_idx] = obj;
         target.next_idx += 1;
         return target;
+    }
+
+    pub fn do_push_symbol(self: *Self, symbol: Types.GluumySymbol) !*Self {
+        return try self.do_push(Object{ .Symbol = symbol });
+    }
+
+    pub fn do_push_word(self: *Self, word: Types.GluumyWord) !*Self {
+        return try self.do_push(Object{ .Word = word });
     }
 
     test "do_push" {
@@ -622,64 +646,15 @@ pub const Stack = struct {
 
         // Finally, for boxed types, we need to at least decrement the
         // refcount, and potentially free the underlying memory.
-        if (dead) |dead_deref| {
-            switch (dead_deref) {
-                Object.UnsignedInt, Object.SignedInt, Object.Boolean => {},
-                // TODO: should Opaque really be handled the same here? if
-                // "Opaque" means "gluumy doesn't know about this data, it's
-                // managed by userspace", then yes (and the name needs changed,
-                // maybe to ByteBlock?), if it means "gluumy truly knows
-                // nothing about this data, at all, it's managed by FFI", then
-                // attempting to free it should either be a panic, a call to an
-                // underlying cleanup function provided by the FFI, or (I can't
-                // imagine why we'd want to do this) a silent leak, assuming
-                // the FFI library will clean it up somehow, eventually, maybe.
-                //
-                // Anyway this is a long philosophical tangent about how
-                // developers suck at naming things and also how actually using
-                // your APIs teaches you how little you knew when sketching
-                // them out originally.
-                Object.String, Object.Symbol, Object.Opaque => |obj| {
-                    if (obj.value) |objval| {
-                        if (!obj.decrement()) {
-                            // Free the underlying string as this stack slot
-                            // held the final reference to those bytes.
-                            self.alloc.free(objval);
-                            // Now kill off the Rc(_) itself.
-                            self.alloc.destroy(obj);
-                        }
-                    }
-                },
-                Object.Word => |word| {
-                    if (word.value) |wordval| {
-                        if (!word.decrement()) {
-                            try switch (wordval.impl) {
-                                WordImplementation.Primitive => {
-                                    // We never want to nuke a primitive
-                                    // word... not that we could anyway.
-                                    // However, we still need to kill the
-                                    // Rc(Word). Since Primitive
-                                    // implementations are always *const fn,
-                                    // the memory doesn't "leak" in the
-                                    // traditional sense: it was always going
-                                    // to be loaded as part of the binary
-                                    // anyway.
-                                    self.alloc.destroy(word);
-                                },
-                                WordImplementation.Compound => error.Unimplemented,
-                                WordImplementation.HeapLit => |hl| {
-                                    // Free the underlying heap-mapped object
-                                    // as this stack slot held the final
-                                    // reference to those bytes.
-                                    self.alloc.destroy(hl);
-                                    // Now kill off the Rc(Word) itself.
-                                    self.alloc.destroy(word);
-                                },
-                            };
-                        }
-                    }
-                },
-            }
+        if (dead) |_dead_deref| {
+            var dead_deref = _dead_deref;
+
+            // TODO: this currently relies on an assumption that Stack and
+            // Runtime share the same allocator *instance*, which is only
+            // somewhat accidentally true. The type signatures of these structs
+            // or initialization sequencing should be used to guarantee this,
+            // or Runtime should be an expected argument to this function.
+            dead_deref.deinit(self.alloc);
         }
 
         return self;

@@ -3,9 +3,11 @@
 // Creative Commons Zero 1.0 dedication, distributed alongside this source in a
 // file called COPYING.
 
+const std = @import("std");
+const Allocator = std.mem.Allocator;
+
 const InternalError = @import("./internal_error.zig").InternalError;
-const Rc = @import("./rc.zig").Rc;
-const Word = @import("./word.zig").Word;
+const Types = @import("./types.zig");
 
 /// Within our Stack we can store a few primitive types:
 pub const Object = union(enum) {
@@ -14,12 +16,26 @@ pub const Object = union(enum) {
     Boolean: bool,
     UnsignedInt: usize,
     SignedInt: isize,
-    String: *Rc([]u8),
-    Symbol: *Rc([]u8),
+    String: Types.GluumyString,
+    Symbol: Types.GluumySymbol,
     /// Opaque represents a blob of memory that is left to userspace to manage
     /// manually. TODO more docs here.
-    Opaque: *Rc([]u8),
-    Word: *Rc(Word),
+    Opaque: Types.GluumyOpaque,
+    Word: Types.GluumyWord,
+
+    pub fn deinit(self: *Self, alloc: Allocator) void {
+        switch (self.*) {
+            Self.Boolean, Self.UnsignedInt, Self.SignedInt => {},
+            Self.String, Self.Symbol => |inner| {
+                _ = inner.decrement_and_prune_free_inner(alloc);
+            },
+            // TODO: how to handle this?
+            Self.Opaque => unreachable,
+            Self.Word => |inner| {
+                _ = inner.decrement_and_prune_deinit_with_alloc_inner(alloc);
+            },
+        }
+    }
 
     pub fn assert_is_kind(self: *Self, comptime kind: anytype) InternalError!void {
         if (@as(Self, self.*) != kind) {
