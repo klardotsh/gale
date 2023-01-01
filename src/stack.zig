@@ -135,7 +135,7 @@ pub const Stack = struct {
 
         const top = (try self.do_peek_pair()).top;
         return switch (top.*) {
-            Object.Word, Object.Opaque => InternalError.Unimplemented,
+            .Word, .Opaque => InternalError.Unimplemented,
             else => |it| {
                 banish_target.* = it;
 
@@ -518,10 +518,10 @@ pub const Stack = struct {
     pub fn do_dup(self: *Self) !*Self {
         try self.non_terminal_stack_guard();
         return switch ((try self.do_peek_pair()).top.*) {
-            Object.String => InternalError.Unimplemented,
-            Object.Symbol => InternalError.Unimplemented,
-            Object.Opaque => InternalError.Unimplemented,
-            Object.Word => InternalError.Unimplemented,
+            .String => InternalError.Unimplemented,
+            .Symbol => InternalError.Unimplemented,
+            .Opaque => InternalError.Unimplemented,
+            .Word => InternalError.Unimplemented,
             else => |it| try self.do_push(it),
         };
     }

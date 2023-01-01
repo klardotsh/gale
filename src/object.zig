@@ -25,13 +25,13 @@ pub const Object = union(enum) {
 
     pub fn deinit(self: *Self, alloc: Allocator) void {
         switch (self.*) {
-            Self.Boolean, Self.UnsignedInt, Self.SignedInt => {},
-            Self.String, Self.Symbol => |inner| {
+            .Boolean, .UnsignedInt, .SignedInt => {},
+            .String, .Symbol => |inner| {
                 _ = inner.decrement_and_prune(.FreeInnerDestroySelf, alloc);
             },
             // TODO: how to handle this?
-            Self.Opaque => unreachable,
-            Self.Word => |inner| {
+            .Opaque => unreachable,
+            .Word => |inner| {
                 _ = inner.decrement_and_prune(.DeinitInnerWithAllocDestroySelf, alloc);
             },
         }
@@ -49,32 +49,32 @@ pub const Object = union(enum) {
         }
 
         return switch (self.*) {
-            Self.Boolean => |self_val| switch (other.*) {
-                Self.Boolean => |other_val| self_val == other_val,
+            .Boolean => |self_val| switch (other.*) {
+                .Boolean => |other_val| self_val == other_val,
                 else => InternalError.TypeError,
             },
-            Self.UnsignedInt => |self_val| switch (other.*) {
-                Self.UnsignedInt => |other_val| self_val == other_val,
+            .UnsignedInt => |self_val| switch (other.*) {
+                .UnsignedInt => |other_val| self_val == other_val,
                 else => InternalError.TypeError,
             },
-            Self.SignedInt => |self_val| switch (other.*) {
-                Self.SignedInt => |other_val| self_val == other_val,
+            .SignedInt => |self_val| switch (other.*) {
+                .SignedInt => |other_val| self_val == other_val,
                 else => InternalError.TypeError,
             },
-            Self.String => |self_val| switch (other.*) {
-                Self.String => |other_val| self_val == other_val,
+            .String => |self_val| switch (other.*) {
+                .String => |other_val| self_val == other_val,
                 else => InternalError.TypeError,
             },
-            Self.Symbol => |self_val| switch (other.*) {
-                Self.Symbol => |other_val| self_val == other_val,
+            .Symbol => |self_val| switch (other.*) {
+                .Symbol => |other_val| self_val == other_val,
                 else => InternalError.TypeError,
             },
-            Self.Opaque => |self_val| switch (other.*) {
-                Self.Opaque => |other_val| self_val == other_val,
+            .Opaque => |self_val| switch (other.*) {
+                .Opaque => |other_val| self_val == other_val,
                 else => InternalError.TypeError,
             },
-            Self.Word => |self_val| switch (other.*) {
-                Self.Word => |other_val| self_val == other_val,
+            .Word => |self_val| switch (other.*) {
+                .Word => |other_val| self_val == other_val,
                 else => InternalError.TypeError,
             },
         };

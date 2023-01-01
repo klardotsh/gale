@@ -52,8 +52,8 @@ pub fn CONDJMP(runtime: *Runtime) !void {
     var condition = pairing.near;
     var callback = pairing.far;
 
-    try condition.assert_is_kind(Object.Boolean);
-    try callback.assert_is_kind(Object.Word);
+    try condition.assert_is_kind(.Boolean);
+    try callback.assert_is_kind(.Word);
 
     if (!condition.Boolean) {
         return;
@@ -64,11 +64,11 @@ pub fn CONDJMP(runtime: *Runtime) !void {
     // itself (probably?)
     switch (callback.Word.value.?.impl) {
         // TODO
-        WordImplementation.Compound => return InternalError.Unimplemented,
+        .Compound => return InternalError.Unimplemented,
         // TODO: should this be handled here, in Runtime, or in a helper util?
-        WordImplementation.HeapLit => return InternalError.Unimplemented,
+        .HeapLit => return InternalError.Unimplemented,
         // TODO: handle stack juggling
-        WordImplementation.Primitive => |impl| try impl(runtime),
+        .Primitive => |impl| try impl(runtime),
     }
 
     // TODO: should these be handled in a receipt function of sorts on the
@@ -112,9 +112,9 @@ pub fn CONDJMP2(runtime: *Runtime) !void {
     var truthy_callback = trio.far;
     var falsey_callback = trio.farther;
 
-    try condition.assert_is_kind(Object.Boolean);
-    try truthy_callback.assert_is_kind(Object.Word);
-    try falsey_callback.assert_is_kind(Object.Word);
+    try condition.assert_is_kind(.Boolean);
+    try truthy_callback.assert_is_kind(.Word);
+    try falsey_callback.assert_is_kind(.Word);
 
     const callback = if (condition.Boolean) truthy_callback else falsey_callback;
 
@@ -123,11 +123,11 @@ pub fn CONDJMP2(runtime: *Runtime) !void {
     // itself (probably?)
     switch (callback.Word.value.?.impl) {
         // TODO
-        WordImplementation.Compound => return InternalError.Unimplemented,
+        .Compound => return InternalError.Unimplemented,
         // TODO: should this be handled here, in Runtime, or in a helper util?
-        WordImplementation.HeapLit => return InternalError.Unimplemented,
+        .HeapLit => return InternalError.Unimplemented,
         // TODO: handle stack juggling
-        WordImplementation.Primitive => |impl| try impl(runtime),
+        .Primitive => |impl| try impl(runtime),
     }
 
     // TODO: should these be handled in a receipt function of sorts on the
@@ -215,8 +215,8 @@ pub fn DEFINE_WORD_VA1(runtime: *Runtime) !void {
     const pairing = try runtime.stack.do_pop_pair();
     var symbol = pairing.near;
     var target = pairing.far;
-    try symbol.assert_is_kind(Object.Symbol);
-    try target.assert_is_kind(Object.Word);
+    try symbol.assert_is_kind(.Symbol);
+    try target.assert_is_kind(.Word);
     try runtime.define_word_va1(symbol.Symbol, target.Word);
 }
 
@@ -329,8 +329,8 @@ pub fn PRIV_SPACE_SET_BYTE(runtime: *Runtime) !void {
     var address = pairing.near;
     var value = pairing.far;
 
-    try address.assert_is_kind(Object.UnsignedInt);
-    try value.assert_is_kind(Object.UnsignedInt);
+    try address.assert_is_kind(.UnsignedInt);
+    try value.assert_is_kind(.UnsignedInt);
 
     try runtime.priv_space_set_byte(@truncate(u8, address.UnsignedInt), @truncate(u8, value.UnsignedInt));
 }
