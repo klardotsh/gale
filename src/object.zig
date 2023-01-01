@@ -51,31 +51,31 @@ pub const Object = union(enum) {
         return switch (self.*) {
             Self.Boolean => |self_val| switch (other.*) {
                 Self.Boolean => |other_val| self_val == other_val,
-                else => error.CannotCompareDisparateTypes,
+                else => InternalError.TypeError,
             },
             Self.UnsignedInt => |self_val| switch (other.*) {
                 Self.UnsignedInt => |other_val| self_val == other_val,
-                else => error.CannotCompareDisparateTypes,
+                else => InternalError.TypeError,
             },
             Self.SignedInt => |self_val| switch (other.*) {
                 Self.SignedInt => |other_val| self_val == other_val,
-                else => error.CannotCompareDisparateTypes,
+                else => InternalError.TypeError,
             },
             Self.String => |self_val| switch (other.*) {
                 Self.String => |other_val| self_val == other_val,
-                else => error.CannotCompareDisparateTypes,
+                else => InternalError.TypeError,
             },
             Self.Symbol => |self_val| switch (other.*) {
                 Self.Symbol => |other_val| self_val == other_val,
-                else => error.CannotCompareDisparateTypes,
+                else => InternalError.TypeError,
             },
             Self.Opaque => |self_val| switch (other.*) {
                 Self.Opaque => |other_val| self_val == other_val,
-                else => error.CannotCompareDisparateTypes,
+                else => InternalError.TypeError,
             },
             Self.Word => |self_val| switch (other.*) {
                 Self.Word => |other_val| self_val == other_val,
-                else => error.CannotCompareDisparateTypes,
+                else => InternalError.TypeError,
             },
         };
     }

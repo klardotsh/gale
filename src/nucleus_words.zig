@@ -13,10 +13,10 @@ const expectError = std.testing.expectError;
 const _stack = @import("./stack.zig");
 const _word = @import("./word.zig");
 
+const InternalError = @import("./internal_error.zig").InternalError;
 const Object = @import("./object.zig").Object;
 const Runtime = @import("./runtime.zig").Runtime;
 const StackManipulationError = _stack.StackManipulationError;
-const Word = _word.Word;
 const WordImplementation = _word.WordImplementation;
 
 // As a general rule, only write tests for methods in this file that actually
@@ -64,9 +64,9 @@ pub fn CONDJMP(runtime: *Runtime) !void {
     // itself (probably?)
     switch (callback.Word.value.?.impl) {
         // TODO
-        WordImplementation.Compound => return error.Unimplemented,
+        WordImplementation.Compound => return InternalError.Unimplemented,
         // TODO: should this be handled here, in Runtime, or in a helper util?
-        WordImplementation.HeapLit => return error.Unimplemented,
+        WordImplementation.HeapLit => return InternalError.Unimplemented,
         // TODO: handle stack juggling
         WordImplementation.Primitive => |impl| try impl(runtime),
     }
@@ -123,9 +123,9 @@ pub fn CONDJMP2(runtime: *Runtime) !void {
     // itself (probably?)
     switch (callback.Word.value.?.impl) {
         // TODO
-        WordImplementation.Compound => return error.Unimplemented,
+        WordImplementation.Compound => return InternalError.Unimplemented,
         // TODO: should this be handled here, in Runtime, or in a helper util?
-        WordImplementation.HeapLit => return error.Unimplemented,
+        WordImplementation.HeapLit => return InternalError.Unimplemented,
         // TODO: handle stack juggling
         WordImplementation.Primitive => |impl| try impl(runtime),
     }
@@ -196,7 +196,7 @@ test "EQ" {
     try EQ(&runtime);
     try expect((try runtime.stack.do_peek_pair()).top.*.Boolean);
     // Now compare that boolean to the UnsignedInt... or don't, preferably.
-    try expectError(error.CannotCompareDisparateTypes, EQ(&runtime));
+    try expectError(InternalError.TypeError, EQ(&runtime));
 }
 
 // TODO: comptime away these numerous implementations of DEFINE-WORD-VA*, I

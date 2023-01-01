@@ -4,11 +4,11 @@
 // file called COPYING.
 
 pub const InternalError = error{
-    Unknown,
-    Unimplemented,
-    EmptyWord,
-    UnknownSlashedSuffix,
     AttemptedDestructionOfPopulousRc,
+    AttemptedResurrectionOfExhaustedRc, // me too, buddy
+    EmptyWord,
     TypeError,
+    Unimplemented,
+    UnknownSlashedSuffix,
     ValueError, // TODO: rename???
 };

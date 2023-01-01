@@ -12,10 +12,10 @@ const expectEqual = std.testing.expectEqual;
 const expectEqualStrings = std.testing.expectEqualStrings;
 const expectError = std.testing.expectError;
 
+const InternalError = @import("./internal_error.zig").InternalError;
 const Object = @import("./object.zig").Object;
 const Rc = @import("./rc.zig").Rc;
 const Types = @import("./types.zig");
-const WordImplementation = @import("./word.zig").WordImplementation;
 
 pub const StackManipulationError = error{
     Underflow,
@@ -135,7 +135,7 @@ pub const Stack = struct {
 
         const top = (try self.do_peek_pair()).top;
         return switch (top.*) {
-            Object.Word, Object.Opaque => error.Unimplemented,
+            Object.Word, Object.Opaque => InternalError.Unimplemented,
             else => |it| {
                 banish_target.* = it;
 
@@ -518,10 +518,10 @@ pub const Stack = struct {
     pub fn do_dup(self: *Self) !*Self {
         try self.non_terminal_stack_guard();
         return switch ((try self.do_peek_pair()).top.*) {
-            Object.String => error.Unimplemented,
-            Object.Symbol => error.Unimplemented,
-            Object.Opaque => error.Unimplemented,
-            Object.Word => error.Unimplemented,
+            Object.String => InternalError.Unimplemented,
+            Object.Symbol => InternalError.Unimplemented,
+            Object.Opaque => InternalError.Unimplemented,
+            Object.Word => InternalError.Unimplemented,
             else => |it| try self.do_push(it),
         };
     }

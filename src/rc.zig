@@ -8,7 +8,7 @@ const Allocator = std.mem.Allocator;
 const testAllocator: Allocator = std.testing.allocator;
 const expect = std.testing.expect;
 
-const Runtime = @import("./runtime.zig").Runtime;
+const InternalError = @import("./internal_error.zig").InternalError;
 const Types = @import("./types.zig");
 
 pub fn Rc(comptime T: type) type {
@@ -27,7 +27,7 @@ pub fn Rc(comptime T: type) type {
         }
 
         pub fn increment(self: *Self) !void {
-            if (self.value == null) return error.CannotResurrectAfterExhausted;
+            if (self.value == null) return InternalError.AttemptedResurrectionOfExhaustedRc;
             _ = self.strong_count.fetchAdd(1, .Monotonic);
         }
 

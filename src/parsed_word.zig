@@ -89,7 +89,7 @@ pub const ParsedWord = union(enum) {
                 'i' => if (parseInputAsSignedInt(input[0 .. input.len - 2])) |parsed| {
                     return parsed;
                 },
-                else => return error.UnknownSlashedSuffix,
+                else => return InternalError.UnknownSlashedSuffix,
             }
         }
 
