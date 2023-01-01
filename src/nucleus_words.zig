@@ -260,7 +260,8 @@ test "DEFINE_WORD_VA*" {
     try expectEqual(found_word_list.len(), 1);
     const word_as_defined = found_word_list.items()[0];
     try expect(!word_as_defined.value.?.flags.hidden);
-    try expectEqual(word_as_defined.value.?.impl.Compound.len, 1);
+    try expectEqual(@as(usize, 1), word_as_defined.value.?.impl.Compound.len);
+    try expectEqual(&push_one, word_as_defined.value.?.impl.Compound[0].value.?.impl.Primitive);
 }
 
 /// @DROP ( @1 -> nothing )
