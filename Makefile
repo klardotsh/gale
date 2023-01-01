@@ -6,4 +6,4 @@ lint:
 
 .PHONY: test
 test:
-	zig test ./src/main.zig
+	zig build test
