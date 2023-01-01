@@ -27,12 +27,12 @@ pub const Object = union(enum) {
         switch (self.*) {
             Self.Boolean, Self.UnsignedInt, Self.SignedInt => {},
             Self.String, Self.Symbol => |inner| {
-                _ = inner.decrement_and_prune_free_inner(alloc);
+                _ = inner.decrement_and_prune(.FreeInnerDestroySelf, alloc);
             },
             // TODO: how to handle this?
             Self.Opaque => unreachable,
             Self.Word => |inner| {
-                _ = inner.decrement_and_prune_deinit_with_alloc_inner(alloc);
+                _ = inner.decrement_and_prune(.DeinitInnerWithAllocDestroySelf, alloc);
             },
         }
     }

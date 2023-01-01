@@ -102,15 +102,15 @@ pub const Word = struct {
 
     pub fn deinit(self: *Self, alloc: std.mem.Allocator) void {
         return switch (self.impl) {
-            WordImplementation.Primitive => {},
-            WordImplementation.HeapLit => |obj| {
+            .Primitive => {},
+            .HeapLit => |obj| {
                 obj.deinit(alloc);
                 alloc.destroy(obj);
             },
-            WordImplementation.Compound => |compound| {
+            .Compound => |compound| {
                 var any_alive_remaining = false;
                 for (compound) |iword| {
-                    if (!iword.decrement_and_prune_deinit_with_alloc_inner(alloc)) {
+                    if (!iword.decrement_and_prune(.DeinitInnerWithAllocDestroySelf, alloc)) {
                         any_alive_remaining = true;
                     }
                 }

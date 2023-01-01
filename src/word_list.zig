@@ -22,11 +22,11 @@ pub const WordList = struct {
     }
 
     /// Destroy all contents of self (following the nested garbage collection
-    /// rules discussed in `Rc.decrement_and_prune_deinit_with_alloc_inner`'s
-    /// documentation) and any overhead metadata incurred along the way.
+    /// rules discussed in `Rc.decrement_and_prune`'s documentation) and any
+    /// overhead metadata incurred along the way.
     pub fn deinit(self: *Self, alloc: Allocator) void {
         while (self.contents.popOrNull()) |entry| {
-            _ = entry.decrement_and_prune_deinit_with_alloc_inner(alloc);
+            _ = entry.decrement_and_prune(.DeinitInnerWithAllocDestroySelf, alloc);
         }
         self.contents.deinit();
     }

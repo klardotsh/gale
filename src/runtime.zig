@@ -115,7 +115,7 @@ pub const Runtime = struct {
         while (dictionary_iter.next()) |entry| {
             // Drop our reference to the symbol naming this WordList (and free
             // the underlying u8 slice if appropriate).
-            _ = entry.key_ptr.*.decrement_and_prune_free_inner(self.alloc);
+            _ = entry.key_ptr.*.decrement_and_prune(.FreeInnerDestroySelf, self.alloc);
             // Now defer to WordList.deinit to clean its own self up, making
             // the assumption that it, too, will destroy any orphaned objects
             // along the way.
