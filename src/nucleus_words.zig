@@ -40,13 +40,13 @@ fn push_two(runtime: *Runtime) anyerror!void {
     runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 2 });
 }
 
-// @CONDJMP ( Word Boolean -> nothing )
-//
-// Immediately executes the near word if the boolean is truthy, doing nothing
-// otherwise. Consumes both inputs, even if either is an invalid type: invalid
-// incantations will lose data. You've been warned.
-//
-// See also: @CONDJMP2
+/// @CONDJMP ( Word Boolean -> nothing )
+///
+/// Immediately executes the near word if the boolean is truthy, doing nothing
+/// otherwise. Consumes both inputs, even if either is an invalid type: invalid
+/// incantations will lose data. You've been warned.
+///
+/// See also: @CONDJMP2
 pub fn CONDJMP(runtime: *Runtime) !void {
     const pairing = try runtime.stack.do_pop_pair();
     var condition = pairing.near;
@@ -100,12 +100,12 @@ test "CONDJMP" {
     try expectError(StackManipulationError.Underflow, runtime.stack.do_pop());
 }
 
-// @CONDJMP2 ( Word Word Boolean -> nothing )
-//
-// Immediately executes the near word if the boolean is truthy, and the far
-// word otherwise. Consumes all three inputs.
-//
-// See also: @CONDJMP
+/// @CONDJMP2 ( Word Word Boolean -> nothing )
+///
+/// Immediately executes the near word if the boolean is truthy, and the far
+/// word otherwise. Consumes all three inputs.
+///
+/// See also: @CONDJMP
 pub fn CONDJMP2(runtime: *Runtime) !void {
     const trio = try runtime.stack.do_pop_trio();
     var condition = trio.near;
