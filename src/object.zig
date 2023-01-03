@@ -54,12 +54,20 @@ pub const Object = union(enum) {
         return self;
     }
 
+    /// Raise an `InternalError.TypeError` if this Object is not of `kind`,
+    /// which must be a member of the Object enum (eg. `.Boolean`).
     pub fn assert_is_kind(self: *Self, comptime kind: anytype) InternalError!void {
         if (@as(Self, self.*) != kind) {
             return InternalError.TypeError;
         }
     }
 
+    /// Determine whether two Objects of the same kind (same member of the
+    /// Object enum) are the same, raising `InternalError.TypeError` otherwise.
+    /// For unboxed types, this check is against the underlying value (eg. `1
+    /// == 1`). For boxed types (behind `Rc(_)`), this check is against the
+    /// pointer (in other words, do these two Objects point to the same
+    /// underlying Rc?).
     pub fn eq(self: *Self, other: *Self) !bool {
         if (self == other) {
             return true;
