@@ -52,7 +52,27 @@ pub fn Rc(comptime T: type) type {
             };
         }
 
-        pub fn increment(self: *Self) !void {
+        /// Return whether or not this object is considered "dead", in that it
+        /// is no longer referenced and contains only a null value. This is
+        /// *not* the same logic used by `decrement_and_prune`, but can be used
+        /// to build multi-step prune-then-destroy garbage collection passes.
+        pub fn dead(self: *Self) bool {
+            const no_refs = self.strong_count.load(.Acquire) == 0;
+            const no_data = self.value == null;
+
+            if (no_refs and !no_data) {
+                std.debug.panic("partially-dead Rc@{d}: no refs, but data still exists", .{&self});
+            }
+
+            if (!no_refs and no_data) {
+                std.debug.panic("improperly killed Rc@{d}: data has been wiped, but references remain", .{&self});
+            }
+
+            return no_refs and no_data;
+        }
+
+        /// Increment the number of references to this Rc.
+        pub fn increment(self: *Self) InternalError!void {
             if (self.value == null) return InternalError.AttemptedResurrectionOfExhaustedRc;
             _ = self.strong_count.fetchAdd(1, .Monotonic);
         }
@@ -98,9 +118,21 @@ pub fn Rc(comptime T: type) type {
         /// be the correct instruction).
         pub fn decrement_and_prune(self: *Self, prune_mode: PruneMode, alloc: Allocator) bool {
             var inner = self.value.?;
-            const dead = !self.decrement();
+            const is_dead = !self.decrement();
 
-            if (dead) switch (inner_kind) {
+            // TODO: since strings and symbols are interned to Runtime, right
+            // now they will just leak until the Runtime is deinit()-ed. Unsure
+            // whether this method should go poke Runtime to clean up its
+            // intern table (and then almost certainly call this function
+            // itself), or if Runtime should have some sort of mark-and-sweep
+            // process that periodically finds interned strings and symbols for
+            // which it holds the only reference. I'm leaving this comment
+            // *here* because it's the most localized place I can think to put
+            // it, the top of Rc() is probably not a great fit.
+
+            // TODO: handle nulls safely, which will require plumbing an
+            // InternalError up many stacks...
+            if (is_dead) switch (inner_kind) {
                 .SinglePointer => switch (prune_mode) {
                     .DestroyInner => alloc.destroy(inner),
                     .DestroyInnerAndSelf => {
@@ -125,7 +157,7 @@ pub fn Rc(comptime T: type) type {
                 else => unreachable,
             };
 
-            return dead;
+            return is_dead;
         }
     };
 }

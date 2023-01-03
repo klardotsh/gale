@@ -102,22 +102,37 @@ pub const Word = struct {
 
     pub fn deinit(self: *Self, alloc: std.mem.Allocator) void {
         return switch (self.impl) {
+            // There's no necessary action to deinit a primitive: they live in
+            // the data sector of the binary anyway and can't be freed.
             .Primitive => {},
+            // Defer to the heaped object's teardown process for its underlying
+            // memory as appropriate, and then destroy the Rc that holds that
+            // Object.
             .HeapLit => |obj| {
                 obj.deinit(alloc);
                 alloc.destroy(obj);
             },
             .Compound => |compound| {
-                var any_alive_remaining = false;
+                // First, loop through and release our holds on each of these
+                // Rcs and free the inner memory as appropriate, but do not
+                // destroy the Rc itself yet: if there are duplicates in our
+                // slice, destroyed Rcs become segfaults, and segfaults are
+                // sad.
                 for (compound) |iword| {
-                    if (!iword.decrement_and_prune(.DeinitInnerWithAllocDestroySelf, alloc)) {
-                        any_alive_remaining = true;
+                    if (!iword.dead()) {
+                        _ = iword.decrement_and_prune(.DeinitInnerWithAlloc, alloc);
                     }
                 }
 
-                if (!any_alive_remaining) {
-                    alloc.free(compound);
+                // Now loop back through and destroy any orphaned Rc objects.
+                for (compound) |iword| {
+                    if (iword.dead()) {
+                        alloc.destroy(iword);
+                    }
                 }
+
+                // Finally, destroy the compound slice itself.
+                alloc.free(compound);
             },
         };
     }
