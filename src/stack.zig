@@ -98,25 +98,14 @@ pub const Stack = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        // At what point will this completely blow out the stack? Is it worth
-        // finding that point and somehow providing userspace guardrails around
-        // it, or figuring out how to trampoline my way around a stack without
-        // completely exploding? This is entirely uncharted waters for me and
-        // "to trampoline" to me still involves a sunny summer day in a
-        // suburban backyard of Ohio where I grew up, given I don't know the
-        // compiler theory behind the idea well.
-        //
-        // ... but don't make me go back to Ohio, please.
-        if (self.next) |next| {
-            next.deinit();
-        }
-        if (self.prev) |prev| {
-            prev.next = null;
-        }
+        if (self.next) |next| next.deinit();
+
+        if (self.prev) |prev| prev.next = null;
 
         while (self.next_idx > 0) {
             _ = self.do_drop() catch null;
         }
+
         self.alloc.destroy(self);
     }
 
@@ -230,13 +219,19 @@ pub const Stack = struct {
     test "expand_to_fit" {
         const baseStack = try Self.init(testAllocator, null);
         defer baseStack.deinit();
-        try expectError(StackManipulationError.RefuseToGrowMultipleStacks, baseStack.expand_to_fit(Stack.STACK_SIZE * 2 + 1));
+        try expectError(
+            StackManipulationError.RefuseToGrowMultipleStacks,
+            baseStack.expand_to_fit(Stack.STACK_SIZE * 2 + 1),
+        );
         try expectEqual(@as(?*Self, null), try baseStack.expand_to_fit(STACK_SIZE / 2 + 1));
         try expect(try baseStack.expand_to_fit(STACK_SIZE * 2) != null);
         // Hella unsafe to just yolo a stack pointer forward into null data but
         // this is a test, whatever.
         baseStack.next_idx = 1;
-        try expectError(StackManipulationError.RefuseToGrowMultipleStacks, baseStack.expand_to_fit(Stack.STACK_SIZE * 2));
+        try expectError(
+            StackManipulationError.RefuseToGrowMultipleStacks,
+            baseStack.expand_to_fit(Stack.STACK_SIZE * 2),
+        );
     }
 
     /// Extend the Stack into a new stack, presumably because we've run out of
@@ -398,12 +393,19 @@ pub const Stack = struct {
         target = try target.do_drop();
     }
 
-    pub fn do_peek(self: *Self) !*Object {
+    pub inline fn do_peek(self: *Self) !*Object {
         return (try self.do_peek_pair()).top;
     }
 
+    // TODO: FIXME: does not fully handle stack juggling, needs to return a
+    // pointer to the correct stack alongside this Object
     pub fn do_pop(self: *Self) !Object {
         if (self.next_idx == 0) {
+            // TODO: this should deinit(self), but since we don't return a
+            // pointer to the correct stack right now, that's a near-guaranteed
+            // segfault for callers
+            if (self.prev) |prev| return prev.do_pop();
+
             return StackManipulationError.Underflow;
         }
 
@@ -431,6 +433,8 @@ pub const Stack = struct {
         far: Object,
     };
 
+    // TODO: FIXME: does not handle stack juggling, needs to return a pointer
+    // to the correct stack alongside this Object
     pub fn do_pop_pair(self: *Self) !PopPair {
         const top_two = try self.do_peek_pair();
 
@@ -462,6 +466,8 @@ pub const Stack = struct {
         farther: Object,
     };
 
+    // TODO: FIXME: does not handle stack juggling, needs to return a pointer
+    // to the correct stack alongside this Object
     pub fn do_pop_trio(self: *Self) !PopTrio {
         const top_three = try self.do_peek_trio();
 
@@ -496,12 +502,28 @@ pub const Stack = struct {
     pub fn do_push(self: *Self, obj: Object) !*Self {
         try self.non_terminal_stack_guard();
         const target = try self.expand_to_fit(1) orelse self;
-        target.contents[target.next_idx] = obj;
+        target.contents[target.next_idx] = try obj.ref();
         target.next_idx += 1;
         return target;
     }
 
-    pub fn do_push_symbol(self: *Self, symbol: Types.GluumySymbol) !*Self {
+    /// Push a Zig boolean value onto this Stack as an Object.
+    pub inline fn do_push_bool(self: *Self, item: bool) !*Self {
+        return try self.do_push(Object{ .Boolean = item });
+    }
+
+    /// Push a Zig signed integer value onto this Stack as an Object.
+    pub inline fn do_push_sint(self: *Self, number: isize) !*Self {
+        return try self.do_push(Object{ .SignedInt = number });
+    }
+
+    /// Push a managed string pointer onto this Stack as an Object.
+    pub inline fn do_push_string(self: *Self, string: Types.GluumyString) !*Self {
+        return try self.do_push(Object{ .String = string });
+    }
+
+    /// Push a managed symbol pointer onto this Stack as an Object.
+    pub inline fn do_push_symbol(self: *Self, symbol: Types.GluumySymbol) !*Self {
         return try self.do_push(Object{ .Symbol = symbol });
     }
 
@@ -534,20 +556,13 @@ pub const Stack = struct {
         try expectEqual(@as(usize, 1), baseStack.next.?.next_idx);
     }
 
-    // Implemented in terms of do_push to cover boundary cases, and because why
-    // not, I suppose.
-    //
-    // TODO: handle the Rc(_) types which cannot be blindly copied and expected
-    // to do the right thing.
+    /// Duplicate the top Object on this stack via do_peek and do_push,
+    /// returning a pointer to the Stack the Object ended up on.
     pub fn do_dup(self: *Self) !*Self {
         try self.non_terminal_stack_guard();
-        return switch ((try self.do_peek_pair()).top.*) {
-            .String => InternalError.Unimplemented,
-            .Symbol => InternalError.Unimplemented,
-            .Opaque => InternalError.Unimplemented,
-            .Word => InternalError.Unimplemented,
-            else => |it| try self.do_push(it),
-        };
+        // By implementing in terms of do_push we get Rc(_) incrementing for
+        // free
+        return try self.do_push((try self.do_peek_pair()).top.*);
     }
 
     test "do_dup" {
@@ -558,9 +573,9 @@ pub const Stack = struct {
         target = try stack.do_dup();
 
         try expectEqual(@as(usize, 2), stack.next_idx);
-        const top_two = try stack.do_peek_pair();
-        try expectEqual(@as(usize, 42), top_two.top.*.UnsignedInt);
-        try expectEqual(@as(usize, 42), top_two.bottom.?.*.UnsignedInt);
+        const top_two = try stack.do_pop_pair();
+        try expectEqual(@as(usize, 42), top_two.near.UnsignedInt);
+        try expectEqual(@as(usize, 42), top_two.far.UnsignedInt);
     }
 
     pub fn do_2dupshuf(self: *Self) !*Self {
@@ -747,17 +762,12 @@ pub const Stack = struct {
         const stack = try Self.init(testAllocator, null);
         defer stack.deinit_guard_for_empty();
 
-        _ = try stack.do_push(Object{ .String = shared_str });
-        try expectEqual(@as(usize, 1), stack.next_idx);
-        try expectEqualStrings(hello_world, stack.contents[0].?.String.value.?);
+        var target = try stack.do_push_string(shared_str);
+        var top = try target.do_pop();
+        defer top.deinit(testAllocator);
+        try expectEqualStrings(hello_world, top.String.value.?);
 
-        _ = try stack.do_drop();
-        try expectEqual(@as(usize, 0), stack.next_idx);
-        try expectEqual(@as(?Object, null), stack.contents[0]);
-
-        // No further assertions required because Zig is awesome: the
-        // GeneralPurposeAllocator will fail our tests if we've leaked anything
-        // at this point.
+        try expectError(StackManipulationError.Underflow, target.do_pop());
     }
 };
 
