@@ -366,41 +366,36 @@ pub fn TWODUPSHUF(runtime: *Runtime) !void {
 /// way it is.
 pub fn LIT(runtime: *Runtime) !void {
     const banished = try runtime.stack.banish_top_object();
-    const obj = Object{ .Word = try runtime.word_from_heaplit_impl(banished) };
-    runtime.stack = try runtime.stack.do_push(obj);
-    return;
+    const word = try runtime.word_from_heaplit_impl(banished);
+    runtime.stack = try runtime.stack.do_push_word(word);
 }
 
-// The name here might be silly, but it tries to emphasize that this test is
-// scoped only to being able to yeet something from the working stack onto the
-// heap (exactly where should be considered irrelevant to the end user) without
-// leaving anything behind, but that we're not actually testing the ability to
-// place that value back onto the working stack. Since the signature of
-// PrimitiveWord doesn't really give us enough to work with (storing a pointer
-// to the heap object is required), recall happens through a third branch of
-// the WordImplementation enum, "HeapLit", and as such the recall process
-// should be tested at the Word or perhaps Runtime level (it's a "glue" or
-// "integration" type of test, moreso than the "units" here).
-test "LIT: banishment, but not recall" {
+test "LIT" {
     var runtime = try Runtime.init(testAllocator);
-    defer runtime.deinit();
-    runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 1 });
+    defer runtime.deinit_guard_for_empty_stack();
 
+    // First, push an UnsignedInt literal onto the stack
+    runtime.stack = try runtime.stack.do_push_uint(1);
+
+    // Create and yank a HeapLit word from that UnsignedInt
     try LIT(&runtime);
-    const top_two = try runtime.stack.do_peek_pair();
+    var lit_word = try runtime.stack.do_pop();
+    defer lit_word.deinit(testAllocator);
 
-    // First, ascertain that we still have just one thing on the stack.
-    try expectEqual(@as(?*Object, null), top_two.bottom);
+    // That word should have been the only thing on the stack
+    try expectError(StackManipulationError.Underflow, runtime.stack.do_pop());
 
-    // Now, let's validate that that thing is an Rc(Word->impl->HeapLit).
-    try expect(@as(WordImplementation, top_two.top.Word.value.?.impl) == WordImplementation.HeapLit);
+    // Now, run the word - three times, for kicks...
+    try runtime.run_boxed_word(lit_word.Word);
+    try runtime.run_boxed_word(lit_word.Word);
+    try runtime.run_boxed_word(lit_word.Word);
 
-    // And finally, validate the actual value that would be restored to the
-    // stack if this word were called is correct.
-    //
-    // TODO: should this test be reaching into such deeply nested foreign
-    // concerns?
-    try expectEqual(@as(usize, 1), top_two.top.Word.value.?.impl.HeapLit.UnsignedInt);
+    // ...and assert that the UnsignedInt was placed back onto the stack all
+    // three times.
+    const top_three = try runtime.stack.do_pop_trio();
+    try expectEqual(@as(usize, 1), top_three.near.UnsignedInt);
+    try expectEqual(@as(usize, 1), top_three.far.UnsignedInt);
+    try expectEqual(@as(usize, 1), top_three.farther.UnsignedInt);
 }
 
 /// @PRIV_SPACE_SET_BYTE ( UInt8 UInt8 -> nothing )
