@@ -32,7 +32,7 @@ fn push_one(runtime: *Runtime) anyerror!void {
 pub const Runtime = struct {
     const Self = @This();
 
-    const InterpreterMode = enum(u8) {
+    pub const InterpreterMode = enum(u8) {
         Exec = 0,
         Symbol = 1,
         Ref = 2,

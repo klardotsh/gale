@@ -75,23 +75,25 @@ pub fn CONDJMP(runtime: *Runtime) !void {
 
 test "CONDJMP" {
     var runtime = try Runtime.init(testAllocator);
-    defer runtime.deinit();
+    defer runtime.deinit_guard_for_empty_stack();
 
     // Destructors run when object popped off stack, so this memory should not
     // be defer-freed here (eg guarded_free_word_from_heap as one might be
     // tempted to use)
     const heap_for_word = try runtime.word_from_primitive_impl(&push_one);
 
-    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_word });
-    runtime.stack = try runtime.stack.do_push(Object{ .Boolean = true });
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    // We'll duplicate this early so that heap_for_word is not freed after
+    // CONDJMP destroys the then-final reference to the memory, allowing us to
+    // reuse that heap allocation for the falsey test below.
+    runtime.stack = try runtime.stack.do_dup();
+    runtime.stack = try runtime.stack.do_push_bool(true);
     try CONDJMP(&runtime);
     const should_be_1 = try runtime.stack.do_pop();
     try expectEqual(@as(usize, 1), should_be_1.UnsignedInt);
 
-    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_word });
-    runtime.stack = try runtime.stack.do_push(Object{ .Boolean = false });
+    runtime.stack = try runtime.stack.do_push_bool(false);
     try CONDJMP(&runtime);
-    try expectError(StackManipulationError.Underflow, runtime.stack.do_pop());
 }
 
 /// @CONDJMP2 ( Word Word Boolean -> nothing )
@@ -124,32 +126,27 @@ pub fn CONDJMP2(runtime: *Runtime) !void {
 
 test "CONDJMP2" {
     var runtime = try Runtime.init(testAllocator);
-    defer runtime.deinit();
+    defer runtime.deinit_guard_for_empty_stack();
 
     var heap_for_one_word = try runtime.word_from_primitive_impl(&push_one);
     var heap_for_two_word = try runtime.word_from_primitive_impl(&push_two);
 
-    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_two_word });
-    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_one_word });
-    runtime.stack = try runtime.stack.do_push(Object{ .Boolean = true });
+    runtime.stack = try runtime.stack.do_push_word(heap_for_two_word);
+    runtime.stack = try runtime.stack.do_push_word(heap_for_one_word);
+    // We'll duplicate these early so that heap_for_*_word are not freed after
+    // CONDJMP2 destroys the then-final references to the memory, allowing us
+    // to reuse those heap allocations for the falsey test below.
+    runtime.stack = try runtime.stack.do_2dupshuf();
+
+    runtime.stack = try runtime.stack.do_push_bool(true);
     try CONDJMP2(&runtime);
     const should_be_1 = try runtime.stack.do_pop();
     try expectEqual(@as(usize, 1), should_be_1.UnsignedInt);
 
-    // At this point the Rc(Word) has been freed and will segfault if accessed,
-    // so there's no need (or ability) to check that heap_for_*_word.value ==
-    // null. Instead, just assign over it, and let the
-    // GeneralPurposeAllocator's leak detection serve as that "unit test".
-    heap_for_one_word = try runtime.word_from_primitive_impl(&push_one);
-    heap_for_two_word = try runtime.word_from_primitive_impl(&push_two);
-
-    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_two_word });
-    runtime.stack = try runtime.stack.do_push(Object{ .Word = heap_for_one_word });
     runtime.stack = try runtime.stack.do_push(Object{ .Boolean = false });
     try CONDJMP2(&runtime);
     const should_be_2 = try runtime.stack.do_pop();
     try expectEqual(@as(usize, 2), should_be_2.UnsignedInt);
-    try expectError(StackManipulationError.Underflow, runtime.stack.do_pop());
 }
 
 /// @EQ ( @2 @1 <- Boolean )
@@ -161,7 +158,7 @@ pub fn EQ(runtime: *Runtime) !void {
     const peek = try runtime.stack.do_peek_pair();
 
     if (peek.bottom) |bottom| {
-        runtime.stack = try runtime.stack.do_push(Object{ .Boolean = try peek.top.eq(bottom) });
+        runtime.stack = try runtime.stack.do_push_bool(try peek.top.eq(bottom));
         return;
     }
 
@@ -182,14 +179,7 @@ test "EQ" {
     try expectError(InternalError.TypeError, EQ(&runtime));
 }
 
-// TODO: comptime away these numerous implementations of DEFINE-WORD-VA*, I
-// gave it a go upfront and wound up spending 30 minutes fighting the Zig
-// compiler to do what I thought it would be able to do. I was wrong, and don't
-// have time for that right now.
-
 /// DEFINE-WORD-VA1 ( Word Symbol -> nothing )
-///
-/// This is a glorified alias/assignment utility.
 // TODO: See if there's a better way to lay out "alias words" such as this in
 // memory: can the lookups be more efficient in some way? Can we apply the
 // learnings from this to Shapes later (thinking of a newtype-esque
@@ -321,17 +311,32 @@ pub fn PRIV_SPACE_SET_BYTE(runtime: *Runtime) !void {
     try address.assert_is_kind(.UnsignedInt);
     try value.assert_is_kind(.UnsignedInt);
 
-    try runtime.priv_space_set_byte(@truncate(u8, address.UnsignedInt), @truncate(u8, value.UnsignedInt));
+    try runtime.priv_space_set_byte(
+        @truncate(u8, address.UnsignedInt),
+        @truncate(u8, value.UnsignedInt),
+    );
 }
 
 test "PRIV_SPACE_SET_BYTE" {
     var rt = try Runtime.init(testAllocator);
-    defer rt.deinit();
-    try expectEqual(@as(u8, 0), @enumToInt(rt.private_space.interpreter_mode));
-    rt.stack = try rt.stack.do_push(Object{ .UnsignedInt = 1 }); // value
-    rt.stack = try rt.stack.do_push(Object{ .UnsignedInt = 0 }); // address
+    defer rt.deinit_guard_for_empty_stack();
+
+    try expectEqual(
+        Runtime.InterpreterMode.Exec,
+        rt.private_space.interpreter_mode,
+    );
+
+    rt.stack = try rt.stack.do_push_uint(1); // value
+    rt.stack = try rt.stack.do_push_uint(0); // address
     try PRIV_SPACE_SET_BYTE(&rt);
-    try expectEqual(@as(u8, 1), @enumToInt(rt.private_space.interpreter_mode));
+    try expectEqual(
+        Runtime.InterpreterMode.Symbol,
+        rt.private_space.interpreter_mode,
+    );
+
+    // Quite intentionally right now, Runtime.priv_space_set_byte just panics
+    // if the passed int is out of bounds, so there's no error cases to check
+    // here that are actually catchable.
 }
 
 /// @SWAP ( @2 @1 -> @2 @1 )
