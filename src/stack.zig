@@ -12,6 +12,8 @@ const expectEqual = std.testing.expectEqual;
 const expectEqualStrings = std.testing.expectEqualStrings;
 const expectError = std.testing.expectError;
 
+const builtin = @import("builtin");
+
 const InternalError = @import("./internal_error.zig").InternalError;
 const Object = @import("./object.zig").Object;
 const Rc = @import("./rc.zig").Rc;
@@ -129,6 +131,32 @@ pub const Stack = struct {
         }
     }
 
+    /// Deinitialize this stack, but only if it is empty. This is a helper
+    /// function for tests only (all other attempts to use this will result in
+    /// a @compileError) to ensure no unexpected garbage is left behind on the
+    /// stack after the test. In tests, this is almost certainly the correct
+    /// function to use, except when testing garbage collection itself, and
+    /// should be called with `defer` immediately after the Stack is
+    /// instantiated (thus the use of `@panic` instead of assertions from
+    /// `std.testing`, since `defer try` is not valid in Zig).
+    ///
+    /// For non-test deinitialization, see `deinit`.
+    pub fn deinit_guard_for_empty(self: *Self) void {
+        if (!builtin.is_test) {
+            @compileError("deinit_guard_for_empty should NEVER be used outside of the test framework");
+        }
+
+        if (self.do_peek_pair()) |_| {} else |err| {
+            if (err != StackManipulationError.Underflow) {
+                std.debug.panic("do_peek_pair returned non-Underflow error: {any}", .{err});
+            }
+
+            return self.deinit();
+        }
+
+        std.debug.panic("stack was not empty at deinit time", .{});
+    }
+
     pub fn banish_top_object(self: *Self) !*Object {
         const banish_target = try self.alloc.create(Object);
         errdefer self.deinit_banished_object(banish_target);
@@ -155,13 +183,13 @@ pub const Stack = struct {
         };
     }
 
-    pub fn deinit_banished_object(self: *Self, ptr: *Object) void {
+    pub inline fn deinit_banished_object(self: *Self, ptr: *Object) void {
         self.alloc.destroy(ptr);
     }
 
     test "banish_top_object" {
         const stack = try Self.init(testAllocator, null);
-        defer stack.deinit();
+        defer stack.deinit_guard_for_empty();
 
         try expectError(StackManipulationError.Underflow, stack.banish_top_object());
 
@@ -169,8 +197,6 @@ pub const Stack = struct {
         const one_ptr = try target.banish_top_object();
         defer target.deinit_banished_object(one_ptr);
         try expectEqual(@as(usize, 1), one_ptr.*.UnsignedInt);
-
-        try expectError(StackManipulationError.Underflow, stack.banish_top_object());
     }
 
     /// Ensures there will be enough space in no more than two stacks to store
@@ -286,7 +312,7 @@ pub const Stack = struct {
 
     test "do_peek_trio" {
         const stack = try Self.init(testAllocator, null);
-        defer stack.deinit();
+        defer stack.deinit_guard_for_empty();
 
         try expectError(StackManipulationError.Underflow, stack.do_peek_trio());
 
@@ -307,6 +333,10 @@ pub const Stack = struct {
         try expectEqual(@as(usize, 3), near_three.near.*.UnsignedInt);
         try expectEqual(@as(usize, 2), near_three.far.?.*.UnsignedInt);
         try expectEqual(@as(usize, 1), near_three.farther.?.*.UnsignedInt);
+
+        target = try target.do_drop();
+        target = try target.do_drop();
+        target = try target.do_drop();
     }
 
     pub const PeekPair = struct {
@@ -363,6 +393,9 @@ pub const Stack = struct {
         const top_two = try target.do_peek_pair();
         try expectEqual(@as(usize, 2), top_two.top.*.UnsignedInt);
         try expectEqual(@as(usize, 1), top_two.bottom.?.*.UnsignedInt);
+
+        target = try target.do_drop();
+        target = try target.do_drop();
     }
 
     pub fn do_peek(self: *Self) !*Object {
@@ -385,7 +418,7 @@ pub const Stack = struct {
 
     test "do_pop" {
         const stack = try Self.init(testAllocator, null);
-        defer stack.deinit();
+        defer stack.deinit_guard_for_empty();
         var target = try stack.do_push_uint(41);
         target = try stack.do_push_uint(42);
         try expectEqual(@as(usize, 42), (try target.do_pop()).UnsignedInt);
@@ -413,14 +446,14 @@ pub const Stack = struct {
 
     test "do_pop_pair" {
         const stack = try Self.init(testAllocator, null);
-        defer stack.deinit();
+        defer stack.deinit_guard_for_empty();
 
         var target = try stack.do_push_uint(41);
         target = try stack.do_push_uint(42);
         const pairing = try target.do_pop_pair();
         try expectEqual(@as(usize, 42), pairing.near.UnsignedInt);
         try expectEqual(@as(usize, 41), pairing.far.UnsignedInt);
-        try expectError(StackManipulationError.Underflow, stack.do_pop_pair());
+        try expectError(StackManipulationError.Underflow, target.do_pop());
     }
 
     pub const PopTrio = struct {
@@ -445,7 +478,7 @@ pub const Stack = struct {
 
     test "do_pop_trio" {
         const stack = try Self.init(testAllocator, null);
-        defer stack.deinit();
+        defer stack.deinit_guard_for_empty();
 
         var target = try stack.do_push_uint(40);
         target = try stack.do_push_uint(41);
@@ -455,7 +488,6 @@ pub const Stack = struct {
         try expectEqual(@as(usize, 42), trio.near.UnsignedInt);
         try expectEqual(@as(usize, 41), trio.far.UnsignedInt);
         try expectEqual(@as(usize, 40), trio.farther.UnsignedInt);
-        try expectError(StackManipulationError.Underflow, stack.do_pop_trio());
     }
 
     /// Pushes an object to the top of this stack or a newly-created stack, as
@@ -520,7 +552,6 @@ pub const Stack = struct {
 
     test "do_dup" {
         const stack = try Self.init(testAllocator, null);
-        defer stack.deinit();
         defer stack.deinit_guard_for_empty();
 
         var target = try stack.do_push_uint(42);
@@ -655,7 +686,7 @@ pub const Stack = struct {
 
     test "do_drop: unboxed" {
         const stack = try Self.init(testAllocator, null);
-        defer stack.deinit();
+        defer stack.deinit_guard_for_empty();
         try expectEqual(@as(usize, 0), stack.next_idx);
         try expectEqual(@as(?Object, null), stack.contents[0]);
 
@@ -677,9 +708,7 @@ pub const Stack = struct {
         shared_str.* = SharedStr.init(str);
 
         const stack = try Self.init(testAllocator, null);
-        defer stack.deinit();
-        try expectEqual(@as(usize, 0), stack.next_idx);
-        try expectEqual(@as(?Object, null), stack.contents[0]);
+        defer stack.deinit_guard_for_empty();
 
         _ = try stack.do_push(Object{ .String = shared_str });
         try expectEqual(@as(usize, 1), stack.next_idx);
