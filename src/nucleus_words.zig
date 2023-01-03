@@ -190,27 +190,77 @@ pub fn DEFINE_WORD_VA1(runtime: *Runtime) !void {
     var target = pairing.far;
     try symbol.assert_is_kind(.Symbol);
     try target.assert_is_kind(.Word);
-    try runtime.define_word_va1(symbol.Symbol, target.Word);
+    try runtime.define_word_va(symbol.Symbol, .{target.Word});
 }
 
 /// DEFINE-WORD-VA2 ( Word Word Symbol -> nothing )
-pub fn DEFINE_WORD_VA2(_: *Runtime) !void {
-    // TODO
+pub fn DEFINE_WORD_VA2(runtime: *Runtime) !void {
+    const pairing = try runtime.stack.do_pop_trio();
+    var symbol = pairing.near;
+    var exec_first = pairing.far;
+    var exec_second = pairing.farther;
+
+    try symbol.assert_is_kind(.Symbol);
+    try exec_first.assert_is_kind(.Word);
+    try exec_second.assert_is_kind(.Word);
+    try runtime.define_word_va(symbol.Symbol, .{ exec_first.Word, exec_second.Word });
 }
 
 /// DEFINE-WORD-VA3 ( Word Word Word Symbol -> nothing )
-pub fn DEFINE_WORD_VA3(_: *Runtime) !void {
-    // TODO
+pub fn DEFINE_WORD_VA3(runtime: *Runtime) !void {
+    const pairing1 = try runtime.stack.do_pop_pair();
+    const pairing2 = try runtime.stack.do_pop_pair();
+    var symbol = pairing1.near;
+    var exec_first = pairing1.far;
+    var exec_second = pairing2.near;
+    var exec_third = pairing2.far;
+
+    try symbol.assert_is_kind(.Symbol);
+    var candidates = .{ exec_first, exec_second, exec_third };
+    inline for (candidates) |*it| try it.assert_is_kind(.Word);
+    try runtime.define_word_va(
+        symbol.Symbol,
+        .{ exec_first.Word, exec_second.Word, exec_third.Word },
+    );
 }
 
 /// DEFINE-WORD-VA4 ( Word Word Word Word Symbol -> nothing )
-pub fn DEFINE_WORD_VA4(_: *Runtime) !void {
-    // TODO
+pub fn DEFINE_WORD_VA4(runtime: *Runtime) !void {
+    const pairing1 = try runtime.stack.do_pop_trio();
+    const pairing2 = try runtime.stack.do_pop_pair();
+    var symbol = pairing1.near;
+    var exec_first = pairing1.far;
+    var exec_second = pairing1.farther;
+    var exec_third = pairing2.near;
+    var exec_fourth = pairing2.far;
+
+    try symbol.assert_is_kind(.Symbol);
+    var candidates = .{ exec_first, exec_second, exec_third, exec_fourth };
+    inline for (candidates) |*it| try it.assert_is_kind(.Word);
+    try runtime.define_word_va(
+        symbol.Symbol,
+        .{ exec_first.Word, exec_second.Word, exec_third.Word, exec_fourth.Word },
+    );
 }
 
 /// DEFINE-WORD-VA5 ( Word Word Word Word Word Symbol -> nothing )
-pub fn DEFINE_WORD_VA5(_: *Runtime) !void {
-    // TODO
+pub fn DEFINE_WORD_VA5(runtime: *Runtime) !void {
+    const pairing1 = try runtime.stack.do_pop_trio();
+    const pairing2 = try runtime.stack.do_pop_trio();
+    var symbol = pairing1.near;
+    var exec_first = pairing1.far;
+    var exec_second = pairing1.farther;
+    var exec_third = pairing2.near;
+    var exec_fourth = pairing2.far;
+    var exec_fifth = pairing2.farther;
+
+    try symbol.assert_is_kind(.Symbol);
+    var candidates = .{ exec_first, exec_second, exec_third, exec_fourth, exec_fifth };
+    inline for (candidates) |*it| try it.assert_is_kind(.Word);
+    try runtime.define_word_va(
+        symbol.Symbol,
+        .{ exec_first.Word, exec_second.Word, exec_third.Word, exec_fourth.Word, exec_fifth.Word },
+    );
 }
 
 test "DEFINE_WORD_VA*" {
@@ -223,18 +273,72 @@ test "DEFINE_WORD_VA*" {
     defer runtime.deinit();
 
     const heap_for_word = try runtime.word_from_primitive_impl(&push_one);
-    const heaped_symbol = (try runtime.get_or_put_symbol("push-one")).value_ptr;
+    try expectEqual(@as(usize, 0), heap_for_word.strong_count.value);
 
+    var heaped_symbol = (try runtime.get_or_put_symbol("va1")).value_ptr;
     runtime.stack = try runtime.stack.do_push_word(heap_for_word);
     runtime.stack = try runtime.stack.do_push_symbol(heaped_symbol);
     try DEFINE_WORD_VA1(&runtime);
-
     var found_word_list = runtime.dictionary.get(heaped_symbol).?;
-    try expectEqual(found_word_list.len(), 1);
-    const word_as_defined = found_word_list.items()[0];
+    try expectEqual(@as(usize, 1), found_word_list.len());
+    var word_as_defined = found_word_list.items()[0];
     try expect(!word_as_defined.value.?.flags.hidden);
     try expectEqual(@as(usize, 1), word_as_defined.value.?.impl.Compound.len);
     try expectEqual(&push_one, word_as_defined.value.?.impl.Compound[0].value.?.impl.Primitive);
+
+    heaped_symbol = (try runtime.get_or_put_symbol("va2")).value_ptr;
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_symbol(heaped_symbol);
+    try DEFINE_WORD_VA2(&runtime);
+    found_word_list = runtime.dictionary.get(heaped_symbol).?;
+    try expectEqual(@as(usize, 1), found_word_list.len());
+    word_as_defined = found_word_list.items()[0];
+    try expectEqual(@as(usize, 2), word_as_defined.value.?.impl.Compound.len);
+    try expectEqual(@as(u16, 3), word_as_defined.value.?.impl.Compound[1].strong_count.value);
+    try expectEqual(&push_one, word_as_defined.value.?.impl.Compound[1].value.?.impl.Primitive);
+
+    heaped_symbol = (try runtime.get_or_put_symbol("va3")).value_ptr;
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_symbol(heaped_symbol);
+    try DEFINE_WORD_VA3(&runtime);
+    found_word_list = runtime.dictionary.get(heaped_symbol).?;
+    try expectEqual(@as(usize, 1), found_word_list.len());
+    word_as_defined = found_word_list.items()[0];
+    try expectEqual(@as(usize, 3), word_as_defined.value.?.impl.Compound.len);
+    try expectEqual(@as(u16, 6), word_as_defined.value.?.impl.Compound[2].strong_count.value);
+    try expectEqual(&push_one, word_as_defined.value.?.impl.Compound[2].value.?.impl.Primitive);
+
+    heaped_symbol = (try runtime.get_or_put_symbol("va4")).value_ptr;
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_symbol(heaped_symbol);
+    try DEFINE_WORD_VA4(&runtime);
+    found_word_list = runtime.dictionary.get(heaped_symbol).?;
+    try expectEqual(@as(usize, 1), found_word_list.len());
+    word_as_defined = found_word_list.items()[0];
+    try expectEqual(@as(usize, 4), word_as_defined.value.?.impl.Compound.len);
+    try expectEqual(@as(u16, 10), word_as_defined.value.?.impl.Compound[3].strong_count.value);
+    try expectEqual(&push_one, word_as_defined.value.?.impl.Compound[3].value.?.impl.Primitive);
+
+    heaped_symbol = (try runtime.get_or_put_symbol("va5")).value_ptr;
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    runtime.stack = try runtime.stack.do_push_symbol(heaped_symbol);
+    try DEFINE_WORD_VA5(&runtime);
+    found_word_list = runtime.dictionary.get(heaped_symbol).?;
+    try expectEqual(@as(usize, 1), found_word_list.len());
+    word_as_defined = found_word_list.items()[0];
+    try expectEqual(@as(usize, 5), word_as_defined.value.?.impl.Compound.len);
+    try expectEqual(@as(u16, 15), word_as_defined.value.?.impl.Compound[4].strong_count.value);
+    try expectEqual(&push_one, word_as_defined.value.?.impl.Compound[4].value.?.impl.Primitive);
 }
 
 /// @DROP ( @1 -> nothing )

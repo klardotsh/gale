@@ -219,17 +219,26 @@ pub const Runtime = struct {
         return try self.send_word_to_heap(Word.new_primitive_untagged(impl));
     }
 
-    pub fn define_word_va1(self: *Self, identifier: Types.GluumySymbol, target: Types.GluumyWord) !void {
+    // Right now, Zig doesn't have a way to narrow `targets` type from anytype,
+    // which is super disappointing, but being brainstormed on:
+    // https://github.com/ziglang/zig/issues/5404
+    pub fn define_word_va(self: *Self, identifier: Types.GluumySymbol, targets: anytype) !void {
         try identifier.increment();
         var dict_entry = try self.dictionary.getOrPut(identifier);
         if (!dict_entry.found_existing) {
             dict_entry.value_ptr.* = WordList.init(self.alloc);
         }
 
-        const compound_storage = try self.alloc.alloc(Types.GluumyWord, 1);
-        compound_storage[0] = target;
+        const compound_storage = try self.alloc.alloc(Types.GluumyWord, targets.len);
+        inline for (targets) |target, idx| compound_storage[idx] = target;
 
         var heap_for_word = try self.word_from_compound_impl(compound_storage);
+        // TODO should this increment actually be stashed away in a dictionary
+        // helper method somewhere? should there be a
+        // Runtime.unstacked_word_from_compound_impl that handles the increment
+        // for us (using Rc.init_referenced) since we can't rely on
+        // Stack.do_push's implicit increment?
+        try heap_for_word.increment();
 
         // TODO: how, if at all, do we handle decrementing this at some point,
         // presumably when word is removed
