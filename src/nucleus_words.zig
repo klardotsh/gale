@@ -11,13 +11,11 @@ const expectEqual = std.testing.expectEqual;
 const expectError = std.testing.expectError;
 
 const _stack = @import("./stack.zig");
-const _word = @import("./word.zig");
 
 const InternalError = @import("./internal_error.zig").InternalError;
 const Object = @import("./object.zig").Object;
 const Runtime = @import("./runtime.zig").Runtime;
 const StackManipulationError = _stack.StackManipulationError;
-const WordImplementation = _word.WordImplementation;
 
 // As a general rule, only write tests for methods in this file that actually
 // do something noteworthy of their own. Some of these words call directly into
