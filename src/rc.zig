@@ -13,14 +13,15 @@ const Types = @import("./types.zig");
 
 pub fn Rc(comptime T: type) type {
     return struct {
+        const no_valid_innerkind_msg = "Could not determine an InnerKind for value's type: " ++ @typeName(T);
         const inner_kind = switch (@typeInfo(T)) {
             .Pointer => |pointer| switch (pointer.size) {
                 .One => .SinglePointer,
                 .Slice => .SlicePointer,
-                else => @compileError("Could not determine an InnerKind for value's type: " ++ @typeName(T)),
+                else => @compileError(no_valid_innerkind_msg),
             },
             .Struct => .Struct,
-            else => @compileError("Could not determine an InnerKind for value's type: " ++ @typeName(T)),
+            else => @compileError(no_valid_innerkind_msg),
         };
 
         pub const PruneMode = switch (inner_kind) {
