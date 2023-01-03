@@ -59,17 +59,7 @@ pub fn CONDJMP(runtime: *Runtime) !void {
         return;
     }
 
-    // TODO: safely handle null
-    // TODO: move this logic into runtime, it should handle running words
-    // itself (probably?)
-    switch (callback.Word.value.?.impl) {
-        // TODO
-        .Compound => return InternalError.Unimplemented,
-        // TODO: should this be handled here, in Runtime, or in a helper util?
-        .HeapLit => return InternalError.Unimplemented,
-        // TODO: handle stack juggling
-        .Primitive => |impl| try impl(runtime),
-    }
+    try runtime.run_boxed_word(callback.Word);
 
     // TODO: should these be handled in a receipt function of sorts on the
     // stack/runtime itself? pt1: pop trio off stack. pt2: turn in the receipt
@@ -116,19 +106,8 @@ pub fn CONDJMP2(runtime: *Runtime) !void {
     try truthy_callback.assert_is_kind(.Word);
     try falsey_callback.assert_is_kind(.Word);
 
-    const callback = if (condition.Boolean) truthy_callback else falsey_callback;
-
-    // TODO: safely handle null
-    // TODO: move this logic into runtime, it should handle running words
-    // itself (probably?)
-    switch (callback.Word.value.?.impl) {
-        // TODO
-        .Compound => return InternalError.Unimplemented,
-        // TODO: should this be handled here, in Runtime, or in a helper util?
-        .HeapLit => return InternalError.Unimplemented,
-        // TODO: handle stack juggling
-        .Primitive => |impl| try impl(runtime),
-    }
+    const word = if (condition.Boolean) truthy_callback else falsey_callback;
+    try runtime.run_boxed_word(word.Word);
 
     // TODO: should these be handled in a receipt function of sorts on the
     // stack/runtime itself? pt1: pop trio off stack. pt2: turn in the receipt

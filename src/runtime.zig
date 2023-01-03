@@ -223,6 +223,21 @@ pub const Runtime = struct {
         try rt.priv_space_set_byte(0, 1);
         try expectEqual(@as(u8, 1), @enumToInt(rt.private_space.interpreter_mode));
     }
+
+    pub fn run_boxed_word(self: *Self, word: Types.GluumyWord) !void {
+        if (word.value) |iword| {
+            switch (iword.impl) {
+                .Compound => return InternalError.Unimplemented, // TODO
+                .HeapLit => |lit| self.stack = try self.stack.do_push(lit.*),
+                .Primitive => |impl| try impl(self),
+            }
+        } else {
+            // TODO: determine if there's a better/more concise error to pass
+            // here, perhaps by somehow triggering this and seeing what states
+            // can even leave us here
+            return InternalError.EmptyWord;
+        }
+    }
 };
 
 test {
