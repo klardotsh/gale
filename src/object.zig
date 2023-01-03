@@ -37,6 +37,23 @@ pub const Object = union(enum) {
         }
     }
 
+    /// Indicate another reference to the underlying data has been made in
+    /// userspace, which is a no-op for "unboxed" types, and increments the
+    /// internal `strong_count` for the "boxed"/managed types. Returns self
+    /// after such internal mutations have been made, mostly for chaining
+    /// ergonomics.
+    pub fn ref(self: Self) !Self {
+        switch (self) {
+            .Boolean, .UnsignedInt, .SignedInt => {},
+            .String => |rc| try rc.increment(),
+            .Symbol => |rc| try rc.increment(),
+            .Opaque => |rc| try rc.increment(),
+            .Word => |rc| try rc.increment(),
+        }
+
+        return self;
+    }
+
     pub fn assert_is_kind(self: *Self, comptime kind: anytype) InternalError!void {
         if (@as(Self, self.*) != kind) {
             return InternalError.TypeError;
