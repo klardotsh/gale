@@ -69,9 +69,12 @@ alphabetical order, here's some of those people:
 
 ## Legal Yadda-Yadda
 
-`gluumy` (inclusive of all _original_ code found in this repository) is
-released under the Creative Commons Zero 1.0 dedication, found in `COPYING`.
-While not a legally binding mandate, I ask that you have fun with it, build
-cool stuff with it, don't exploit your fellow humans or the world at large with
-it, and generally don't be an ass within or outside of the project or anything
-written with it.
+gluumy's canonical implementation and standard library is released under the
+[Zero-Clause BSD License](https://tldrlegal.com/license/bsd-0-clause-license),
+distributed alongside this source in a file called COPYING.
+
+Further, while not a legally binding mandate, I ask that you have fun with it,
+build cool stuff with it, don't exploit your fellow humans or the world at
+large with it, and generally don't be an ass within or outside of the project
+or anything written with it. And if you want to give attribution, it's
+of course also appreciated.
