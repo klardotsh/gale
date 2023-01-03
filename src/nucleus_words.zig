@@ -33,11 +33,11 @@ pub fn BEFORE_WORD(_: *Runtime) !void {
 
 // TODO: move to test helpers file
 fn push_one(runtime: *Runtime) anyerror!void {
-    runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 1 });
+    runtime.stack = try runtime.stack.do_push_uint(1);
 }
 
 fn push_two(runtime: *Runtime) anyerror!void {
-    runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 2 });
+    runtime.stack = try runtime.stack.do_push_uint(2);
 }
 
 /// @CONDJMP ( Word Boolean -> nothing )
@@ -188,10 +188,10 @@ pub fn EQ(runtime: *Runtime) !void {
 test "EQ" {
     var runtime = try Runtime.init(testAllocator);
     defer runtime.deinit();
-    runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 1 });
+    runtime.stack = try runtime.stack.do_push_uint(1);
     // Can't compare with just one Object on the Stack.
     try expectError(StackManipulationError.Underflow, EQ(&runtime));
-    runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 1 });
+    runtime.stack = try runtime.stack.do_push_uint(1);
     // 1 == 1, revelatory, truly.
     try EQ(&runtime);
     try expect((try runtime.stack.do_peek_pair()).top.*.Boolean);

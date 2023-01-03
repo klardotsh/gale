@@ -165,9 +165,9 @@ pub const Stack = struct {
 
         try expectError(StackManipulationError.Underflow, stack.banish_top_object());
 
-        _ = try stack.do_push(Object{ .UnsignedInt = 1 });
-        const one_ptr = try stack.banish_top_object();
-        defer stack.deinit_banished_object(one_ptr);
+        var target = try stack.do_push_uint(1);
+        const one_ptr = try target.banish_top_object();
+        defer target.deinit_banished_object(one_ptr);
         try expectEqual(@as(usize, 1), one_ptr.*.UnsignedInt);
 
         try expectError(StackManipulationError.Underflow, stack.banish_top_object());
@@ -290,22 +290,20 @@ pub const Stack = struct {
 
         try expectError(StackManipulationError.Underflow, stack.do_peek_trio());
 
-        _ = try stack.do_push(Object{ .UnsignedInt = 1 });
-        const near_one = try stack.do_peek_trio();
+        var target = try stack.do_push_uint(1);
+        const near_one = try target.do_peek_trio();
         try expectEqual(@as(usize, 1), near_one.near.*.UnsignedInt);
         try expectEqual(@as(?*Object, null), near_one.far);
         try expectEqual(@as(?*Object, null), near_one.farther);
 
-        _ = try stack.do_push(Object{ .UnsignedInt = 2 });
-
-        const near_two = try stack.do_peek_trio();
+        target = try target.do_push_uint(2);
+        const near_two = try target.do_peek_trio();
         try expectEqual(@as(usize, 2), near_two.near.*.UnsignedInt);
         try expectEqual(@as(usize, 1), near_two.far.?.*.UnsignedInt);
         try expectEqual(@as(?*Object, null), near_one.farther);
 
-        _ = try stack.do_push(Object{ .UnsignedInt = 3 });
-
-        const near_three = try stack.do_peek_trio();
+        target = try target.do_push_uint(3);
+        const near_three = try target.do_peek_trio();
         try expectEqual(@as(usize, 3), near_three.near.*.UnsignedInt);
         try expectEqual(@as(usize, 2), near_three.far.?.*.UnsignedInt);
         try expectEqual(@as(usize, 1), near_three.farther.?.*.UnsignedInt);
@@ -351,19 +349,18 @@ pub const Stack = struct {
     }
 
     test "do_peek_pair" {
-        const baseStack = try Self.init(testAllocator, null);
-        defer baseStack.deinit();
+        const stack = try Self.init(testAllocator, null);
+        defer stack.deinit_guard_for_empty();
 
-        try expectError(StackManipulationError.Underflow, baseStack.do_peek_pair());
+        try expectError(StackManipulationError.Underflow, stack.do_peek_pair());
 
-        _ = try baseStack.do_push(Object{ .UnsignedInt = 1 });
-        const top_one = try baseStack.do_peek_pair();
+        var target = try stack.do_push_uint(1);
+        const top_one = try target.do_peek_pair();
         try expectEqual(@as(usize, 1), top_one.top.*.UnsignedInt);
         try expectEqual(@as(?*Object, null), top_one.bottom);
 
-        _ = try baseStack.do_push(Object{ .UnsignedInt = 2 });
-
-        const top_two = try baseStack.do_peek_pair();
+        target = try target.do_push_uint(2);
+        const top_two = try target.do_peek_pair();
         try expectEqual(@as(usize, 2), top_two.top.*.UnsignedInt);
         try expectEqual(@as(usize, 1), top_two.bottom.?.*.UnsignedInt);
     }
@@ -389,12 +386,11 @@ pub const Stack = struct {
     test "do_pop" {
         const stack = try Self.init(testAllocator, null);
         defer stack.deinit();
-        _ = try stack.do_push(Object{
-            .UnsignedInt = 42,
-        });
-        const should_be_42 = try stack.do_pop();
-        try expectEqual(@as(usize, 42), should_be_42.UnsignedInt);
-        try expectError(StackManipulationError.Underflow, stack.do_pop());
+        var target = try stack.do_push_uint(41);
+        target = try stack.do_push_uint(42);
+        try expectEqual(@as(usize, 42), (try target.do_pop()).UnsignedInt);
+        try expectEqual(@as(usize, 41), (try target.do_pop()).UnsignedInt);
+        try expectError(StackManipulationError.Underflow, target.do_pop());
     }
 
     pub const PopPair = struct {
@@ -418,13 +414,10 @@ pub const Stack = struct {
     test "do_pop_pair" {
         const stack = try Self.init(testAllocator, null);
         defer stack.deinit();
-        _ = try stack.do_push(Object{
-            .UnsignedInt = 41,
-        });
-        _ = try stack.do_push(Object{
-            .UnsignedInt = 42,
-        });
-        const pairing = try stack.do_pop_pair();
+
+        var target = try stack.do_push_uint(41);
+        target = try stack.do_push_uint(42);
+        const pairing = try target.do_pop_pair();
         try expectEqual(@as(usize, 42), pairing.near.UnsignedInt);
         try expectEqual(@as(usize, 41), pairing.far.UnsignedInt);
         try expectError(StackManipulationError.Underflow, stack.do_pop_pair());
@@ -453,16 +446,12 @@ pub const Stack = struct {
     test "do_pop_trio" {
         const stack = try Self.init(testAllocator, null);
         defer stack.deinit();
-        _ = try stack.do_push(Object{
-            .UnsignedInt = 40,
-        });
-        _ = try stack.do_push(Object{
-            .UnsignedInt = 41,
-        });
-        _ = try stack.do_push(Object{
-            .UnsignedInt = 42,
-        });
-        const trio = try stack.do_pop_trio();
+
+        var target = try stack.do_push_uint(40);
+        target = try stack.do_push_uint(41);
+        target = try stack.do_push_uint(42);
+
+        const trio = try target.do_pop_trio();
         try expectEqual(@as(usize, 42), trio.near.UnsignedInt);
         try expectEqual(@as(usize, 41), trio.far.UnsignedInt);
         try expectEqual(@as(usize, 40), trio.farther.UnsignedInt);
@@ -484,21 +473,24 @@ pub const Stack = struct {
         return try self.do_push(Object{ .Symbol = symbol });
     }
 
-    pub fn do_push_word(self: *Self, word: Types.GluumyWord) !*Self {
+    /// Push a Zig unsigned integer value onto this Stack as an Object.
+    pub inline fn do_push_uint(self: *Self, number: usize) !*Self {
+        return try self.do_push(Object{ .UnsignedInt = number });
+    }
+
+    /// Push a managed word pointer onto this Stack as an Object.
+    pub inline fn do_push_word(self: *Self, word: Types.GluumyWord) !*Self {
         return try self.do_push(Object{ .Word = word });
     }
 
     test "do_push" {
         const baseStack = try Self.init(testAllocator, null);
         defer baseStack.deinit();
-        const obj = Object{
-            .UnsignedInt = 42,
-        };
 
         // First, fill the current stack
         var i: usize = 0;
         while (i < STACK_SIZE) {
-            try expectEqual(baseStack, try baseStack.do_push(obj));
+            try expectEqual(baseStack, try baseStack.do_push_uint(42));
             i += 1;
         }
         try expectEqual(@as(usize, 42), baseStack.contents[baseStack.next_idx - STACK_SIZE / 2].?.UnsignedInt);
@@ -506,7 +498,7 @@ pub const Stack = struct {
         try expectEqual(@as(usize, STACK_SIZE), baseStack.next_idx);
 
         // Now force a new one to be allocated
-        try expect(try baseStack.do_push(obj) != baseStack);
+        try expect(try baseStack.do_push_uint(42) != baseStack);
         try expectEqual(@as(usize, 1), baseStack.next.?.next_idx);
     }
 
@@ -529,11 +521,11 @@ pub const Stack = struct {
     test "do_dup" {
         const stack = try Self.init(testAllocator, null);
         defer stack.deinit();
-        const obj = Object{
-            .UnsignedInt = 42,
-        };
-        _ = try stack.do_push(obj);
-        _ = try stack.do_dup();
+        defer stack.deinit_guard_for_empty();
+
+        var target = try stack.do_push_uint(42);
+        target = try stack.do_dup();
+
         try expectEqual(@as(usize, 2), stack.next_idx);
         const top_two = try stack.do_peek_pair();
         try expectEqual(@as(usize, 42), top_two.top.*.UnsignedInt);
@@ -568,45 +560,46 @@ pub const Stack = struct {
     }
 
     test "do_swap: single stack" {
-        const baseStack = try Self.init(testAllocator, null);
-        defer baseStack.deinit();
-        baseStack.contents[0] = Object{ .UnsignedInt = 1 };
-        baseStack.contents[1] = Object{ .UnsignedInt = 2 };
-        // Even with leftover garbage on the stack, the stack pointer is the
-        // source of truth: refuse to swap this manually-mangled stack with the
-        // pointer in the wrong place!
-        try expectError(StackManipulationError.Underflow, baseStack.do_swap());
-        baseStack.next_idx += 2;
+        const stack = try Self.init(testAllocator, null);
+        defer stack.deinit_guard_for_empty();
 
-        try baseStack.do_swap();
-        try expectEqual(@as(usize, 2), baseStack.contents[0].?.UnsignedInt);
-        try expectEqual(@as(usize, 1), baseStack.contents[1].?.UnsignedInt);
+        var target = try stack.do_push_uint(1);
+        target = try target.do_push_uint(2);
+        try target.do_swap();
+
+        const top_two = try target.do_pop_pair();
+        try expectEqual(@as(usize, 2), top_two.far.UnsignedInt);
+        try expectEqual(@as(usize, 1), top_two.near.UnsignedInt);
     }
 
     test "do_swap: transcend stack boundaries" {
         const baseStack = try Self.init(testAllocator, null);
         defer baseStack.deinit();
 
-        const obj = Object{ .UnsignedInt = 1 };
-
         // First, fill the current stack
         var i: usize = 0;
         while (i < STACK_SIZE) {
-            _ = try baseStack.do_push(obj);
+            // Ensure that none of these operations will result in a new stack
+            // being allocated.
+            try expectEqual(baseStack, try baseStack.do_push_uint(1));
             i += 1;
         }
         // Now force a new one to be allocated with a single, different object
         // on it.
-        const newStack = try baseStack.do_push(Object{ .UnsignedInt = 2 });
+        const newStack = try baseStack.do_push_uint(2);
         try expect(baseStack != newStack);
 
         // Save us from ourselves if we call swap on the wrong stack
         // (presumably, we discarded the output of do_push).
-        try expectError(StackManipulationError.YouAlmostCertainlyDidNotMeanToUseThisNonTerminalStack, baseStack.do_swap());
+        try expectError(
+            StackManipulationError.YouAlmostCertainlyDidNotMeanToUseThisNonTerminalStack,
+            baseStack.do_swap(),
+        );
 
         try newStack.do_swap();
-        try expectEqual(@as(usize, 2), baseStack.contents[STACK_SIZE - 1].?.UnsignedInt);
-        try expectEqual(@as(usize, 1), newStack.contents[0].?.UnsignedInt);
+        const top_two = try newStack.do_pop_pair();
+        try expectEqual(@as(usize, 2), top_two.far.UnsignedInt);
+        try expectEqual(@as(usize, 1), top_two.near.UnsignedInt);
     }
 
     /// Returns the new "upper" stack.
@@ -666,13 +659,9 @@ pub const Stack = struct {
         try expectEqual(@as(usize, 0), stack.next_idx);
         try expectEqual(@as(?Object, null), stack.contents[0]);
 
-        _ = try stack.do_push(Object{ .UnsignedInt = 1 });
-        try expectEqual(@as(usize, 1), stack.next_idx);
-        try expectEqual(@as(usize, 1), stack.contents[0].?.UnsignedInt);
-
-        _ = try stack.do_drop();
-        try expectEqual(@as(usize, 0), stack.next_idx);
-        try expectEqual(@as(?Object, null), stack.contents[0]);
+        var target = try stack.do_push_uint(1);
+        try expectEqual(@as(usize, 1), (try target.do_pop()).UnsignedInt);
+        try expectError(StackManipulationError.Underflow, target.do_pop());
     }
 
     // N.B. the auto-freeing mechanics of do_drop are being tested here, so
