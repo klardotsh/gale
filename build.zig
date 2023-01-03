@@ -29,6 +29,12 @@ pub fn build(b: *std.build.Builder) void {
     exe_tests.setTarget(target);
     exe_tests.setBuildMode(mode);
 
+    const protolang_tests = b.addTest("tests/test_protolang.zig");
+    protolang_tests.setTarget(target);
+    protolang_tests.setBuildMode(mode);
+    protolang_tests.addPackagePath("gluumy", "src/main.lib.zig");
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&exe_tests.step);
+    test_step.dependOn(&protolang_tests.step);
 }
