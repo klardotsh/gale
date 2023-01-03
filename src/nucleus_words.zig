@@ -257,6 +257,11 @@ pub fn DUP(runtime: *Runtime) !void {
     runtime.stack = try runtime.stack.do_dup();
 }
 
+/// @2DUPSHUF ( @2 @1 -> @2 @1 @2 @1 )
+pub fn TWODUPSHUF(runtime: *Runtime) !void {
+    runtime.stack = try runtime.stack.do_2dupshuf();
+}
+
 /// @LIT ( @1 -> Word )
 ///
 /// Wraps any value type in an anonymous word which will return that value when

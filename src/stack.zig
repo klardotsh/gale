@@ -563,6 +563,43 @@ pub const Stack = struct {
         try expectEqual(@as(usize, 42), top_two.bottom.?.*.UnsignedInt);
     }
 
+    pub fn do_2dupshuf(self: *Self) !*Self {
+        try self.non_terminal_stack_guard();
+        const top_two = try self.do_peek_pair();
+
+        if (top_two.bottom == null) return StackManipulationError.Underflow;
+
+        // TODO: avoid some overhead of jumping to do_push here by doing a
+        // self.expand_to_fit(2) and handling the edge case I'm too lazy to
+        // deal with right now where n+1 fits on the current stack, but n+2
+        // forces a new allocation (split-stack case)
+        //
+        // technically the current implementation is "safest", since it'll do a
+        // terminal guard each time, ensuring that we actually use target for
+        // the second push, and not self...
+        var target = try self.do_push(top_two.bottom.?.*);
+        return try target.do_push(top_two.top.*);
+    }
+
+    test "do_2dupshuf" {
+        const stack = try Self.init(testAllocator, null);
+        defer stack.deinit_guard_for_empty();
+
+        var target = try stack.do_push_uint(420);
+        target = try stack.do_push_uint(69);
+        target = try stack.do_2dupshuf();
+
+        try expectEqual(@as(usize, 4), target.next_idx);
+        const top_three = try target.do_pop_trio();
+        try expectEqual(@as(usize, 69), top_three.near.UnsignedInt);
+        try expectEqual(@as(usize, 420), top_three.far.UnsignedInt);
+        try expectEqual(@as(usize, 69), top_three.farther.UnsignedInt);
+
+        try expectEqual(@as(usize, 420), (try target.do_pop()).UnsignedInt);
+
+        try expectError(StackManipulationError.Underflow, target.do_pop());
+    }
+
     pub fn do_swap(self: *Self) StackManipulationError!void {
         try self.non_terminal_stack_guard();
         return try @call(
