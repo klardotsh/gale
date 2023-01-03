@@ -8,8 +8,13 @@ const Allocator = std.mem.Allocator;
 const testAllocator: Allocator = std.testing.allocator;
 const expect = std.testing.expect;
 
+const builtin = @import("builtin");
+
 const InternalError = @import("./internal_error.zig").InternalError;
 const Types = @import("./types.zig");
+
+// TODO: allow override in build.zig
+const RC_ALLOW_INIT_GT0: bool = false;
 
 pub fn Rc(comptime T: type) type {
     return struct {
@@ -46,8 +51,28 @@ pub fn Rc(comptime T: type) type {
         strong_count: RefCount,
         value: ?T,
 
+        /// Initialize an Rc(T) with no references. This is almost always the
+        /// correct default, but if you're absolutely sure it's not, see
+        /// `init_referenced`.
         pub fn init(value: ?T) Self {
-            return @This(){
+            return Self{
+                .strong_count = RefCount.init(0),
+                .value = value,
+            };
+        }
+
+        /// Initialize an Rc(T) which is assumed to already have a reference.
+        /// This should almost never be used directly outside of tests, as most
+        /// Stack and/or Object operations assume an Rc(_) starts with no
+        /// references (since strong_count really refers to the number of
+        /// gluumy-side references, and is not meant to be a generic zig
+        /// garbage collector).
+        pub fn init_referenced(value: ?T) Self {
+            if (!builtin.is_test and !RC_ALLOW_INIT_GT0) {
+                @compileError(@typeName(Self) ++ ".init_referenced called outside of unit tests (override with build arg RC_ALLOW_INIT_GT0)");
+            }
+
+            return Self{
                 .strong_count = RefCount.init(1),
                 .value = value,
             };
@@ -169,7 +194,7 @@ test "Rc(u8): simple set, increments, decrements, and prune" {
     var str = try testAllocator.alloc(u8, hello_world.len);
     std.mem.copy(u8, str[0..], hello_world);
     var shared_str = try testAllocator.create(SharedStr);
-    shared_str.* = SharedStr.init(str);
+    shared_str.* = SharedStr.init_referenced(str);
 
     try std.testing.expectEqualStrings(hello_world, shared_str.value.?);
     try expect(shared_str.strong_count.load(.Acquire) == 1);
