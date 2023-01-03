@@ -104,3 +104,7 @@ pub const Object = union(enum) {
         };
     }
 };
+
+test {
+    std.testing.refAllDecls(@This());
+}

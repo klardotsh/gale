@@ -2,6 +2,8 @@
 // Zero-Clause BSD License, distributed alongside this source in a file called
 // COPYING.
 
+const std = @import("std");
+
 pub const InternalError = error{
     AttemptedDestructionOfPopulousRc,
     AttemptedResurrectionOfExhaustedRc, // me too, buddy
@@ -11,3 +13,7 @@ pub const InternalError = error{
     UnknownSlashedSuffix,
     ValueError, // TODO: rename???
 };
+
+test {
+    std.testing.refAllDecls(@This());
+}

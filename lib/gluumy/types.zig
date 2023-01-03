@@ -2,8 +2,14 @@
 // Zero-Clause BSD License, distributed alongside this source in a file called
 // COPYING.
 
+const std = @import("std");
+
 const Rc = @import("./rc.zig").Rc;
 const Word = @import("./word.zig").Word;
+
+test {
+    std.testing.refAllDecls(@This());
+}
 
 pub const HeapedOpaque = Rc([]u8);
 pub const HeapedString = Rc([]u8);

@@ -20,3 +20,7 @@ const GluumySymbolContext = struct {
 
 // TODO: Docs.
 pub const WordMap = std.HashMap(Types.GluumySymbol, WordList, GluumySymbolContext, std.hash_map.default_max_load_percentage);
+
+test {
+    std.testing.refAllDecls(@This());
+}

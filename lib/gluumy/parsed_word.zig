@@ -226,3 +226,7 @@ pub const ParsedWord = union(enum) {
         );
     }
 };
+
+test {
+    std.testing.refAllDecls(@This());
+}

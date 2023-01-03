@@ -42,3 +42,7 @@ pub const WordList = struct {
         return try self.contents.append(item);
     }
 };
+
+test {
+    std.testing.refAllDecls(@This());
+}

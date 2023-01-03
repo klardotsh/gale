@@ -211,3 +211,7 @@ test "Rc(u8): simple set, increments, decrements, and prune" {
     // (which fails the tests at a higher level).
     try expect(shared_str.decrement_and_prune(.FreeInnerDestroySelf, testAllocator));
 }
+
+test {
+    std.testing.refAllDecls(@This());
+}

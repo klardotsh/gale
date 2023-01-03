@@ -136,3 +136,7 @@ pub const Word = struct {
         };
     }
 };
+
+test {
+    std.testing.refAllDecls(@This());
+}

@@ -45,3 +45,7 @@ test "bool_from_human_str" {
 pub fn getenv_boolean(name: []const u8) bool {
     return bool_from_human_str(std.os.getenv(name) orelse "");
 }
+
+test {
+    std.testing.refAllDecls(@This());
+}

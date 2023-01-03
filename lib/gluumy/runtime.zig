@@ -23,6 +23,10 @@ const Word = _word.Word;
 const WordList = @import("./word_list.zig").WordList;
 const WordMap = @import("./word_map.zig").WordMap;
 
+test {
+    std.testing.refAllDecls(@This());
+}
+
 // TODO: move to test helpers file
 fn push_one(runtime: *Runtime) anyerror!void {
     runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 1 });
