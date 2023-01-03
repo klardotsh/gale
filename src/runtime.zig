@@ -8,6 +8,8 @@ const Allocator = std.mem.Allocator;
 const testAllocator: Allocator = std.testing.allocator;
 const expectEqual = std.testing.expectEqual;
 
+const builtin = @import("builtin");
+
 const _object = @import("./object.zig");
 const _word = @import("./word.zig");
 
@@ -107,7 +109,12 @@ pub const Runtime = struct {
         // First, nuke everything on the stack using this horribly named method
         // (TODO for the love of god find better names for these things).
         self.stack.deinit_from_bottom();
+        self.deinit_shared();
+    }
 
+    /// The rest of the deinit() sequence, shared between the standard deinit()
+    /// and the test-mode-only deinit_guard_for_empty_stack().
+    fn deinit_shared(self: *Self) void {
         // Now, we need to nuke all defined words, which is a bit fidgety since
         // they're referenced by their symbol identifiers which themselves may
         // need to be garbage collected in this process.
@@ -128,17 +135,37 @@ pub const Runtime = struct {
 
         var symbol_iter = self.symbols.valueIterator();
         while (symbol_iter.next()) |entry| {
-            if (entry.value) |inner_ptr| {
-                if (!entry.decrement()) {
-                    // TODO: API to stop doing this reach-in manually, ew
-                    self.alloc.free(inner_ptr);
-                }
-            }
+            _ = entry.decrement_and_prune(.FreeInner, self.alloc);
         }
         self.symbols.clearAndFree();
         self.symbols.deinit();
     }
 
+    /// Deinitialize this Runtime, panicking if anything was left on the stack.
+    /// This can only be used in tests, and will @compileError in non-test
+    /// builds. This is often the correct function to use in tests, as it
+    /// forces manual stack cleanup of expected entities, and any garbage left
+    /// on the stack at that point (bugs) will panic the test.
+    ///
+    ///
+    /// This should be called with `defer` immediately after the Runtime is
+    /// instantiated (thus the use of `@panic` instead of assertions from
+    /// `std.testing`, since `defer try` is not valid in Zig).
+    pub fn deinit_guard_for_empty_stack(self: *Self) void {
+        // This is also handled in Stack.deinit_guard_for_empty, but the error
+        // will be more clear originating from the actual function the caller
+        // used rather than down-stack, since both functions have the same
+        // usecases.
+        if (!builtin.is_test) {
+            @compileError("deinit_guard_for_empty_stack should NEVER be used outside of the test framework");
+        }
+
+        // first, ensure the stack is empty and if so, deinitialize it.
+        self.stack.deinit_guard_for_empty();
+        self.deinit_shared();
+    }
+
+    /// Retrieve the previously-interned Symbol's Rc
     pub fn get_or_put_symbol(self: *Self, sym: []const u8) !GetOrPutResult(Types.HeapedSymbol) {
         var entry = try self.symbols.getOrPut(sym);
         if (!entry.found_existing) {
