@@ -56,6 +56,9 @@ pub fn CONDJMP(runtime: *Runtime) !void {
     try callback.assert_is_kind(.Word);
 
     if (!condition.Boolean) {
+        // See TODO below.
+        condition.deinit(runtime.alloc);
+        callback.deinit(runtime.alloc);
         return;
     }
 
@@ -63,8 +66,9 @@ pub fn CONDJMP(runtime: *Runtime) !void {
 
     // TODO: should these be handled in a receipt function of sorts on the
     // stack/runtime itself? pt1: pop trio off stack. pt2: turn in the receipt
-    // gotten in pt1, runtime handles lifecycle teardowns along the way. this
-    // would also allow for clean increment/decrement handling along the way.
+    // gotten in pt1, runtime handles lifecycle teardowns along the way. This
+    // would allow guarding against un-freed pop() returns, for example, which
+    // have already bitten me so many times in unit tests.
     condition.deinit(runtime.alloc);
     callback.deinit(runtime.alloc);
 }
