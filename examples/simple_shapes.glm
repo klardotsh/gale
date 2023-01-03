@@ -1,45 +1,126 @@
-$ Track
-	* Number num ;
-	* Number total ;
+// This is provided by the standard library, but is a useful reference to
+// understand this file.
+$ Printable
+	$? "Something that can be made representable as a String" ;
+
+	$: repr ( Self <- String ) ;
 ;
 
-# this implicitly implements Printable for Track despite us not declaring
-# Track as a Printable
-: repr ( Track <- String )
-	.num
-	.total[ 2 ]
-	format< "Track %d/%d" >
+// We could, but will not for now, provide a default implementation for repr
+// like so. %? is like Zig's {any} or Rust's {:?}, and dumps the debug
+// representation of the top object of the stack.
+// : Printable/repr "%?" make-formatting-word ;
+
+$ Track
+	// Docstrings, typical
+	$? "A recorded piece of music, perhaps in a collection of other recordings." ;
+
+	// This is an explicit opt-in to fulfil a Shape: the runtime won't let us
+	// pass Tracks into anything that expects Printables until we've fulfilled
+	// its contract. More on that later.
+	$. Printable ;
+
+	// These are members: num and total are understood to be Symbols, and
+	// exactly one more thing should be on the stack by the time we get to ;: a
+	// shape reference. We're in Exec mode after "num", but that's okay:
+	// calling a Shape's name returns a reference to itself.
+	$> num UnsignedInt ;
+	$> total UnsignedInt ;
+;
+
+// This name enables some magic: this method will automatically be associated
+// with the Track shape, though note that there is no requirement that it
+// actually take Track off the stack: indeed, this word never will, taking two
+// UnsignedInts instead. Think more like Zig's structs or Python's
+// @staticmethod, and less like forced-OOP.
+//
+// :@ means that the word body will itself be a single word (words are
+// first-class, like functions in JavaScript et. al.), and that that word
+// should be hoisted to the provided name. This is some of the only
+// metaprogramming allowed in gluumy, and it follows rather strict rules to
+// allow devtools to analyze the codebase even with these existing.
+:@ Track/format "Track %d/%d" make-formatter ;
+
+: Track/repr // This has signature ( Self <- String ), but it's inferred!
+	// Trailing comma inverts the usual flow and puts total below the Track on
+	// the Stack
+	.total,
+	.num,
+	// Leading comma "hides" the top object on the stack from the word to
+	// follow, leading / on the word name means "look for a method named format
+	// associated with the shape of the top of the stack". This functionality
+	// ignores the leading comma's effect for lookup purposes, so our Track
+	// will be the shape used to look for a /format method.
+	,/format
+
+	// Stack is now ( Track String ) which is the correct result signature for
+	// this word, et voila!
+;
+
+// FORTHers might feel more at home one-lining that, which is totally legal too:
+// : Track/repr .total, .num, ,/format ;
+
+% Genre
+	%? "The category of music a song is considered to fit." ;
+
+	// These are all understood to be Symbols
+	%> Rock ;
+	%> Metal ;
+	%> Electronic ;
+
+	// But they can take exactly one member argument. Assume we had subgenre
+	// enums defined:
+	// %> Electronic ElectronicSubgenre ;
 ;
 
 $ Song
-	.. Printable
+	$? "A recorded piece of music and its metadata." ;
 
-	* String artist ;
-	* Option< String > album_artist ;
-	* String title ;
-	* Option< Track > track ;
+	$> artist String ;
+	$> album_artist String Optional! ;
+	$> title String ;
+	$> track Track Optional! ;
+	$> genres Genre List! ;
 ;
 
-: repr ( Song -> Song String )
-	.title
-	.album_artist[ 2 ] .artist[ 3 ] or
-	format< "%s by %s" >
+:@ Song/format "%s by %s" make-formatter ;
+
+// By defining this on a Shape that hasn't opted into Printable explicitly, we
+// are still eligible to be an *implicit* Printable: we won't get devtools
+// yelling at us about missing word implementations until we've tried calling
+// Printable/repr (or some other word that demands a Printable) with a Song on
+// the top of the stack, but we *can* ad-hoc opt into Shapes anyway.
+: Song/repr
+	.title,
+	// Leading + trailing comma combination combines to mean we'll ignore the
+	// Song on top of the stack, null-coalesce the first extant string of
+	// either artist or album_artist, and slip that String into the stack under
+	// the Song, which will remain on top of the stack.
+	.album_artist, .artist, ,Optional/or,
+	,/format
 ;
 
 : main
-	Track(
-		5 >.num
-		7 >.total
-	)
-	Option.Some!
+	Genre.Electronic
 
-	Song(
-		"Wandering Star" >.title
-		"Portishead" >.artist
-		>.album_artist?! # fills field with the default value of its shape
-		>.track[ 2 ]
-	)
+	// Understanding Track! might be non-trivial at first glance: Track! will
+	// eat things off the stack in the order they were defined in the Shape
+	// definition, so .num goes first and thus needs to be the *second* thing
+	// we push onto the stack.
+	7 // .total
+	5 // .num
+	Track!
+	Optional/some
 
-	# this prints "Wandering Star by Portishead"
-	repr println
+	"Wandering Star"
+	Optional/none
+	"Portishead"
+
+	Song!
+
+	// This prints "Wandering Star by Portishead"
+	/repr println
+
+	// And now let's tear down the Song object
+	drop
 ;
