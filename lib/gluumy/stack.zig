@@ -48,11 +48,32 @@ pub const StackManipulationError = error{
 /// Not thread-safe. Use channels or something.
 // TODO:
 // - Docs
-// - Sanitize entries when rolling back stack pointer?
 // - Stop leaking literally everything: keep no more than N+1 stacks allocated
 //   at a time, once self->next->next->next_idx == 0, it's time to start calling
 //   free.
 pub const Stack = struct {
+    pub const PeekPair = struct {
+        top: *Object,
+        bottom: ?*Object,
+    };
+
+    pub const PopTrio = struct {
+        near: Object,
+        far: Object,
+        farther: Object,
+    };
+
+    pub const PeekTrio = struct {
+        near: *Object,
+        far: ?*Object,
+        farther: ?*Object,
+    };
+
+    pub const PopPair = struct {
+        near: Object,
+        far: Object,
+    };
+
     // Those finding they need more per-stack space should compile their own
     // project-specific gluumy build changing the constant as appropriate.
     // Unlike many languages where mucking about with the internals is
@@ -108,9 +129,9 @@ pub const Stack = struct {
         self.alloc.destroy(self);
     }
 
-    /// TODO: docs about stack jumping behavior here
-    /// TODO: see if this should just be the mainline deinit() function instead
-    /// or if they can otherwise be merged
+    // TODO: docs about stack jumping behavior here
+    // TODO: see if this should just be the mainline deinit() function instead
+    // or if they can otherwise be merged
     pub fn deinit_from_bottom(self: *Self) void {
         if (self.prev) |prev| {
             prev.deinit_from_bottom();
@@ -248,12 +269,6 @@ pub const Stack = struct {
         }
     }
 
-    pub const PeekTrio = struct {
-        near: *Object,
-        far: ?*Object,
-        farther: ?*Object,
-    };
-
     pub fn do_peek_trio(self: *Self) !PeekTrio {
         try self.non_terminal_stack_guard();
         return try @call(
@@ -332,11 +347,6 @@ pub const Stack = struct {
         target = try target.do_drop();
         target = try target.do_drop();
     }
-
-    pub const PeekPair = struct {
-        top: *Object,
-        bottom: ?*Object,
-    };
 
     pub fn do_peek_pair(self: *Self) !PeekPair {
         try self.non_terminal_stack_guard();
@@ -427,11 +437,6 @@ pub const Stack = struct {
         try expectError(StackManipulationError.Underflow, target.do_pop());
     }
 
-    pub const PopPair = struct {
-        near: Object,
-        far: Object,
-    };
-
     // TODO: FIXME: does not handle stack juggling, needs to return a pointer
     // to the correct stack alongside this Object
     pub fn do_pop_pair(self: *Self) !PopPair {
@@ -458,12 +463,6 @@ pub const Stack = struct {
         try expectEqual(@as(usize, 41), pairing.far.UnsignedInt);
         try expectError(StackManipulationError.Underflow, target.do_pop());
     }
-
-    pub const PopTrio = struct {
-        near: Object,
-        far: Object,
-        farther: Object,
-    };
 
     // TODO: FIXME: does not handle stack juggling, needs to return a pointer
     // to the correct stack alongside this Object
