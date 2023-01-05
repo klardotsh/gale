@@ -440,7 +440,7 @@ test "PRIV_SPACE_SET_BYTE" {
 
 /// @SWAP ( @2 @1 -> @2 @1 )
 pub fn SWAP(runtime: *Runtime) !void {
-    return runtime.stack.do_swap();
+    try runtime.stack.do_swap();
 }
 
 test {
