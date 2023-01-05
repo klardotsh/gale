@@ -10,8 +10,9 @@ $ Printable
 //
 // :@ aliases *must* point to unambiguous word signatures, but since
 // `ShapeAssembler/;` will resolve to `ShapeDefStub/;` if `Self` is a
-// `ShapeDefStuf`, we get a very limited (or "controlled", depending on your
-// viewpoint) implementation of "method overloading", without the full-on
+// `ShapeDefStub` (since `ShapeDefStub` declares itself to be an implementation
+// of `ShapeAssembler`), we get a very limited (or "controlled", depending on
+// your viewpoint) implementation of "method overloading", without the full-on
 // craziness in the language spec that would be required to allow multiple
 // definitions of, say, the word `add` all using that same title.
 ;
