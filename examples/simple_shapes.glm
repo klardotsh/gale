@@ -4,11 +4,16 @@ $ Printable
 	$? "Something that can be made representable as a String" ;
 
 	$: repr ( Self <- String ) ;
-// ; is actually a :@ alias for /; which in this context is ShapeDefStub/; but
-// in the above context is ShapeMemberStub/;
+// ; is actually a :@ alias for ShapeAssembler/; (with signature `( Self <-
+// nothing )`), which is implemented as ShapeDefStub/; (used below) and
+// ShapeMemberStub/; (used above).
 //
-// Interpreter implementation note: this implies that /-word aliases must be
-// dynamically dispatched, we can't do a direct Compound Word reference here.
+// :@ aliases *must* point to unambiguous word signatures, but since
+// `ShapeAssembler/;` will resolve to `ShapeDefStub/;` if `Self` is a
+// `ShapeDefStuf`, we get a very limited (or "controlled", depending on your
+// viewpoint) implementation of "method overloading", without the full-on
+// craziness in the language spec that would be required to allow multiple
+// definitions of, say, the word `add` all using that same title.
 ;
 
 // We could, but will not for now, provide a default implementation for repr
