@@ -4,6 +4,11 @@ $ Printable
 	$? "Something that can be made representable as a String" ;
 
 	$: repr ( Self <- String ) ;
+// ; is actually a :@ alias for /; which in this context is ShapeDefStub/; but
+// in the above context is ShapeMemberStub/;
+//
+// Interpreter implementation note: this implies that /-word aliases must be
+// dynamically dispatched, we can't do a direct Compound Word reference here.
 ;
 
 // We could, but will not for now, provide a default implementation for repr
@@ -44,8 +49,8 @@ $ Track
 : Track/repr // This has signature ( Self <- String ), but it's inferred!
 	// Trailing comma inverts the usual flow and puts total below the Track on
 	// the Stack
-	.total,
-	.num,
+	/.total,
+	/.num,
 	// Leading comma "hides" the top object on the stack from the word to
 	// follow, leading / on the word name means "look for a method named format
 	// associated with the shape of the top of the stack". This functionality
@@ -58,7 +63,7 @@ $ Track
 ;
 
 // FORTHers might feel more at home one-lining that, which is totally legal too:
-// : Track/repr .total, .num, ,/format ;
+// : Track/repr /.total, /.num, ,/format ;
 
 % Genre
 	%? "The category of music a song is considered to fit." ;
@@ -91,12 +96,12 @@ $ Song
 // Printable/repr (or some other word that demands a Printable) with a Song on
 // the top of the stack, but we *can* ad-hoc opt into Shapes anyway.
 : Song/repr
-	.title,
+	/.title,
 	// Leading + trailing comma combination combines to mean we'll ignore the
 	// Song on top of the stack, null-coalesce the first extant string of
 	// either artist or album_artist, and slip that String into the stack under
 	// the Song, which will remain on top of the stack.
-	.album_artist, .artist, ,Optional/or,
+	/.album_artist, /.artist, ,Optional/or,
 	,/format
 ;
 
