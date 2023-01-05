@@ -87,7 +87,8 @@ test "CONDJMP" {
     runtime.stack = try runtime.stack.do_push_bool(true);
     try CONDJMP(&runtime);
     const should_be_1 = try runtime.stack.do_pop();
-    try expectEqual(@as(usize, 1), should_be_1.UnsignedInt);
+    try expectEqual(@as(usize, 1), should_be_1.item.UnsignedInt);
+    runtime.stack = should_be_1.now_top_stack;
 
     runtime.stack = try runtime.stack.do_push_bool(false);
     try CONDJMP(&runtime);
@@ -138,12 +139,13 @@ test "CONDJMP2" {
     runtime.stack = try runtime.stack.do_push_bool(true);
     try CONDJMP2(&runtime);
     const should_be_1 = try runtime.stack.do_pop();
-    try expectEqual(@as(usize, 1), should_be_1.UnsignedInt);
+    try expectEqual(@as(usize, 1), should_be_1.item.UnsignedInt);
+    runtime.stack = should_be_1.now_top_stack;
 
     runtime.stack = try runtime.stack.do_push(Object{ .Boolean = false });
     try CONDJMP2(&runtime);
     const should_be_2 = try runtime.stack.do_pop();
-    try expectEqual(@as(usize, 2), should_be_2.UnsignedInt);
+    try expectEqual(@as(usize, 2), should_be_2.item.UnsignedInt);
 }
 
 /// @EQ ( @2 @1 <- Boolean )
@@ -154,8 +156,8 @@ test "CONDJMP2" {
 pub fn EQ(runtime: *Runtime) !void {
     const peek = try runtime.stack.do_peek_pair();
 
-    if (peek.bottom) |bottom| {
-        runtime.stack = try runtime.stack.do_push_bool(try peek.top.eq(bottom));
+    if (peek.far) |bottom| {
+        runtime.stack = try runtime.stack.do_push_bool(try peek.near.eq(bottom));
         return;
     }
 
@@ -171,7 +173,7 @@ test "EQ" {
     runtime.stack = try runtime.stack.do_push_uint(1);
     // 1 == 1, revelatory, truly.
     try EQ(&runtime);
-    try expect((try runtime.stack.do_peek_pair()).top.*.Boolean);
+    try expect((try runtime.stack.do_peek_pair()).near.*.Boolean);
     // Now compare that boolean to the UnsignedInt... or don't, preferably.
     try expectError(InternalError.TypeError, EQ(&runtime));
 }
@@ -377,15 +379,16 @@ test "LIT" {
     // Create and yank a HeapLit word from that UnsignedInt
     try LIT(&runtime);
     var lit_word = try runtime.stack.do_pop();
-    defer lit_word.deinit(testAllocator);
+    runtime.stack = lit_word.now_top_stack;
+    defer lit_word.item.deinit(testAllocator);
 
     // That word should have been the only thing on the stack
     try expectError(StackManipulationError.Underflow, runtime.stack.do_pop());
 
     // Now, run the word - three times, for kicks...
-    try runtime.run_boxed_word(lit_word.Word);
-    try runtime.run_boxed_word(lit_word.Word);
-    try runtime.run_boxed_word(lit_word.Word);
+    try runtime.run_boxed_word(lit_word.item.Word);
+    try runtime.run_boxed_word(lit_word.item.Word);
+    try runtime.run_boxed_word(lit_word.item.Word);
 
     // ...and assert that the UnsignedInt was placed back onto the stack all
     // three times.

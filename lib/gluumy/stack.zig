@@ -8,14 +8,12 @@ const Allocator = std.mem.Allocator;
 const testAllocator: Allocator = std.testing.allocator;
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
-const expectEqualStrings = std.testing.expectEqualStrings;
 const expectError = std.testing.expectError;
 
 const builtin = @import("builtin");
 
 const InternalError = @import("./internal_error.zig").InternalError;
 const Object = @import("./object.zig").Object;
-const Rc = @import("./rc.zig").Rc;
 const Types = @import("./types.zig");
 
 pub const StackManipulationError = error{
@@ -52,28 +50,6 @@ pub const StackManipulationError = error{
 //   at a time, once self->next->next->next_idx == 0, it's time to start calling
 //   free.
 pub const Stack = struct {
-    pub const PeekPair = struct {
-        top: *Object,
-        bottom: ?*Object,
-    };
-
-    pub const PopTrio = struct {
-        near: Object,
-        far: Object,
-        farther: Object,
-    };
-
-    pub const PeekTrio = struct {
-        near: *Object,
-        far: ?*Object,
-        farther: ?*Object,
-    };
-
-    pub const PopPair = struct {
-        near: Object,
-        far: Object,
-    };
-
     // Those finding they need more per-stack space should compile their own
     // project-specific gluumy build changing the constant as appropriate.
     // Unlike many languages where mucking about with the internals is
@@ -170,7 +146,7 @@ pub const Stack = struct {
         const banish_target = try self.alloc.create(Object);
         errdefer self.deinit_banished_object(banish_target);
 
-        const top = (try self.do_peek_pair()).top;
+        const top = (try self.do_peek_pair()).near;
         return switch (top.*) {
             .Word, .Opaque => InternalError.Unimplemented,
             else => |it| {
@@ -238,20 +214,20 @@ pub const Stack = struct {
 
     test "expand_to_fit" {
         const baseStack = try Self.init(testAllocator, null);
-        defer baseStack.deinit();
+        defer baseStack.deinit_guard_for_empty();
+
         try expectError(
             StackManipulationError.RefuseToGrowMultipleStacks,
             baseStack.expand_to_fit(Stack.STACK_SIZE * 2 + 1),
         );
         try expectEqual(@as(?*Self, null), try baseStack.expand_to_fit(STACK_SIZE / 2 + 1));
-        try expect(try baseStack.expand_to_fit(STACK_SIZE * 2) != null);
-        // Hella unsafe to just yolo a stack pointer forward into null data but
-        // this is a test, whatever.
-        baseStack.next_idx = 1;
+        const new_stack = try baseStack.expand_to_fit(STACK_SIZE * 2);
+        try expect(new_stack != null);
         try expectError(
             StackManipulationError.RefuseToGrowMultipleStacks,
-            baseStack.expand_to_fit(Stack.STACK_SIZE * 2),
+            new_stack.?.expand_to_fit(Stack.STACK_SIZE * 2 + 1),
         );
+        new_stack.?.deinit();
     }
 
     /// Extend the Stack into a new stack, presumably because we've run out of
@@ -269,7 +245,7 @@ pub const Stack = struct {
         }
     }
 
-    pub fn do_peek_trio(self: *Self) !PeekTrio {
+    pub fn do_peek_trio(self: *Self) !Types.PeekTrio {
         try self.non_terminal_stack_guard();
         return try @call(
             .{ .modifier = .always_inline },
@@ -278,7 +254,7 @@ pub const Stack = struct {
         );
     }
 
-    pub fn do_peek_trio_no_really_even_on_inner_stacks(self: *Self) !PeekTrio {
+    pub fn do_peek_trio_no_really_even_on_inner_stacks(self: *Self) !Types.PeekTrio {
         if (self.next_idx == 0) {
             if (self.prev) |prev| {
                 return prev.do_peek_trio_no_really_even_on_inner_stacks();
@@ -288,7 +264,7 @@ pub const Stack = struct {
         }
 
         if (self.next_idx == 1) {
-            return PeekTrio{
+            return Types.PeekTrio{
                 .near = &self.contents[0].?,
                 .far = if (self.prev) |prev|
                     &prev.contents[prev.next_idx - 1].?
@@ -302,7 +278,7 @@ pub const Stack = struct {
         }
 
         if (self.next_idx == 2) {
-            return PeekTrio{
+            return Types.PeekTrio{
                 .near = &self.contents[1].?,
                 .far = &self.contents[0].?,
                 .farther = if (self.prev) |prev|
@@ -312,7 +288,7 @@ pub const Stack = struct {
             };
         }
 
-        return PeekTrio{
+        return Types.PeekTrio{
             .near = &self.contents[self.next_idx - 1].?,
             .far = &self.contents[self.next_idx - 2].?,
             .farther = &self.contents[self.next_idx - 3].?,
@@ -348,7 +324,7 @@ pub const Stack = struct {
         target = try target.do_drop();
     }
 
-    pub fn do_peek_pair(self: *Self) !PeekPair {
+    pub fn do_peek_pair(self: *Self) !Types.PeekPair {
         try self.non_terminal_stack_guard();
         return try @call(
             .{ .modifier = .always_inline },
@@ -357,7 +333,7 @@ pub const Stack = struct {
         );
     }
 
-    pub fn do_peek_pair_no_really_even_on_inner_stacks(self: *Self) !PeekPair {
+    pub fn do_peek_pair_no_really_even_on_inner_stacks(self: *Self) !Types.PeekPair {
         if (self.next_idx == 0) {
             if (self.prev) |prev| {
                 return prev.do_peek_pair_no_really_even_on_inner_stacks();
@@ -367,18 +343,18 @@ pub const Stack = struct {
         }
 
         if (self.next_idx == 1) {
-            return PeekPair{
-                .top = &self.contents[0].?,
-                .bottom = if (self.prev) |prev|
+            return Types.PeekPair{
+                .near = &self.contents[0].?,
+                .far = if (self.prev) |prev|
                     &prev.contents[prev.next_idx - 1].?
                 else
                     null,
             };
         }
 
-        return PeekPair{
-            .top = &self.contents[self.next_idx - 1].?,
-            .bottom = &self.contents[self.next_idx - 2].?,
+        return Types.PeekPair{
+            .near = &self.contents[self.next_idx - 1].?,
+            .far = &self.contents[self.next_idx - 2].?,
         };
     }
 
@@ -390,30 +366,32 @@ pub const Stack = struct {
 
         var target = try stack.do_push_uint(1);
         const top_one = try target.do_peek_pair();
-        try expectEqual(@as(usize, 1), top_one.top.*.UnsignedInt);
-        try expectEqual(@as(?*Object, null), top_one.bottom);
+        try expectEqual(@as(usize, 1), top_one.near.*.UnsignedInt);
+        try expectEqual(@as(?*Object, null), top_one.far);
 
         target = try target.do_push_uint(2);
         const top_two = try target.do_peek_pair();
-        try expectEqual(@as(usize, 2), top_two.top.*.UnsignedInt);
-        try expectEqual(@as(usize, 1), top_two.bottom.?.*.UnsignedInt);
+        try expectEqual(@as(usize, 2), top_two.near.*.UnsignedInt);
+        try expectEqual(@as(usize, 1), top_two.far.?.*.UnsignedInt);
 
         target = try target.do_drop();
         target = try target.do_drop();
     }
 
     pub inline fn do_peek(self: *Self) !*Object {
-        return (try self.do_peek_pair()).top;
+        return (try self.do_peek_pair()).near;
     }
 
-    // TODO: FIXME: does not fully handle stack juggling, needs to return a
-    // pointer to the correct stack alongside this Object
-    pub fn do_pop(self: *Self) !Object {
+    /// Remove the top item off of this stack and return it, along with a
+    /// pointer to which Stack object to perform future operations on. If this
+    /// is the bottom Stack and there are no contents remaining, an Underflow
+    /// is raised.
+    pub fn do_pop(self: *Self) !Types.PopSingle {
         if (self.next_idx == 0) {
-            // TODO: this should deinit(self), but since we don't return a
-            // pointer to the correct stack right now, that's a near-guaranteed
-            // segfault for callers
-            if (self.prev) |prev| return prev.do_pop();
+            if (self.prev) |prev| {
+                self.deinit();
+                return prev.do_pop();
+            }
 
             return StackManipulationError.Underflow;
         }
@@ -421,7 +399,10 @@ pub const Stack = struct {
         self.next_idx -= 1;
         if (self.contents[self.next_idx]) |obj| {
             self.contents[self.next_idx] = null;
-            return obj;
+            return Types.PopSingle{
+                .item = obj,
+                .now_top_stack = self,
+            };
         }
 
         unreachable;
@@ -432,20 +413,31 @@ pub const Stack = struct {
         defer stack.deinit_guard_for_empty();
         var target = try stack.do_push_uint(41);
         target = try stack.do_push_uint(42);
-        try expectEqual(@as(usize, 42), (try target.do_pop()).UnsignedInt);
-        try expectEqual(@as(usize, 41), (try target.do_pop()).UnsignedInt);
+        const pop_42 = try target.do_pop();
+        try expectEqual(@as(usize, 42), pop_42.item.UnsignedInt);
+        target = pop_42.now_top_stack;
+        const pop_41 = try target.do_pop();
+        try expectEqual(@as(usize, 41), pop_41.item.UnsignedInt);
+        target = pop_41.now_top_stack;
         try expectError(StackManipulationError.Underflow, target.do_pop());
     }
 
-    // TODO: FIXME: does not handle stack juggling, needs to return a pointer
-    // to the correct stack alongside this Object
-    pub fn do_pop_pair(self: *Self) !PopPair {
+    /// Remove the top two items off of this stack and return them, along with
+    /// a pointer to which Stack object to perform future operations on. If
+    /// this is the bottom Stack and there aren't at least two Objects
+    /// remaining, an Underflow is raised. If this happens with one Object on
+    /// the Stack, it will remain there.
+    pub fn do_pop_pair(self: *Self) !Types.PopPair {
         const top_two = try self.do_peek_pair();
 
-        if (top_two.bottom) |_| {
-            return PopPair{
-                .near = try self.do_pop(),
-                .far = try self.do_pop(),
+        if (top_two.far) |_| {
+            const near_pop = try self.do_pop();
+            const far_pop = try near_pop.now_top_stack.do_pop();
+
+            return Types.PopPair{
+                .near = near_pop.item,
+                .far = far_pop.item,
+                .now_top_stack = far_pop.now_top_stack,
             };
         }
 
@@ -464,16 +456,24 @@ pub const Stack = struct {
         try expectError(StackManipulationError.Underflow, target.do_pop());
     }
 
-    // TODO: FIXME: does not handle stack juggling, needs to return a pointer
-    // to the correct stack alongside this Object
-    pub fn do_pop_trio(self: *Self) !PopTrio {
+    /// Remove the top three items off of this stack and return them, along
+    /// with a pointer to which Stack object to perform future operations on.
+    /// If this is the bottom Stack and there aren't at least three Objects
+    /// remaining, an Underflow is raised. If this happens with one or two
+    /// Objects on the Stack, they will remain there.
+    pub fn do_pop_trio(self: *Self) !Types.PopTrio {
         const top_three = try self.do_peek_trio();
 
         if (top_three.farther) |_| {
-            return PopTrio{
-                .near = try self.do_pop(),
-                .far = try self.do_pop(),
-                .farther = try self.do_pop(),
+            const near_pop = try self.do_pop();
+            const far_pop = try near_pop.now_top_stack.do_pop();
+            const farther_pop = try far_pop.now_top_stack.do_pop();
+
+            return Types.PopTrio{
+                .near = near_pop.item,
+                .far = far_pop.item,
+                .farther = farther_pop.item,
+                .now_top_stack = farther_pop.now_top_stack,
             };
         }
 
@@ -560,7 +560,7 @@ pub const Stack = struct {
         try self.non_terminal_stack_guard();
         // By implementing in terms of do_push we get Rc(_) incrementing for
         // free
-        return try self.do_push((try self.do_peek_pair()).top.*);
+        return try self.do_push((try self.do_peek_pair()).near.*);
     }
 
     test "do_dup" {
@@ -580,7 +580,7 @@ pub const Stack = struct {
         try self.non_terminal_stack_guard();
         const top_two = try self.do_peek_pair();
 
-        if (top_two.bottom == null) return StackManipulationError.Underflow;
+        if (top_two.far == null) return StackManipulationError.Underflow;
 
         // TODO: avoid some overhead of jumping to do_push here by doing a
         // self.expand_to_fit(2) and handling the edge case I'm too lazy to
@@ -590,8 +590,8 @@ pub const Stack = struct {
         // technically the current implementation is "safest", since it'll do a
         // terminal guard each time, ensuring that we actually use target for
         // the second push, and not self...
-        var target = try self.do_push(top_two.bottom.?.*);
-        return try target.do_push(top_two.top.*);
+        var target = try self.do_push(top_two.far.?.*);
+        return try target.do_push(top_two.near.*);
     }
 
     test "do_2dupshuf" {
@@ -607,8 +607,11 @@ pub const Stack = struct {
         try expectEqual(@as(usize, 69), top_three.near.UnsignedInt);
         try expectEqual(@as(usize, 420), top_three.far.UnsignedInt);
         try expectEqual(@as(usize, 69), top_three.farther.UnsignedInt);
+        target = top_three.now_top_stack;
 
-        try expectEqual(@as(usize, 420), (try target.do_pop()).UnsignedInt);
+        const top = try target.do_pop();
+        try expectEqual(@as(usize, 420), top.item.UnsignedInt);
+        target = top.now_top_stack;
 
         try expectError(StackManipulationError.Underflow, target.do_pop());
     }
@@ -683,7 +686,13 @@ pub const Stack = struct {
         try expectEqual(@as(usize, 1), top_two.near.UnsignedInt);
     }
 
-    /// Returns the new "upper" stack.
+    /// Remove the top item off of this stack. Return a pointer to which Stack
+    /// object to perform future operations on. If this is the bottom Stack and
+    /// there are no contents remaining, an Underflow is raised. If this is not
+    /// the top Stack, a very wordy error is raised to save callers from
+    /// usually-bug-derived-and-incorrect risky behavior; if you're absolutely
+    /// sure you know what you're doing, see
+    /// `do_drop_no_really_even_on_inner_stacks` instead.
     pub fn do_drop(self: *Self) !*Self {
         try self.non_terminal_stack_guard();
         return try @call(
@@ -693,78 +702,37 @@ pub const Stack = struct {
         );
     }
 
-    /// Returns the new "upper" stack.
-    ///
-    // TODO: handle the Rc(_) types, deinit() if appropriate (when final copy
-    // falls out of scope)
+    /// Remove the top item off of this stack. Return a pointer to which Stack
+    /// object to perform future operations on. If this is the bottom Stack and
+    /// there are no contents remaining, an Underflow is raised.
     pub fn do_drop_no_really_even_on_inner_stacks(self: *Self) !*Self {
-        if (self.next_idx == 0) {
-            if (self.prev) |prev| {
-                // TODO: determine if it would be better to just make this
-                // state unreachable, instead.
-                const ret = try prev.do_drop_no_really_even_on_inner_stacks();
-                self.deinit();
-                return ret;
-            }
-            return StackManipulationError.Underflow;
-        }
+        var dropped = try self.do_pop();
 
-        // Save a ref to the "dead" object immediately, since we may need to do
-        // lifecycle management on it.
-        const dead = self.contents[self.next_idx - 1];
+        // TODO: this currently relies on an assumption that Stack and Runtime
+        // share the same allocator *instance*, which is only somewhat
+        // accidentally true. The type signatures of these structs or
+        // initialization sequencing should be used to guarantee this, or
+        // Runtime should be an expected argument to this function.
+        dropped.item.deinit(self.alloc);
 
-        // Now clean out the stack slot for future use, as this must be done
-        // whether we had a boxed or unboxed type here.
-        self.contents[self.next_idx - 1] = null;
-        self.next_idx -= 1;
-
-        // Finally, for boxed types, we need to at least decrement the
-        // refcount, and potentially free the underlying memory.
-        if (dead) |_dead_deref| {
-            var dead_deref = _dead_deref;
-
-            // TODO: this currently relies on an assumption that Stack and
-            // Runtime share the same allocator *instance*, which is only
-            // somewhat accidentally true. The type signatures of these structs
-            // or initialization sequencing should be used to guarantee this,
-            // or Runtime should be an expected argument to this function.
-            dead_deref.deinit(self.alloc);
-        }
-
-        return self;
+        return dropped.now_top_stack;
     }
 
-    test "do_drop: unboxed" {
-        const stack = try Self.init(testAllocator, null);
-        defer stack.deinit_guard_for_empty();
-        try expectEqual(@as(usize, 0), stack.next_idx);
-        try expectEqual(@as(?Object, null), stack.contents[0]);
-
-        var target = try stack.do_push_uint(1);
-        try expectEqual(@as(usize, 1), (try target.do_pop()).UnsignedInt);
-        try expectError(StackManipulationError.Underflow, target.do_pop());
-    }
-
-    // N.B. the auto-freeing mechanics of do_drop are being tested here, so
+    // The auto-freeing mechanics of do_drop are being tested here, so
     // explicitly no defer->free() setups here *except* for the Stack itself.
-    test "do_drop: boxed frees underlying data" {
-        // TODO: use a shared String type of some sort
-        const SharedStr = Rc([]u8);
+    test "do_drop" {
         const hello_world = "Hello World!";
-        // Freed by do_drop since we'll only have one reference to it
         var str = try testAllocator.alloc(u8, hello_world.len);
         std.mem.copy(u8, str[0..], hello_world);
-        var shared_str = try testAllocator.create(SharedStr);
-        shared_str.* = SharedStr.init(str);
+        var shared_str = try testAllocator.create(Types.HeapedString);
+        shared_str.* = Types.HeapedString.init(str);
 
         const stack = try Self.init(testAllocator, null);
         defer stack.deinit_guard_for_empty();
 
         var target = try stack.do_push_string(shared_str);
-        var top = try target.do_pop();
-        defer top.deinit(testAllocator);
-        try expectEqualStrings(hello_world, top.String.value.?);
-
+        target = try target.do_drop();
+        try expectEqual(@as(usize, 0), target.next_idx);
         try expectError(StackManipulationError.Underflow, target.do_pop());
     }
 };

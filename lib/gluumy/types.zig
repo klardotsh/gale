@@ -4,7 +4,9 @@
 
 const std = @import("std");
 
+const Object = @import("./object.zig").Object;
 const Rc = @import("./rc.zig").Rc;
+const Stack = @import("./stack.zig").Stack;
 const Word = @import("./word.zig").Word;
 
 test {
@@ -20,3 +22,32 @@ pub const GluumyOpaque = *HeapedOpaque;
 pub const GluumyString = *HeapedString;
 pub const GluumySymbol = *HeapedSymbol;
 pub const GluumyWord = *HeapedWord;
+
+pub const PopSingle = struct {
+    item: Object,
+    now_top_stack: *Stack,
+};
+
+pub const PeekPair = struct {
+    near: *Object,
+    far: ?*Object,
+};
+
+pub const PopPair = struct {
+    near: Object,
+    far: Object,
+    now_top_stack: *Stack,
+};
+
+pub const PeekTrio = struct {
+    near: *Object,
+    far: ?*Object,
+    farther: ?*Object,
+};
+
+pub const PopTrio = struct {
+    near: Object,
+    far: Object,
+    farther: Object,
+    now_top_stack: *Stack,
+};
