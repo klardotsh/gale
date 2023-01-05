@@ -7,8 +7,6 @@ const Allocator = std.mem.Allocator;
 const testAllocator: Allocator = std.testing.allocator;
 const expectEqual = std.testing.expectEqual;
 
-// TODO: this import should later be "libgluumy", see <root>/src/main.lib.zig
-// for more commentary
 const gluumy = @import("gluumy");
 const Runtime = gluumy.Runtime;
 
