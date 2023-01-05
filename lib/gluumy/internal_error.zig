@@ -8,6 +8,7 @@ pub const InternalError = error{
     AttemptedDestructionOfPopulousRc,
     AttemptedResurrectionOfExhaustedRc, // me too, buddy
     EmptyWord,
+    InvalidWordName,
     TypeError,
     Unimplemented,
     UnknownSlashedSuffix,

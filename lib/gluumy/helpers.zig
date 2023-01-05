@@ -7,6 +7,7 @@ const expect = std.testing.expect;
 
 // Just silly stuff that's nice to access by name
 pub const CHAR_AMPER = '&';
+pub const CHAR_COMMA = ',';
 pub const CHAR_DOT = '.';
 pub const CHAR_QUOTE_SGL = '\'';
 pub const CHAR_QUOTE_DBL = '"';

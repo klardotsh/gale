@@ -7,6 +7,65 @@ const std = @import("std");
 const InternalError = @import("./internal_error.zig").InternalError;
 const helpers = @import("./helpers.zig");
 
+/// Commas can be placed before and/or after simple word lookups to modify the
+/// behavior of the stack. These convenience modifiers serve to alleviate
+/// common sources of stack shuffling pain in other stack-based languages.
+///
+/// - Commas before the word indicate that the top object of the stack should be
+///   stashed (popped off) during lookup and execution of this word, and
+///   restored underneath the effects of the word (unless a trailing comma is
+///   additionally used, see below).
+///
+///   Given `: say-hello ( String -> String )` which returns "Hello, {name}",
+///   using the top object off the stack (which must be a String) to fill
+///   `name`, and given a Stack with two elements, "World" on top of "Josh",
+///   `,say-hello` would result in a stack with "Hello, Josh" on top of "World".
+///
+/// - Commas after the word indicate that the object on top of the stack prior to
+///   execution of the word should be moved to the top of the stack after
+///   execution (regardless of how many objects the word places on the stack).
+///   This can only be used with purely additive words (those using `<-` stack
+///   signatures) unless combined with a leading comma, as its use with words
+///   free to consume stack objects would be some combination of ambiguous,
+///   confusing, and inelegant.
+///
+///   Given the Prelude's `Equatable/eq` word, which adds a Boolean to the stack
+///   reflecting the equality of the top two objects on the stack, and given a
+///   stack with "foo" on top of "bar", `Equatable/eq,` would result in a stack
+///   with "foo" on top of `Boolean.False` on top of "bar", functionally
+///   equivalent to having run `Equatable/eq swap`, though the stack-juggling
+///   sanity restored by this operator scales with the number of objects a word
+///   gives.
+///
+/// - The use of both comma operators on the same word stashes whatever is on
+///   top of the stack, looks up and runs the word in question, and restores
+///   that object to the top of the stack after the word has completed. There
+///   is no restriction of the word being purely-additive as with the
+///   trailing-comma-only case above.
+///
+///   Given the same `say-hello` word as in the leading comma example, and given
+///   the same two Strings on the stack, `,say-hello,` would result in a stack
+///   with "World" on top of "Hello, Josh".
+///
+///   Given the same `Equatable/eq` situation as in the trailing comma example,
+///   and given the same two Strings on the stack, `,Equatable/eq` would
+///   underflow, as only one object would be visible on the stack. Presuming
+///   the stack were instead "foo" on top of "bar" on top of "baz",
+///   `,Equatable/eq,` would result in `Boolean.False` being inserted between
+///   "foo" and "bar".
+///
+/// Commas are forbidden from use anywhere in word names to reduce confusion
+/// (given that `,,,some,thing,,` would be the stashing and hoisting form of
+/// `,,some,thing,`, which is comically difficult to make sense of while
+/// skimming source code).
+///
+/// Use of leading and/or trailing commas on any word with an empty stack
+/// always results in an underflow, and should be forbidden by analysis tools.
+// TODO: ^ should be moved to proper language docs somewhere, as it's only
+// somewhat related to `CHAR_COMMA` and those docs are actually good. Nobody
+// will ever find them buried deep in a string parser here.
+const CHAR_COMMA = helpers.CHAR_COMMA;
+
 const CHAR_DOT = helpers.CHAR_DOT;
 const EMPTY_STRING = helpers.EMPTY_STRING;
 
@@ -33,13 +92,21 @@ const SYMBOL_WORD_DELIMITER = helpers.CHAR_QUOTE_SGL;
 const REF_WORD_DELIMITER = helpers.CHAR_AMPER;
 
 pub const ParsedWord = union(enum) {
+    pub const SimpleWordReference = struct {
+        name: []const u8,
+        semantics: packed struct {
+            stash_before_lookup: bool,
+            hoist_after_result: bool,
+        },
+    };
+
     String: []const u8,
     Symbol: []const u8,
     Ref: []const u8,
     NumFloat: f64,
     SignedInt: isize,
     UnsignedInt: usize,
-    Simple: []const u8,
+    Simple: SimpleWordReference,
 
     /// In any event of ambiguity, input strings are parsed in the following
     /// order of priority:
@@ -80,12 +147,13 @@ pub const ParsedWord = union(enum) {
             }
         }
 
-        if (input[input.len - 2] == '/') {
+        if (input.len > 1 and input[input.len - 2] == '/') {
+            const unsuffixed = input[0 .. input.len - 2];
             switch (input[input.len - 1]) {
-                'u' => if (std.fmt.parseInt(usize, input[0 .. input.len - 2], 10) catch null) |parsed| {
+                'u' => if (std.fmt.parseInt(usize, unsuffixed, 10) catch null) |parsed| {
                     return ParsedWord{ .UnsignedInt = parsed };
                 },
-                'i' => if (parseInputAsSignedInt(input[0 .. input.len - 2])) |parsed| {
+                'i' => if (parseInputAsSignedInt(unsuffixed)) |parsed| {
                     return parsed;
                 },
                 else => return InternalError.UnknownSlashedSuffix,
@@ -100,7 +168,32 @@ pub const ParsedWord = union(enum) {
             return ParsedWord{ .UnsignedInt = parsed };
         }
 
-        return ParsedWord{ .Simple = input };
+        if (input.len == 1 and input[0] == CHAR_COMMA) {
+            return InternalError.InvalidWordName;
+        }
+
+        const leading_comma = input[0] == CHAR_COMMA;
+        const trailing_comma = input[input.len - 1] == CHAR_COMMA;
+
+        if ((input.len == 1 and leading_comma) or
+            (input.len == 2 and leading_comma and trailing_comma))
+        {
+            return InternalError.InvalidWordName;
+        }
+
+        const name_slice_start: usize = if (leading_comma) 1 else 0;
+        const name_slice_end: usize = if (trailing_comma) input.len - 1 else input.len;
+        const name_slice = input[name_slice_start..name_slice_end];
+
+        for (name_slice) |chr| if (chr == CHAR_COMMA) return InternalError.InvalidWordName;
+
+        return ParsedWord{ .Simple = .{
+            .semantics = .{
+                .stash_before_lookup = leading_comma,
+                .hoist_after_result = trailing_comma,
+            },
+            .name = name_slice,
+        } };
     }
 
     fn parseInputAsSignedInt(input: []const u8) ?ParsedWord {
@@ -212,18 +305,46 @@ pub const ParsedWord = union(enum) {
     }
 
     test "parses ints: unhandled suffixes" {
-        try std.testing.expectError(InternalError.UnknownSlashedSuffix, from_input("12345/z"));
+        try std.testing.expectError(
+            InternalError.UnknownSlashedSuffix,
+            from_input("12345/z"),
+        );
     }
 
     test "parses simple word incantations" {
-        const result = (try from_input(
-            "@BEFORE_WORD",
-        )).Simple;
+        const result = (try from_input("@BEFORE_WORD")).Simple;
+        try std.testing.expectEqualStrings("@BEFORE_WORD", result.name);
+    }
 
-        try std.testing.expectEqualStrings(
-            "@BEFORE_WORD",
-            result,
-        );
+    test "parses word names: stashing mode" {
+        const result = (try from_input(",@BEFORE_WORD")).Simple;
+        try std.testing.expectEqualStrings("@BEFORE_WORD", result.name);
+        try std.testing.expect(result.semantics.stash_before_lookup);
+    }
+
+    test "parses word names: hoisting mode" {
+        const result = (try from_input("@BEFORE_WORD,")).Simple;
+        try std.testing.expectEqualStrings("@BEFORE_WORD", result.name);
+        try std.testing.expect(result.semantics.hoist_after_result);
+    }
+
+    test "parses word names: stashing+hoisting mode" {
+        const result = (try from_input(",@BEFORE_WORD,")).Simple;
+        try std.testing.expectEqualStrings("@BEFORE_WORD", result.name);
+        try std.testing.expect(result.semantics.stash_before_lookup);
+        try std.testing.expect(result.semantics.hoist_after_result);
+    }
+
+    test "word names must not contain internal commas" {
+        try std.testing.expectError(InternalError.InvalidWordName, from_input(","));
+        try std.testing.expectError(InternalError.InvalidWordName, from_input(",,"));
+        try std.testing.expectError(InternalError.InvalidWordName, from_input(",,,"));
+        try std.testing.expectError(InternalError.InvalidWordName, from_input("foo,bar"));
+        try std.testing.expectError(InternalError.InvalidWordName, from_input(",,foo"));
+        try std.testing.expectError(InternalError.InvalidWordName, from_input(",,foo,"));
+        try std.testing.expectError(InternalError.InvalidWordName, from_input(",,foo,,"));
+        try std.testing.expectError(InternalError.InvalidWordName, from_input(",foo,,"));
+        try std.testing.expectError(InternalError.InvalidWordName, from_input("foo,,"));
     }
 };
 
