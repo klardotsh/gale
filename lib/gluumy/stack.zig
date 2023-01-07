@@ -510,6 +510,11 @@ pub const Stack = struct {
         return try self.do_push(Object{ .Boolean = item });
     }
 
+    /// Push a Zig floating-point value onto this Stack as an Object.
+    pub inline fn do_push_float(self: *Self, item: f64) !*Self {
+        return try self.do_push(Object{ .Float = item });
+    }
+
     /// Push a Zig signed integer value onto this Stack as an Object.
     pub inline fn do_push_sint(self: *Self, number: isize) !*Self {
         return try self.do_push(Object{ .SignedInt = number });

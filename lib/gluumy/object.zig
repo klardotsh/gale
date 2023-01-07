@@ -13,18 +13,19 @@ pub const Object = union(enum) {
     const Self = @This();
 
     Boolean: bool,
-    UnsignedInt: usize,
-    SignedInt: isize,
-    String: Types.GluumyString,
-    Symbol: Types.GluumySymbol,
+    Float: f64,
     /// Opaque represents a blob of memory that is left to userspace to manage
     /// manually. TODO more docs here.
     Opaque: Types.GluumyOpaque,
+    SignedInt: isize,
+    String: Types.GluumyString,
+    Symbol: Types.GluumySymbol,
+    UnsignedInt: usize,
     Word: Types.GluumyWord,
 
     pub fn deinit(self: *Self, alloc: Allocator) void {
         switch (self.*) {
-            .Boolean, .UnsignedInt, .SignedInt => {},
+            .Boolean, .Float, .SignedInt, .UnsignedInt => {},
             .String, .Symbol => |inner| {
                 _ = inner.decrement_and_prune(.FreeInnerDestroySelf, alloc);
             },
@@ -43,7 +44,7 @@ pub const Object = union(enum) {
     /// ergonomics.
     pub fn ref(self: Self) !Self {
         switch (self) {
-            .Boolean, .UnsignedInt, .SignedInt => {},
+            .Boolean, .Float, .SignedInt, .UnsignedInt => {},
             .String => |rc| try rc.increment(),
             .Symbol => |rc| try rc.increment(),
             .Opaque => |rc| try rc.increment(),
@@ -77,12 +78,16 @@ pub const Object = union(enum) {
                 .Boolean => |other_val| self_val == other_val,
                 else => InternalError.TypeError,
             },
-            .UnsignedInt => |self_val| switch (other.*) {
-                .UnsignedInt => |other_val| self_val == other_val,
+            .Float => |self_val| switch (other.*) {
+                .Float => |other_val| self_val == other_val,
                 else => InternalError.TypeError,
             },
             .SignedInt => |self_val| switch (other.*) {
                 .SignedInt => |other_val| self_val == other_val,
+                else => InternalError.TypeError,
+            },
+            .UnsignedInt => |self_val| switch (other.*) {
+                .UnsignedInt => |other_val| self_val == other_val,
                 else => InternalError.TypeError,
             },
             .String => |self_val| switch (other.*) {
