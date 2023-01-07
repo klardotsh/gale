@@ -30,11 +30,11 @@ pub fn BEFORE_WORD(_: *Runtime) !void {
 
 // TODO: move to test helpers file
 fn push_one(runtime: *Runtime) anyerror!void {
-    runtime.stack = try runtime.stack.do_push_uint(1);
+    try runtime.stack_push_uint(1);
 }
 
 fn push_two(runtime: *Runtime) anyerror!void {
-    runtime.stack = try runtime.stack.do_push_uint(2);
+    try runtime.stack_push_uint(2);
 }
 
 /// @CONDJMP ( Word Boolean -> nothing )
@@ -45,7 +45,7 @@ fn push_two(runtime: *Runtime) anyerror!void {
 ///
 /// See also: @CONDJMP2
 pub fn CONDJMP(runtime: *Runtime) !void {
-    const pairing = try runtime.stack.do_pop_pair();
+    const pairing = try runtime.stack_pop_pair();
     var condition = pairing.near;
     var callback = pairing.far;
 
@@ -83,14 +83,13 @@ test "CONDJMP" {
     // We'll duplicate this early so that heap_for_word is not freed after
     // CONDJMP destroys the then-final reference to the memory, allowing us to
     // reuse that heap allocation for the falsey test below.
-    runtime.stack = try runtime.stack.do_dup();
-    runtime.stack = try runtime.stack.do_push_bool(true);
+    try runtime.stack_wrangle(.DuplicateTopObject);
+    try runtime.stack_push_bool(true);
     try CONDJMP(&runtime);
-    const should_be_1 = try runtime.stack.do_pop();
-    try expectEqual(@as(usize, 1), should_be_1.item.UnsignedInt);
-    runtime.stack = should_be_1.now_top_stack;
+    const should_be_1 = try runtime.stack_pop();
+    try expectEqual(@as(usize, 1), should_be_1.UnsignedInt);
 
-    runtime.stack = try runtime.stack.do_push_bool(false);
+    try runtime.stack_push_bool(false);
     try CONDJMP(&runtime);
 }
 
@@ -101,7 +100,7 @@ test "CONDJMP" {
 ///
 /// See also: @CONDJMP
 pub fn CONDJMP2(runtime: *Runtime) !void {
-    const trio = try runtime.stack.do_pop_trio();
+    const trio = try runtime.stack_pop_trio();
     var condition = trio.near;
     var truthy_callback = trio.far;
     var falsey_callback = trio.farther;
@@ -134,18 +133,17 @@ test "CONDJMP2" {
     // We'll duplicate these early so that heap_for_*_word are not freed after
     // CONDJMP2 destroys the then-final references to the memory, allowing us
     // to reuse those heap allocations for the falsey test below.
-    runtime.stack = try runtime.stack.do_2dupshuf();
+    try runtime.stack_wrangle(.DuplicateTopTwoObjectsShuffled);
 
-    runtime.stack = try runtime.stack.do_push_bool(true);
+    try runtime.stack_push_bool(true);
     try CONDJMP2(&runtime);
-    const should_be_1 = try runtime.stack.do_pop();
-    try expectEqual(@as(usize, 1), should_be_1.item.UnsignedInt);
-    runtime.stack = should_be_1.now_top_stack;
+    const should_be_1 = try runtime.stack_pop();
+    try expectEqual(@as(usize, 1), should_be_1.UnsignedInt);
 
-    runtime.stack = try runtime.stack.do_push(Object{ .Boolean = false });
+    try runtime.stack_push_bool(false);
     try CONDJMP2(&runtime);
-    const should_be_2 = try runtime.stack.do_pop();
-    try expectEqual(@as(usize, 2), should_be_2.item.UnsignedInt);
+    const should_be_2 = try runtime.stack_pop();
+    try expectEqual(@as(usize, 2), should_be_2.UnsignedInt);
 }
 
 /// @EQ ( @2 @1 <- Boolean )
@@ -154,10 +152,10 @@ test "CONDJMP2" {
 /// low a level, there is no type system, so checking equality of disparate
 /// primitive types will panic.
 pub fn EQ(runtime: *Runtime) !void {
-    const peek = try runtime.stack.do_peek_pair();
+    const peek = try runtime.stack_peek_pair();
 
     if (peek.far) |bottom| {
-        runtime.stack = try runtime.stack.do_push_bool(try peek.near.eq(bottom));
+        try runtime.stack_push_bool(try peek.near.eq(bottom));
         return;
     }
 
@@ -167,13 +165,13 @@ pub fn EQ(runtime: *Runtime) !void {
 test "EQ" {
     var runtime = try Runtime.init(testAllocator);
     defer runtime.deinit();
-    runtime.stack = try runtime.stack.do_push_uint(1);
+    try runtime.stack_push_uint(1);
     // Can't compare with just one Object on the Stack.
     try expectError(StackManipulationError.Underflow, EQ(&runtime));
-    runtime.stack = try runtime.stack.do_push_uint(1);
+    try runtime.stack_push_uint(1);
     // 1 == 1, revelatory, truly.
     try EQ(&runtime);
-    try expect((try runtime.stack.do_peek_pair()).near.*.Boolean);
+    try expect((try runtime.stack_peek_pair()).near.*.Boolean);
     // Now compare that boolean to the UnsignedInt... or don't, preferably.
     try expectError(InternalError.TypeError, EQ(&runtime));
 }
@@ -184,7 +182,7 @@ test "EQ" {
 // learnings from this to Shapes later (thinking of a newtype-esque
 // functionality especially...)
 pub fn DEFINE_WORD_VA1(runtime: *Runtime) !void {
-    const pairing = try runtime.stack.do_pop_pair();
+    const pairing = try runtime.stack_pop_pair();
     var symbol = pairing.near;
     var target = pairing.far;
     try symbol.assert_is_kind(.Symbol);
@@ -194,7 +192,7 @@ pub fn DEFINE_WORD_VA1(runtime: *Runtime) !void {
 
 /// DEFINE-WORD-VA2 ( Word Word Symbol -> nothing )
 pub fn DEFINE_WORD_VA2(runtime: *Runtime) !void {
-    const pairing = try runtime.stack.do_pop_trio();
+    const pairing = try runtime.stack_pop_trio();
     var symbol = pairing.near;
     var exec_first = pairing.far;
     var exec_second = pairing.farther;
@@ -207,8 +205,8 @@ pub fn DEFINE_WORD_VA2(runtime: *Runtime) !void {
 
 /// DEFINE-WORD-VA3 ( Word Word Word Symbol -> nothing )
 pub fn DEFINE_WORD_VA3(runtime: *Runtime) !void {
-    const pairing1 = try runtime.stack.do_pop_pair();
-    const pairing2 = try runtime.stack.do_pop_pair();
+    const pairing1 = try runtime.stack_pop_pair();
+    const pairing2 = try runtime.stack_pop_pair();
     var symbol = pairing1.near;
     var exec_first = pairing1.far;
     var exec_second = pairing2.near;
@@ -225,8 +223,8 @@ pub fn DEFINE_WORD_VA3(runtime: *Runtime) !void {
 
 /// DEFINE-WORD-VA4 ( Word Word Word Word Symbol -> nothing )
 pub fn DEFINE_WORD_VA4(runtime: *Runtime) !void {
-    const pairing1 = try runtime.stack.do_pop_trio();
-    const pairing2 = try runtime.stack.do_pop_pair();
+    const pairing1 = try runtime.stack_pop_trio();
+    const pairing2 = try runtime.stack_pop_pair();
     var symbol = pairing1.near;
     var exec_first = pairing1.far;
     var exec_second = pairing1.farther;
@@ -244,8 +242,8 @@ pub fn DEFINE_WORD_VA4(runtime: *Runtime) !void {
 
 /// DEFINE-WORD-VA5 ( Word Word Word Word Word Symbol -> nothing )
 pub fn DEFINE_WORD_VA5(runtime: *Runtime) !void {
-    const pairing1 = try runtime.stack.do_pop_trio();
-    const pairing2 = try runtime.stack.do_pop_trio();
+    const pairing1 = try runtime.stack_pop_trio();
+    const pairing2 = try runtime.stack_pop_trio();
     var symbol = pairing1.near;
     var exec_first = pairing1.far;
     var exec_second = pairing1.farther;
@@ -258,7 +256,13 @@ pub fn DEFINE_WORD_VA5(runtime: *Runtime) !void {
     inline for (candidates) |*it| try it.assert_is_kind(.Word);
     try runtime.define_word_va(
         symbol.Symbol,
-        .{ exec_first.Word, exec_second.Word, exec_third.Word, exec_fourth.Word, exec_fifth.Word },
+        .{
+            exec_first.Word,
+            exec_second.Word,
+            exec_third.Word,
+            exec_fourth.Word,
+            exec_fifth.Word,
+        },
     );
 }
 
@@ -342,17 +346,17 @@ test "DEFINE_WORD_VA*" {
 
 /// @DROP ( @1 -> nothing )
 pub fn DROP(runtime: *Runtime) !void {
-    runtime.stack = try runtime.stack.do_drop();
+    try runtime.stack_wrangle(.DropTopObject);
 }
 
 /// @DUP ( @1 -> @1 )
 pub fn DUP(runtime: *Runtime) !void {
-    runtime.stack = try runtime.stack.do_dup();
+    try runtime.stack_wrangle(.DuplicateTopObject);
 }
 
 /// @2DUPSHUF ( @2 @1 -> @2 @1 @2 @1 )
 pub fn TWODUPSHUF(runtime: *Runtime) !void {
-    runtime.stack = try runtime.stack.do_2dupshuf();
+    try runtime.stack_wrangle(.DuplicateTopTwoObjectsShuffled);
 }
 
 /// @LIT ( @1 -> Word )
@@ -374,25 +378,24 @@ test "LIT" {
     defer runtime.deinit_guard_for_empty_stack();
 
     // First, push an UnsignedInt literal onto the stack
-    runtime.stack = try runtime.stack.do_push_uint(1);
+    try runtime.stack_push_uint(1);
 
     // Create and yank a HeapLit word from that UnsignedInt
     try LIT(&runtime);
-    var lit_word = try runtime.stack.do_pop();
-    runtime.stack = lit_word.now_top_stack;
-    defer lit_word.item.deinit(testAllocator);
+    var lit_word = try runtime.stack_pop();
+    defer lit_word.deinit(testAllocator);
 
     // That word should have been the only thing on the stack
-    try expectError(StackManipulationError.Underflow, runtime.stack.do_pop());
+    try expectError(StackManipulationError.Underflow, runtime.stack_pop());
 
     // Now, run the word - three times, for kicks...
-    try runtime.run_boxed_word(lit_word.item.Word);
-    try runtime.run_boxed_word(lit_word.item.Word);
-    try runtime.run_boxed_word(lit_word.item.Word);
+    try runtime.run_boxed_word(lit_word.Word);
+    try runtime.run_boxed_word(lit_word.Word);
+    try runtime.run_boxed_word(lit_word.Word);
 
     // ...and assert that the UnsignedInt was placed back onto the stack all
     // three times.
-    const top_three = try runtime.stack.do_pop_trio();
+    const top_three = try runtime.stack_pop_trio();
     try expectEqual(@as(usize, 1), top_three.near.UnsignedInt);
     try expectEqual(@as(usize, 1), top_three.far.UnsignedInt);
     try expectEqual(@as(usize, 1), top_three.farther.UnsignedInt);
@@ -403,7 +406,7 @@ test "LIT" {
 ///                        |     +-> address to set
 ///                        +-------> value to set
 pub fn PRIV_SPACE_SET_BYTE(runtime: *Runtime) !void {
-    const pairing = try runtime.stack.do_pop_pair();
+    const pairing = try runtime.stack_pop_pair();
     var address = pairing.near;
     var value = pairing.far;
 
@@ -425,8 +428,8 @@ test "PRIV_SPACE_SET_BYTE" {
         rt.private_space.interpreter_mode,
     );
 
-    rt.stack = try rt.stack.do_push_uint(1); // value
-    rt.stack = try rt.stack.do_push_uint(0); // address
+    try rt.stack_push_uint(1); // value
+    try rt.stack_push_uint(0); // address
     try PRIV_SPACE_SET_BYTE(&rt);
     try expectEqual(
         Runtime.InterpreterMode.Symbol,
@@ -440,7 +443,7 @@ test "PRIV_SPACE_SET_BYTE" {
 
 /// @SWAP ( @2 @1 -> @2 @1 )
 pub fn SWAP(runtime: *Runtime) !void {
-    try runtime.stack.do_swap();
+    try runtime.stack_wrangle(.SwapTopTwoObjects);
 }
 
 test {

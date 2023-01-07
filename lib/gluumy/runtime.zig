@@ -277,6 +277,90 @@ pub const Runtime = struct {
             return InternalError.EmptyWord;
         }
     }
+
+    pub fn stack_peek(self: *Self) !*Object {
+        return self.stack.do_peek();
+    }
+
+    pub fn stack_peek_pair(self: *Self) !Types.PeekPair {
+        return self.stack.do_peek_pair();
+    }
+
+    pub fn stack_peek_trio(self: *Self) !Types.PeekTrio {
+        return self.stack.do_peek_trio();
+    }
+
+    /// Remove the top item from the stack and return it. If there are no
+    /// contents remaining, a StackManipulationError.Underflow is raised.
+    pub fn stack_pop(self: *Self) !Object {
+        const popped = try self.stack.do_pop();
+        self.stack = popped.now_top_stack;
+        return popped.item;
+    }
+
+    /// Remove the top two items from the stack and return them. If there
+    /// aren't at least two Objects remaining, a
+    /// StackManipulationError.Underflow is raised. If this happens with one
+    /// Object on the Stack, it will remain there.
+    pub fn stack_pop_pair(self: *Self) !Types.PopPairExternal {
+        const popped = try self.stack.do_pop_pair();
+        self.stack = popped.now_top_stack;
+        return Types.PopPairExternal{
+            .near = popped.near,
+            .far = popped.far,
+        };
+    }
+
+    /// Remove the top three items from the stack and return them. If there
+    /// aren't at least three Objects remaining, a
+    /// StackManipulationError.Underflow is raised. If this happens with one or
+    /// two Objects on the Stack, they will remain there.
+    pub fn stack_pop_trio(self: *Self) !Types.PopTrioExternal {
+        const popped = try self.stack.do_pop_trio();
+        self.stack = popped.now_top_stack;
+        return Types.PopTrioExternal{
+            .near = popped.near,
+            .far = popped.far,
+            .farther = popped.farther,
+        };
+    }
+
+    pub fn stack_push_bool(self: *Self, value: bool) !void {
+        self.stack = try self.stack.do_push_bool(value);
+    }
+
+    pub fn stack_push_float(self: *Self, value: f64) !void {
+        self.stack = try self.stack.do_push_float(value);
+    }
+
+    pub fn stack_push_sint(self: *Self, value: isize) !void {
+        self.stack = try self.stack.do_push_sint(value);
+    }
+
+    pub fn stack_push_uint(self: *Self, value: usize) !void {
+        self.stack = try self.stack.do_push_uint(value);
+    }
+
+    pub const StackWranglingOperation = enum {
+        DropTopObject,
+
+        DuplicateTopObject,
+        DuplicateTopTwoObjectsShuffled,
+
+        SwapTopTwoObjects,
+    };
+
+    // TODO: return type?
+    pub fn stack_wrangle(self: *Self, operation: StackWranglingOperation) !void {
+        switch (operation) {
+            .DropTopObject => self.stack = try self.stack.do_drop(),
+
+            .DuplicateTopObject => self.stack = try self.stack.do_dup(),
+            .DuplicateTopTwoObjectsShuffled => self.stack = try self.stack.do_2dupshuf(),
+
+            .SwapTopTwoObjects => try self.stack.do_swap(),
+        }
+    }
 };
 
 test {

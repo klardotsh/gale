@@ -39,6 +39,11 @@ pub const PopPair = struct {
     now_top_stack: *Stack,
 };
 
+pub const PopPairExternal = struct {
+    near: Object,
+    far: Object,
+};
+
 pub const PeekTrio = struct {
     near: *Object,
     far: ?*Object,
@@ -50,4 +55,10 @@ pub const PopTrio = struct {
     far: Object,
     farther: Object,
     now_top_stack: *Stack,
+};
+
+pub const PopTrioExternal = struct {
+    near: Object,
+    far: Object,
+    farther: Object,
 };
