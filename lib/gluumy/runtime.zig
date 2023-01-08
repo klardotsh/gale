@@ -27,11 +27,6 @@ test {
     std.testing.refAllDecls(@This());
 }
 
-// TODO: move to test helpers file
-fn push_one(runtime: *Runtime) anyerror!void {
-    runtime.stack = try runtime.stack.do_push(Object{ .UnsignedInt = 1 });
-}
-
 pub const Runtime = struct {
     const Self = @This();
 
@@ -358,8 +353,28 @@ pub const Runtime = struct {
         self.stack = try self.stack.do_push_sint(value);
     }
 
+    /// Push a GluumyString to the stack. As this string is expected to already
+    /// be heap-allocated and reference-counted, it is also expected that
+    /// callers have already handled any desired interning before reaching this
+    /// point.
+    pub fn stack_push_string(self: *Self, value: Types.GluumyString) !void {
+        self.stack = try self.stack.do_push_string(value);
+    }
+
+    /// Push a GluumySymbol to the stack. As this symbol is expected to already
+    /// be heap-allocated and reference-counted, it is also expected that
+    /// callers have already handled any desired interning before reaching this
+    /// point.
+    pub fn stack_push_symbol(self: *Self, value: Types.GluumySymbol) !void {
+        self.stack = try self.stack.do_push_symbol(value);
+    }
+
     pub fn stack_push_uint(self: *Self, value: usize) !void {
         self.stack = try self.stack.do_push_uint(value);
+    }
+
+    pub fn stack_push_raw_word(self: *Self, value: Types.GluumyWord) !void {
+        self.stack = try self.stack.do_push_word(value);
     }
 
     pub const StackWranglingOperation = enum {

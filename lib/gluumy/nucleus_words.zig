@@ -10,6 +10,7 @@ const expectEqual = std.testing.expectEqual;
 const expectError = std.testing.expectError;
 
 const _stack = @import("./stack.zig");
+const test_helpers = @import("./test_helpers.zig");
 
 const InternalError = @import("./internal_error.zig").InternalError;
 const Object = @import("./object.zig").Object;
@@ -26,15 +27,6 @@ const StackManipulationError = _stack.StackManipulationError;
 ///                +-> ( Symbol <- nothing )
 pub fn BEFORE_WORD(_: *Runtime) !void {
     // TODO
-}
-
-// TODO: move to test helpers file
-fn push_one(runtime: *Runtime) anyerror!void {
-    try runtime.stack_push_uint(1);
-}
-
-fn push_two(runtime: *Runtime) anyerror!void {
-    try runtime.stack_push_uint(2);
 }
 
 /// @CONDJMP ( Word Boolean -> nothing )
@@ -77,9 +69,9 @@ test "CONDJMP" {
     // Destructors run when object popped off stack, so this memory should not
     // be defer-freed here (eg guarded_free_word_from_heap as one might be
     // tempted to use)
-    const heap_for_word = try runtime.word_from_primitive_impl(&push_one);
+    const heap_for_word = try runtime.word_from_primitive_impl(&test_helpers.push_one);
 
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
+    try runtime.stack_push_raw_word(heap_for_word);
     // We'll duplicate this early so that heap_for_word is not freed after
     // CONDJMP destroys the then-final reference to the memory, allowing us to
     // reuse that heap allocation for the falsey test below.
@@ -125,11 +117,11 @@ test "CONDJMP2" {
     var runtime = try Runtime.init(testAllocator);
     defer runtime.deinit_guard_for_empty_stack();
 
-    var heap_for_one_word = try runtime.word_from_primitive_impl(&push_one);
-    var heap_for_two_word = try runtime.word_from_primitive_impl(&push_two);
+    var heap_for_one_word = try runtime.word_from_primitive_impl(&test_helpers.push_one);
+    var heap_for_two_word = try runtime.word_from_primitive_impl(&test_helpers.push_two);
 
-    runtime.stack = try runtime.stack.do_push_word(heap_for_two_word);
-    runtime.stack = try runtime.stack.do_push_word(heap_for_one_word);
+    try runtime.stack_push_raw_word(heap_for_two_word);
+    try runtime.stack_push_raw_word(heap_for_one_word);
     // We'll duplicate these early so that heap_for_*_word are not freed after
     // CONDJMP2 destroys the then-final references to the memory, allowing us
     // to reuse those heap allocations for the falsey test below.
@@ -275,73 +267,73 @@ test "DEFINE_WORD_VA*" {
     // philosophically "pure" unit testing might not (easily) catch.
     defer runtime.deinit();
 
-    const heap_for_word = try runtime.word_from_primitive_impl(&push_one);
+    const heap_for_word = try runtime.word_from_primitive_impl(&test_helpers.push_one);
     try expectEqual(@as(usize, 0), heap_for_word.strong_count.value);
 
     var heaped_symbol = (try runtime.get_or_put_symbol("va1")).value_ptr;
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_symbol(heaped_symbol);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_symbol(heaped_symbol);
     try DEFINE_WORD_VA1(&runtime);
     var found_word_list = runtime.dictionary.get(heaped_symbol).?;
     try expectEqual(@as(usize, 1), found_word_list.len());
     var word_as_defined = found_word_list.items()[0];
     try expect(!word_as_defined.value.?.flags.hidden);
     try expectEqual(@as(usize, 1), word_as_defined.value.?.impl.Compound.len);
-    try expectEqual(&push_one, word_as_defined.value.?.impl.Compound[0].value.?.impl.Primitive);
+    try expectEqual(&test_helpers.push_one, word_as_defined.value.?.impl.Compound[0].value.?.impl.Primitive);
 
     heaped_symbol = (try runtime.get_or_put_symbol("va2")).value_ptr;
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_symbol(heaped_symbol);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_symbol(heaped_symbol);
     try DEFINE_WORD_VA2(&runtime);
     found_word_list = runtime.dictionary.get(heaped_symbol).?;
     try expectEqual(@as(usize, 1), found_word_list.len());
     word_as_defined = found_word_list.items()[0];
     try expectEqual(@as(usize, 2), word_as_defined.value.?.impl.Compound.len);
     try expectEqual(@as(u16, 3), word_as_defined.value.?.impl.Compound[1].strong_count.value);
-    try expectEqual(&push_one, word_as_defined.value.?.impl.Compound[1].value.?.impl.Primitive);
+    try expectEqual(&test_helpers.push_one, word_as_defined.value.?.impl.Compound[1].value.?.impl.Primitive);
 
     heaped_symbol = (try runtime.get_or_put_symbol("va3")).value_ptr;
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_symbol(heaped_symbol);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_symbol(heaped_symbol);
     try DEFINE_WORD_VA3(&runtime);
     found_word_list = runtime.dictionary.get(heaped_symbol).?;
     try expectEqual(@as(usize, 1), found_word_list.len());
     word_as_defined = found_word_list.items()[0];
     try expectEqual(@as(usize, 3), word_as_defined.value.?.impl.Compound.len);
     try expectEqual(@as(u16, 6), word_as_defined.value.?.impl.Compound[2].strong_count.value);
-    try expectEqual(&push_one, word_as_defined.value.?.impl.Compound[2].value.?.impl.Primitive);
+    try expectEqual(&test_helpers.push_one, word_as_defined.value.?.impl.Compound[2].value.?.impl.Primitive);
 
     heaped_symbol = (try runtime.get_or_put_symbol("va4")).value_ptr;
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_symbol(heaped_symbol);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_symbol(heaped_symbol);
     try DEFINE_WORD_VA4(&runtime);
     found_word_list = runtime.dictionary.get(heaped_symbol).?;
     try expectEqual(@as(usize, 1), found_word_list.len());
     word_as_defined = found_word_list.items()[0];
     try expectEqual(@as(usize, 4), word_as_defined.value.?.impl.Compound.len);
     try expectEqual(@as(u16, 10), word_as_defined.value.?.impl.Compound[3].strong_count.value);
-    try expectEqual(&push_one, word_as_defined.value.?.impl.Compound[3].value.?.impl.Primitive);
+    try expectEqual(&test_helpers.push_one, word_as_defined.value.?.impl.Compound[3].value.?.impl.Primitive);
 
     heaped_symbol = (try runtime.get_or_put_symbol("va5")).value_ptr;
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_word(heap_for_word);
-    runtime.stack = try runtime.stack.do_push_symbol(heaped_symbol);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_raw_word(heap_for_word);
+    try runtime.stack_push_symbol(heaped_symbol);
     try DEFINE_WORD_VA5(&runtime);
     found_word_list = runtime.dictionary.get(heaped_symbol).?;
     try expectEqual(@as(usize, 1), found_word_list.len());
     word_as_defined = found_word_list.items()[0];
     try expectEqual(@as(usize, 5), word_as_defined.value.?.impl.Compound.len);
     try expectEqual(@as(u16, 15), word_as_defined.value.?.impl.Compound[4].strong_count.value);
-    try expectEqual(&push_one, word_as_defined.value.?.impl.Compound[4].value.?.impl.Primitive);
+    try expectEqual(&test_helpers.push_one, word_as_defined.value.?.impl.Compound[4].value.?.impl.Primitive);
 }
 
 /// @DROP ( @1 -> nothing )
@@ -370,7 +362,7 @@ pub fn TWODUPSHUF(runtime: *Runtime) !void {
 pub fn LIT(runtime: *Runtime) !void {
     const banished = try runtime.stack_pop_to_heap();
     const word = try runtime.word_from_heaplit_impl(banished);
-    runtime.stack = try runtime.stack.do_push_word(word);
+    try runtime.stack_push_raw_word(word);
 }
 
 test "LIT" {
