@@ -142,48 +142,6 @@ pub const Stack = struct {
         std.debug.panic("stack was not empty at deinit time", .{});
     }
 
-    pub fn banish_top_object(self: *Self) !*Object {
-        const banish_target = try self.alloc.create(Object);
-        errdefer self.deinit_banished_object(banish_target);
-
-        const top = (try self.do_peek_pair()).near;
-        return switch (top.*) {
-            .Word, .Opaque => InternalError.Unimplemented,
-            else => |it| {
-                banish_target.* = it;
-
-                // TODO handle stack hopping: move to POP definition
-                if (self.next_idx > 0) {
-                    self.contents[self.next_idx - 1] = null;
-                    self.next_idx -= 1;
-                } else if (self.prev) |prev| {
-                    prev.contents[prev.next_idx - 1] = null;
-                    prev.next_idx -= 1;
-                } else {
-                    unreachable;
-                }
-
-                return banish_target;
-            },
-        };
-    }
-
-    pub inline fn deinit_banished_object(self: *Self, ptr: *Object) void {
-        self.alloc.destroy(ptr);
-    }
-
-    test "banish_top_object" {
-        const stack = try Self.init(testAllocator, null);
-        defer stack.deinit_guard_for_empty();
-
-        try expectError(StackManipulationError.Underflow, stack.banish_top_object());
-
-        var target = try stack.do_push_uint(1);
-        const one_ptr = try target.banish_top_object();
-        defer target.deinit_banished_object(one_ptr);
-        try expectEqual(@as(usize, 1), one_ptr.*.UnsignedInt);
-    }
-
     /// Ensures there will be enough space in no more than two stacks to store
     /// `count` new objects. Returns pointer to newly created stack if it was
     /// necessary to store all items. If no growth was necessary, returns null.

@@ -368,7 +368,7 @@ pub fn TWODUPSHUF(runtime: *Runtime) !void {
 /// Used to be called @HEAPWRAP, which might hint at why it's implemented the
 /// way it is.
 pub fn LIT(runtime: *Runtime) !void {
-    const banished = try runtime.stack.banish_top_object();
+    const banished = try runtime.stack_pop_to_heap();
     const word = try runtime.word_from_heaplit_impl(banished);
     runtime.stack = try runtime.stack.do_push_word(word);
 }

@@ -168,6 +168,13 @@ pub const Runtime = struct {
         self.deinit_shared();
     }
 
+    /// Release a reference to an Object sent to the heap with
+    /// `stack_pop_to_heap`, freeing the underlying memory per the rules of
+    /// `Object.deinit` if no longer used.
+    pub fn release_heaped_object_reference(self: *Self, ptr: *Object) void {
+        ptr.deinit(self.alloc);
+    }
+
     /// Retrieve the previously-interned Symbol's Rc
     pub fn get_or_put_symbol(self: *Self, sym: []const u8) !GetOrPutResult(Types.HeapedSymbol) {
         var entry = try self.symbols.getOrPut(sym);
@@ -296,6 +303,20 @@ pub const Runtime = struct {
         const popped = try self.stack.do_pop();
         self.stack = popped.now_top_stack;
         return popped.item;
+    }
+
+    /// Remove the top item from the stack, move it to the heap, and return the
+    /// new address to the data. Use `release_heaped_object_reference` to later
+    /// drop a reference to this data (and, if applicable, collect the
+    /// garbage). If there are no contents remaining, a
+    /// StackManipulationError.Underflow is raised.
+    pub fn stack_pop_to_heap(self: *Self) !*Object {
+        const popped = try self.stack.do_pop();
+        const banish_target = try self.alloc.create(Object);
+        errdefer self.alloc.destroy(banish_target);
+        banish_target.* = popped.item;
+        self.stack = popped.now_top_stack;
+        return banish_target;
     }
 
     /// Remove the top two items from the stack and return them. If there
