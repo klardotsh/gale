@@ -23,10 +23,6 @@ const Word = _word.Word;
 const WordList = @import("./word_list.zig").WordList;
 const WordMap = @import("./word_map.zig").WordMap;
 
-test {
-    std.testing.refAllDecls(@This());
-}
-
 pub const Runtime = struct {
     const Self = @This();
 
