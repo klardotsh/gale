@@ -13,7 +13,6 @@ const _stack = @import("./stack.zig");
 const test_helpers = @import("./test_helpers.zig");
 
 const InternalError = @import("./internal_error.zig").InternalError;
-const Object = @import("./object.zig").Object;
 const Runtime = @import("./runtime.zig").Runtime;
 const StackManipulationError = _stack.StackManipulationError;
 
@@ -51,7 +50,7 @@ pub fn CONDJMP(runtime: *Runtime) !void {
         return;
     }
 
-    try runtime.run_boxed_word(callback.Word);
+    try runtime.run_word(callback.Word);
 
     // TODO: should these be handled in a receipt function of sorts on the
     // stack/runtime itself? pt1: pop trio off stack. pt2: turn in the receipt
@@ -102,7 +101,7 @@ pub fn CONDJMP2(runtime: *Runtime) !void {
     try falsey_callback.assert_is_kind(.Word);
 
     const word = if (condition.Boolean) truthy_callback else falsey_callback;
-    try runtime.run_boxed_word(word.Word);
+    try runtime.run_word(word.Word);
 
     // TODO: should these be handled in a receipt function of sorts on the
     // stack/runtime itself? pt1: pop trio off stack. pt2: turn in the receipt
@@ -381,9 +380,9 @@ test "LIT" {
     try expectError(StackManipulationError.Underflow, runtime.stack_pop());
 
     // Now, run the word - three times, for kicks...
-    try runtime.run_boxed_word(lit_word.Word);
-    try runtime.run_boxed_word(lit_word.Word);
-    try runtime.run_boxed_word(lit_word.Word);
+    try runtime.run_word(lit_word.Word);
+    try runtime.run_word(lit_word.Word);
+    try runtime.run_word(lit_word.Word);
 
     // ...and assert that the UnsignedInt was placed back onto the stack all
     // three times.

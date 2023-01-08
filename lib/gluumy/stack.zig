@@ -12,7 +12,6 @@ const expectError = std.testing.expectError;
 
 const builtin = @import("builtin");
 
-const InternalError = @import("./internal_error.zig").InternalError;
 const Object = @import("./object.zig").Object;
 const Types = @import("./types.zig");
 

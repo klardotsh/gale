@@ -183,26 +183,10 @@ pub const Runtime = struct {
     /// Takes a bare Word struct, wraps it in a refcounter, and returns a
     /// pointer to the resultant memory. Does not wrap it in an Object for
     /// direct placement on a Stack.
-    pub fn send_word_to_heap(self: *Self, bare: Word) !Types.GluumyWord {
+    fn send_word_to_heap(self: *Self, bare: Word) !Types.GluumyWord {
         const heap_space = try self.alloc.create(Types.HeapedWord);
         heap_space.* = Types.HeapedWord.init(bare);
         return heap_space;
-    }
-
-    /// Frees the underlying memory holding a word implementation. Should never
-    /// be used by external callers on a word stored in the Dictionary (cleared
-    /// by deregistration or via Runtime.deinit()) or on the Stack (cleared
-    /// with any Stack Object destruction method), but explicitly *must* be
-    /// called by external callers to free-floating anonymous words, perhaps as
-    /// part of unit tests.
-    ///
-    /// Will fail in the event the Rc has outstanding references.
-    pub fn guarded_free_word_from_heap(self: *Self, word: Types.GluumyWord) !void {
-        if (!word.decrement()) {
-            return self.alloc.destroy(word);
-        }
-
-        return InternalError.AttemptedDestructionOfPopulousRc;
     }
 
     /// Heap-wraps a compound word definition.
@@ -261,7 +245,7 @@ pub const Runtime = struct {
         try expectEqual(@as(u8, 1), @enumToInt(rt.private_space.interpreter_mode));
     }
 
-    pub fn run_boxed_word(self: *Self, word: Types.GluumyWord) !void {
+    pub fn run_word(self: *Self, word: Types.GluumyWord) !void {
         if (word.value) |iword| {
             switch (iword.impl) {
                 .Compound => return InternalError.Unimplemented, // TODO
