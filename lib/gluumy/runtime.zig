@@ -225,8 +225,6 @@ pub const Runtime = struct {
         // Stack.do_push's implicit increment?
         try heap_for_word.increment();
 
-        // TODO: how, if at all, do we handle decrementing this at some point,
-        // presumably when word is removed
         try dict_entry.value_ptr.append(heap_for_word);
     }
 
