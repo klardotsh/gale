@@ -1,4 +1,4 @@
-// gluumy's canonical implementation and standard library is released under the
+// Gale's canonical implementation and standard library is released under the
 // Zero-Clause BSD License, distributed alongside this source in a file called
 // COPYING.
 
@@ -25,16 +25,16 @@ pub const StackManipulationError = error{
 /// A doubly-linked list of doubly-linked lists: we'll pretend to have infinite
 /// stack space by simply making as many heap-based stacks as we have space
 /// for, and seamlessly (as far as the end-user is concerned) glue them
-/// together. This should serve to make common gluumy stack operations
-/// reasonably performant with reasonable tradeoffs, as we're moving our way
-/// around a block of mass-allocated memory, rather than constantly churning
-/// garbage via alloc() and free() calls for each Object (imagining a
-/// fully-pointer-based doubly linked list implementation of a "stack", for
-/// example std.TailQueue). I suspect it should be uncommon to get anywhere
-/// near the end of even a single stack, but if it does happen, we don't have
-/// to take the perf hit of copying the old stack to a new stack of size N*2,
-/// as one would generally do when resizing lists in most dynamic languages.
-/// Whether this complexity pays itself off at any point is somewhat TBD...
+/// together. This should serve to make common gale stack operations reasonably
+/// performant with reasonable tradeoffs, as we're moving our way around a
+/// block of mass-allocated memory, rather than constantly churning garbage via
+/// alloc() and free() calls for each Object (imagining a fully-pointer-based
+/// doubly linked list implementation of a "stack", for example std.TailQueue).
+/// I suspect it should be uncommon to get anywhere near the end of even a
+/// single stack, but if it does happen, we don't have to take the perf hit of
+/// copying the old stack to a new stack of size N*2, as one would generally do
+/// when resizing lists in most dynamic languages. Whether this complexity pays
+/// itself off at any point is somewhat TBD...
 ///
 /// Operations right at the edge of a stack's space bleeding into the next
 /// stack are unlikely to be performant, particularly those that juggle that
@@ -50,10 +50,9 @@ pub const StackManipulationError = error{
 //   free.
 pub const Stack = struct {
     // Those finding they need more per-stack space should compile their own
-    // project-specific gluumy build changing the constant as appropriate.
-    // Unlike many languages where mucking about with the internals is
-    // faux-pas, in gluumy it is encouraged on a "if you know you really need
-    // it" basis.
+    // project-specific gale build changing the constant as appropriate. Unlike
+    // many languages where mucking about with the internals is faux-pas, in
+    // gale it is encouraged on a "if you know you really need it" basis.
     //
     // TODO: configurable in build.zig
     const STACK_SIZE: usize = 2048;

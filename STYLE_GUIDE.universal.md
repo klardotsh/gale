@@ -8,7 +8,7 @@ Great question.
 
 Mostly, it serves to remind anyone reading the file that they can do,
 effectively, whatever they want with it. This is not a given in western legal
-systems (and in particular, in the US), and since the spirit of gluumy is to
+systems (and in particular, in the US), and since the spirit of Gale is to
 freely copy files around into monorepos or forks, and generally to have
 complete flexibility in how files are structured (or unstructured...) on disk,
 it helps ensure a file that floats away from this repo still reminds the user

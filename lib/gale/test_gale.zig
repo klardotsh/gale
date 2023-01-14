@@ -1,12 +1,12 @@
-// gluumy's canonical implementation and standard library is released under the
+// Gale's canonical implementation and standard library is released under the
 // Zero-Clause BSD License, distributed alongside this source in a file called
 // COPYING.
 
-test "gluumy library test suite" {
+test "gale library test suite" {
     const std = @import("std");
     std.testing.refAllDecls(@This());
 
-    _ = @import("./gluumy.zig");
+    _ = @import("./gale.zig");
     _ = @import("./helpers.zig");
     _ = @import("./internal_error.zig");
     _ = @import("./nucleus_words.zig");

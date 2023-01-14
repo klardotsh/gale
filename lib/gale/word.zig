@@ -1,4 +1,4 @@
-// gluumy's canonical implementation and standard library is released under the
+// Gale's canonical implementation and standard library is released under the
 // Zero-Clause BSD License, distributed alongside this source in a file called
 // COPYING.
 
@@ -21,7 +21,7 @@ pub const WordImplementation = union(enum) {
     // what, if any, changes were made to the stack or its objects?
     //
     // Note that by the function signature alone we can infer that, while
-    // gluumy pretends to be an immutable-by-default language at the glass,
+    // gale pretends to be an immutable-by-default language at the glass,
     // it's still a Good Old Fashioned Mutable Ball Of Bit Spaghetti under
     // the hood for performance reasons.
     Primitive: PrimitiveImplementation,
@@ -38,10 +38,9 @@ pub const Word = struct {
     const Self = @This();
 
     // Those finding they need more tag space should compile their own
-    // project-specific gluumy build changing the constant as appropriate.
-    // Unlike many languages where mucking about with the internals is
-    // faux-pas, in gluumy it is encouraged on a "if you know you really need
-    // it" basis.
+    // project-specific gale build changing the constant as appropriate. Unlike
+    // many languages where mucking about with the internals is faux-pas, in
+    // gale it is encouraged on a "if you know you really need it" basis.
     //
     // TODO: configurable in build.zig
     pub const MAX_GLOBAL_TAGS = 256;
@@ -50,7 +49,7 @@ pub const Word = struct {
     flags: Flags,
 
     // This is thinking ahead for functionality I want to be able to provide:
-    // while gluumy is in no way a "pure functional" language like Haskell, and
+    // while gale is in no way a "pure functional" language like Haskell, and
     // while I frankly don't know enough about type systems or their theory to
     // (currently) implement an effects tracking system, it'd still be nice to
     // be able to signal to callers (of the human variety) in their dev

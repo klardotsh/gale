@@ -1,30 +1,21 @@
-// gluumy: a hackable, type-safe, minimalist, stack-based programming language
-//
-// (it's pronounced "gloomy" (or maybe "glue me"), and is spelled in lowercase,
-// always)
-//
-//  _.    _  |         ._ _       ._  o  _  |_ _|_   |_   _   _  o ._   _
-// (_|   (_| | |_| |_| | | | \/   | | | (_| | | |_   |_) (/_ (_| | | | _>
-//        _|                 /           _|                   _|
-//
-// gluumy's canonical implementation and standard library is released under the
+// Gale's canonical implementation and standard library is released under the
 // Zero-Clause BSD License, distributed alongside this source in a file called
 // COPYING.
 
-// Welcome to init.glm, the bring-up file for the canonical gluumy
+// Welcome to init.gale, the bring-up file for the canonical Gale
 // implementation, which is designed around using the host language (in our
 // case, Zig) as little as possible, and self-hosting as much as possible in
-// gluumy itself. As such, this is almost certainly not the most performant
-// possible implementation of gluumy: whether I circle back to address this is
+// Gale itself. As such, this is almost certainly not the most performant
+// possible implementation of Gale: whether I circle back to address this is
 // left as a debate for my future self. That said, the desire to
-// nearly-entirely self-host gluumy led to many of its design decisions,
+// nearly-entirely self-host Gale led to many of its design decisions,
 // especially the ability to be both a relatively high-level language and a
 // (perhaps less performant than C/Zig/Rust) lower-ish level language at the
 // same time. It is also where the concept of "Trusting Words", which we'll
-// learn more about in a bit, came from. From here on, we'll take "gluumy",
-// "the gluumy Kernel", etc. to refer to this canonical implementation.
+// learn more about in a bit, came from. From here on, we'll take "Gale", "the
+// Gale Nucleus", etc. to refer to this canonical implementation.
 
-// Out of the box, the gluumy Kernel provides us with almost nothing: this file
+// Out of the box, the Gale Nucleus provides us with almost nothing: this file
 // is read off the disk as a buffered stream and run through the exceptionally
 // primitive word parser which understands:
 //
@@ -37,7 +28,7 @@
 // Trusting Word implementations of each of the Generic Stack Manipulation
 // words described in `WORDS.md`, of each of the Memory Manipulation words from
 // the same document, and then some words specific to this implementation of
-// gluumy to provide hooks to the runtime, and ways to override default
+// Gale to provide hooks to the runtime, and ways to override default
 // behaviors. However, *not* included are pretty much any of the
 // actually-interesting details of the language: ergonomic ways to define
 // words, any concept of shapes or signatures or dynamic word dispatch,
@@ -51,12 +42,12 @@
 
 // Before we get into defining our first bits of functionality, this is a great
 // time to go over a bit of Style and Convention: both in this file, and for
-// gluumy as a language ecosystem:
+// Gale as a language ecosystem:
 //
 // - Words generally are lower-kebab-cased (eg. `say-hello-world`)
 //     - Exception 1: Trusting Words are always screaming-snake-cased with a
 //       leading exclamation point (eg. `!ALLOCATE_SOMETHING`)
-//     - Exception 2: Kernel Words are always screaming-snake-cased with a
+//     - Exception 2: Nucleus Words are always screaming-snake-cased with a
 //       leading at-sign (eg. `@NUM_OBJECTS_ALLOCATED`)
 // - Shapes are almost always Pascal-cased (eg. `FooBarAble`)
 // - As a general guideline, the acting working stack for a word should quite
@@ -71,9 +62,9 @@
 //           ^ This is not actually the implementation of !ALLOCATE_BLOCK we'll
 //             land on, read along for that.
 
-// I really, really, do not want to implement Immediate Words in gluumy, not
-// even in this weird bootstrappy form of the language that will never see
-// userspace light of day. If you write a gluumy, you're welcome to use
+// I really, really, do not want to implement Immediate Words in Gale, not even
+// in this weird bootstrappy form of the language that will never see userspace
+// light of day. If you write a Gale implementation, you're welcome to use
 // Immediate Words to solve problems like this. I will instead abuse a "private
 // space" (implementation and documentation found over in Zig-land), and start
 // prescribing meaning to the empty data therein. Our first contestant: a u8
@@ -84,7 +75,7 @@
 // to, if they are defined. At this low level, unresolveable refs simply panic
 // the interpreter).
 //
-// Since enums in the gluumy sense require a type system too, we'll just define
+// Since enums in the Gale sense require a type system too, we'll just define
 // words to put names to these enum members. See? We're not so unlike a FORTH
 // after all :) Since ! and @ are taken, my non-kernel "private" words will be
 // %-prefixed.
@@ -120,7 +111,7 @@
 //                        |     +-> address to set
 //                        +-------> value to set
 
-// As discussed over in the Kernel source, interpreter modes take effect for
+// As discussed over in the Nucleus source, interpreter modes take effect for
 // exactly one word by default. However, we can override this behavior using
 // @BEFORE_WORD ( Word -> nothing ), where the word referenced is of the
 // signature ( Symbol <- nothing ). The symbol represents the word about to be

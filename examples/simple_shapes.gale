@@ -48,8 +48,8 @@ $ Track
 // :@ means that the word body will itself be a single word (words are
 // first-class, like functions in JavaScript et. al.), and that that word
 // should be hoisted to the provided name. This is some of the only
-// metaprogramming allowed in gluumy, and it follows rather strict rules to
-// allow devtools to analyze the codebase even with these existing.
+// metaprogramming allowed in Gale, and it follows rather strict rules to allow
+// devtools to analyze the codebase even with these existing.
 :@ Track/format "Track %d/%d" make-formatter ;
 
 : Track/repr // This has signature ( Self <- String ), but it's inferred!

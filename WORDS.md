@@ -1,7 +1,7 @@
-# gluumy Core Words Reference
+# Gale Core Words Reference
 
-This document describes all words in gluumy's Core - in the reference
-implementation, this refers to any words provided by the Kernel or Prelude.
+This document describes all words in Gale's Core - in the reference
+implementation, this refers to any words provided by the Nucleus or Prelude.
 
 All word signatures in this document use the fully qualified right-pointing
 form, which is to say, the stack will be taken from the arrow leftwards, and
@@ -16,7 +16,7 @@ make "object in memory" assertions.
 
 ## Primitives
 
-The Kernel understands a few data types out of the box, as follows.
+The Nucleus understands a few data types out of the box, as follows.
 Particularly in the case of numbers, trailing slashes and suffixes can be used
 to disambiguate datatypes (eg. between signed and unsigned integers within
 range).
@@ -34,13 +34,13 @@ range).
 
 ## Trusting Words
 
-These words sit at the absolute lowest level of the gluumy Kernel, implementing
+These words sit at the absolute lowest level of the Gale Nucleus, implementing
 memory management in "unsafe" ways. Unsafe is a rather strong word with rather
 strong connotations: well-tested code that accesses raw memory is not
 inherently "unsafe", it simply must be heavily tested, and trusted. Thus, they
 are called "Trusting Words". Their risky nature is emphasized stylistically by
 way of their being `!UPPERCASED`, and prefixed with an exclamation point. They
-look a bit more FORTH-y than most of gluumy's vocabulary.
+look a bit more FORTH-y than most of Gale's vocabulary.
 
 ## Generic Stack Manipulation
 
@@ -89,10 +89,10 @@ These are implemented twice each:
 This distinction is important: the Run mode varieties have to trigger special,
 performance-impacting behaviors in the Runtime, notably invoking the
 Pollutifier and Surveyor systems (used to retain static analysis of
-metaprogrammed gluumy code and to find any now-invalidated code caused by the
-redefinition). Suffice to say, gluumy encourages (and is designed around)
-knowing as much as you can about your Words, Modes, and Shapes at Build time,
-but allows for useful runtime metaprogramming - for a price.
+metaprogrammed Gale code and to find any now-invalidated code caused by the
+redefinition). Suffice to say, Gale encourages (and is designed around) knowing
+as much as you can about your Words, Modes, and Shapes at Build time, but
+allows for useful runtime metaprogramming - for a price.
 
 | Word                   | Signature                             | Notes |
 |------------------------|---------------------------------------|-------|

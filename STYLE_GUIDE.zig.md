@@ -1,4 +1,4 @@
-# gluumy style guide for zig code
+# Gale style guide for Zig code
 
 In general, `zig fmt` is the final arbiter of truth for things like line
 length, indentation, etc. This document describes things we have control over

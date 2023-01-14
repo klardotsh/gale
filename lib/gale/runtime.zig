@@ -1,4 +1,4 @@
-// gluumy's canonical implementation and standard library is released under the
+// Gale's canonical implementation and standard library is released under the
 // Zero-Clause BSD License, distributed alongside this source in a file called
 // COPYING.
 
@@ -53,7 +53,7 @@ pub const Runtime = struct {
     /// Speaking of Words: WORD_BUF_LEN is how big of a buffer we're willing to
     /// allocate to store words as they're input. We have to draw a line
     /// _somewhere_, and since 1KB of RAM is beyond feasible to allocate on
-    /// most systems I'd foresee writing gluumy for, that's the max word length
+    /// most systems I'd foresee writing gale for, that's the max word length
     /// until I'm convinced otherwise. This should be safe to change and the
     /// implementation will scale proportionally.
     //

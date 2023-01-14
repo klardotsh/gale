@@ -1,4 +1,4 @@
-// gluumy's canonical implementation and standard library is released under the
+// Gale's canonical implementation and standard library is released under the
 // Zero-Clause BSD License, distributed alongside this source in a file called
 // COPYING.
 
@@ -64,8 +64,8 @@ pub fn Rc(comptime T: type) type {
         /// This should almost never be used directly outside of tests, as most
         /// Stack and/or Object operations assume an Rc(_) starts with no
         /// references (since strong_count really refers to the number of
-        /// gluumy-side references, and is not meant to be a generic zig
-        /// garbage collector).
+        /// gale-side references, and is not meant to be a generic zig garbage
+        /// collector).
         pub fn init_referenced(value: ?T) Self {
             if (!builtin.is_test and !RC_ALLOW_INIT_GT0) {
                 @compileError(@typeName(Self) ++ ".init_referenced called outside of unit tests (override with build arg RC_ALLOW_INIT_GT0)");
@@ -134,7 +134,7 @@ pub fn Rc(comptime T: type) type {
         /// allocators the Runtime does not own (perhaps, HeapMap or
         /// ArrayList), for example when clearing inner data from a
         /// valueIterator().next().value - the pointer itself is owned by the
-        /// ArrayList, but the inner datastructures are generally gluumy-owned
+        /// ArrayList, but the inner datastructures are generally gale-owned
         /// and will leak if not torn down correctly.
         ///
         /// Since PruneModes are comptime-generated enums, it is not possible

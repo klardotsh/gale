@@ -1,4 +1,4 @@
-// gluumy's canonical implementation and standard library is released under the
+// Gale's canonical implementation and standard library is released under the
 // Zero-Clause BSD License, distributed alongside this source in a file called
 // COPYING.
 
@@ -8,8 +8,8 @@ const testAllocator: Allocator = std.testing.allocator;
 const expectApproxEqAbs = std.testing.expectApproxEqAbs;
 const expectEqual = std.testing.expectEqual;
 
-const gluumy = @import("gluumy");
-const Runtime = gluumy.Runtime;
+const gale = @import("gale");
+const Runtime = gale.Runtime;
 
 test "push primitives" {
     var rt = try Runtime.init(testAllocator);
