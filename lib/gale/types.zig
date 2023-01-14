@@ -18,11 +18,6 @@ pub const HeapedString = Rc([]u8);
 pub const HeapedSymbol = Rc([]u8);
 pub const HeapedWord = Rc(Word);
 
-pub const GluumyOpaque = *HeapedOpaque;
-pub const GluumyString = *HeapedString;
-pub const GluumySymbol = *HeapedSymbol;
-pub const GluumyWord = *HeapedWord;
-
 pub const PopSingle = struct {
     item: Object,
     now_top_stack: *Stack,

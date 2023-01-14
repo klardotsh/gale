@@ -7,10 +7,10 @@ const Allocator = std.mem.Allocator;
 
 const Types = @import("./types.zig");
 
-/// A managed std.ArrayList of Types.GluumyWords.
+/// A managed std.ArrayList of *Types.HeapedWords.
 pub const WordList = struct {
     const Self = @This();
-    const Inner = std.ArrayList(Types.GluumyWord);
+    const Inner = std.ArrayList(*Types.HeapedWord);
 
     contents: Inner,
 
@@ -30,7 +30,7 @@ pub const WordList = struct {
         self.contents.deinit();
     }
 
-    pub fn items(self: *Self) []Types.GluumyWord {
+    pub fn items(self: *Self) []*Types.HeapedWord {
         return self.contents.items;
     }
 
@@ -38,7 +38,7 @@ pub const WordList = struct {
         return self.contents.items.len;
     }
 
-    pub fn append(self: *Self, item: Types.GluumyWord) Allocator.Error!void {
+    pub fn append(self: *Self, item: *Types.HeapedWord) Allocator.Error!void {
         return try self.contents.append(item);
     }
 };

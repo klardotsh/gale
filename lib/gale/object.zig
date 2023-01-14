@@ -16,12 +16,12 @@ pub const Object = union(enum) {
     Float: f64,
     /// Opaque represents a blob of memory that is left to userspace to manage
     /// manually. TODO more docs here.
-    Opaque: Types.GluumyOpaque,
+    Opaque: *Types.HeapedOpaque,
     SignedInt: isize,
-    String: Types.GluumyString,
-    Symbol: Types.GluumySymbol,
+    String: *Types.HeapedString,
+    Symbol: *Types.HeapedSymbol,
     UnsignedInt: usize,
-    Word: Types.GluumyWord,
+    Word: *Types.HeapedWord,
 
     pub fn deinit(self: *Self, alloc: Allocator) void {
         switch (self.*) {

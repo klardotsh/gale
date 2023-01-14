@@ -183,38 +183,38 @@ pub const Runtime = struct {
     /// Takes a bare Word struct, wraps it in a refcounter, and returns a
     /// pointer to the resultant memory. Does not wrap it in an Object for
     /// direct placement on a Stack.
-    fn send_word_to_heap(self: *Self, bare: Word) !Types.GluumyWord {
+    fn send_word_to_heap(self: *Self, bare: Word) !*Types.HeapedWord {
         const heap_space = try self.alloc.create(Types.HeapedWord);
         heap_space.* = Types.HeapedWord.init(bare);
         return heap_space;
     }
 
     /// Heap-wraps a compound word definition.
-    pub fn word_from_compound_impl(self: *Self, impl: CompoundImplementation) !Types.GluumyWord {
+    pub fn word_from_compound_impl(self: *Self, impl: CompoundImplementation) !*Types.HeapedWord {
         return try self.send_word_to_heap(Word.new_compound_untagged(impl));
     }
 
     /// Heap-wraps a heaplit word definition. How meta.
-    pub fn word_from_heaplit_impl(self: *Self, impl: HeapLitImplementation) !Types.GluumyWord {
+    pub fn word_from_heaplit_impl(self: *Self, impl: HeapLitImplementation) !*Types.HeapedWord {
         return try self.send_word_to_heap(Word.new_heaplit_untagged(impl));
     }
 
     /// Heap-wraps a primitive word definition.
-    pub fn word_from_primitive_impl(self: *Self, impl: PrimitiveImplementation) !Types.GluumyWord {
+    pub fn word_from_primitive_impl(self: *Self, impl: PrimitiveImplementation) !*Types.HeapedWord {
         return try self.send_word_to_heap(Word.new_primitive_untagged(impl));
     }
 
     // Right now, Zig doesn't have a way to narrow `targets` type from anytype,
     // which is super disappointing, but being brainstormed on:
     // https://github.com/ziglang/zig/issues/5404
-    pub fn define_word_va(self: *Self, identifier: Types.GluumySymbol, targets: anytype) !void {
+    pub fn define_word_va(self: *Self, identifier: *Types.HeapedSymbol, targets: anytype) !void {
         try identifier.increment();
         var dict_entry = try self.dictionary.getOrPut(identifier);
         if (!dict_entry.found_existing) {
             dict_entry.value_ptr.* = WordList.init(self.alloc);
         }
 
-        const compound_storage = try self.alloc.alloc(Types.GluumyWord, targets.len);
+        const compound_storage = try self.alloc.alloc(*Types.HeapedWord, targets.len);
         inline for (targets) |target, idx| compound_storage[idx] = target;
 
         var heap_for_word = try self.word_from_compound_impl(compound_storage);
@@ -243,7 +243,7 @@ pub const Runtime = struct {
         try expectEqual(@as(u8, 1), @enumToInt(rt.private_space.interpreter_mode));
     }
 
-    pub fn run_word(self: *Self, word: Types.GluumyWord) !void {
+    pub fn run_word(self: *Self, word: *Types.HeapedWord) !void {
         if (word.value) |iword| {
             switch (iword.impl) {
                 .Compound => return InternalError.Unimplemented, // TODO
@@ -331,19 +331,19 @@ pub const Runtime = struct {
         self.stack = try self.stack.do_push_sint(value);
     }
 
-    /// Push a GluumyString to the stack. As this string is expected to already
-    /// be heap-allocated and reference-counted, it is also expected that
-    /// callers have already handled any desired interning before reaching this
-    /// point.
-    pub fn stack_push_string(self: *Self, value: Types.GluumyString) !void {
+    /// Push a HeapedString to the stack by reference. As this string is
+    /// expected to already be heap-allocated and reference-counted, it is also
+    /// expected that callers have already handled any desired interning before
+    /// reaching this point.
+    pub fn stack_push_string(self: *Self, value: *Types.HeapedString) !void {
         self.stack = try self.stack.do_push_string(value);
     }
 
-    /// Push a GluumySymbol to the stack. As this symbol is expected to already
-    /// be heap-allocated and reference-counted, it is also expected that
-    /// callers have already handled any desired interning before reaching this
-    /// point.
-    pub fn stack_push_symbol(self: *Self, value: Types.GluumySymbol) !void {
+    /// Push a HeapedSymbol to the stack by reference. As this symbol is
+    /// expected to already be heap-allocated and reference-counted, it is also
+    /// expected that callers have already handled any desired interning before
+    /// reaching this point.
+    pub fn stack_push_symbol(self: *Self, value: *Types.HeapedSymbol) !void {
         self.stack = try self.stack.do_push_symbol(value);
     }
 
@@ -351,7 +351,7 @@ pub const Runtime = struct {
         self.stack = try self.stack.do_push_uint(value);
     }
 
-    pub fn stack_push_raw_word(self: *Self, value: Types.GluumyWord) !void {
+    pub fn stack_push_raw_word(self: *Self, value: *Types.HeapedWord) !void {
         self.stack = try self.stack.do_push_word(value);
     }
 

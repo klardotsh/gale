@@ -12,7 +12,7 @@ const Types = @import("./types.zig");
 // TODO: handle stack juggling
 pub const PrimitiveWord = fn (*Runtime) anyerror!void;
 
-pub const CompoundImplementation = []Types.GluumyWord;
+pub const CompoundImplementation = []*Types.HeapedWord;
 pub const HeapLitImplementation = *Object;
 pub const PrimitiveImplementation = *const PrimitiveWord;
 pub const WordImplementation = union(enum) {

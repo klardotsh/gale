@@ -477,12 +477,12 @@ pub const Stack = struct {
     }
 
     /// Push a managed string pointer onto this Stack as an Object.
-    pub inline fn do_push_string(self: *Self, string: Types.GluumyString) !*Self {
+    pub inline fn do_push_string(self: *Self, string: *Types.HeapedString) !*Self {
         return try self.do_push(Object{ .String = string });
     }
 
     /// Push a managed symbol pointer onto this Stack as an Object.
-    pub inline fn do_push_symbol(self: *Self, symbol: Types.GluumySymbol) !*Self {
+    pub inline fn do_push_symbol(self: *Self, symbol: *Types.HeapedSymbol) !*Self {
         return try self.do_push(Object{ .Symbol = symbol });
     }
 
@@ -492,7 +492,7 @@ pub const Stack = struct {
     }
 
     /// Push a managed word pointer onto this Stack as an Object.
-    pub inline fn do_push_word(self: *Self, word: Types.GluumyWord) !*Self {
+    pub inline fn do_push_word(self: *Self, word: *Types.HeapedWord) !*Self {
         return try self.do_push(Object{ .Word = word });
     }
 
