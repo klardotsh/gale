@@ -82,9 +82,10 @@ const EMPTY_STRING = helpers.EMPTY_STRING;
 const STRING_WORD_DELIMITER = helpers.CHAR_QUOTE_DBL;
 
 /// Borrowing an idea from Ruby, Elixir, and others, identifiers starting with
-/// a single quote are reserved for denoting raw identifiers, generally used
-/// for defining names of low-level things (say, Shapes and their members).
-const SYMBOL_WORD_DELIMITER = helpers.CHAR_QUOTE_SGL;
+/// a single colon (:) are reserved for denoting raw identifiers, generally
+/// used for defining names of low-level things (say, Shapes and their
+/// members).
+const SYMBOL_WORD_DELIMITER = helpers.CHAR_COLON;
 
 /// Finally, borrowing an idea from countless languages, identifiers starting
 /// with ampersands are also reserved: the & will be dropped, and the remaining
@@ -231,12 +232,12 @@ pub const ParsedWord = union(enum) {
     }
 
     test "parses symbols: basic" {
-        const result = (try from_input("'Testable")).Symbol;
+        const result = (try from_input(":Testable")).Symbol;
         try expectEqualStrings("Testable", result);
     }
 
     test "parses symbols: unicodey" {
-        const result = (try from_input("'🐸☕")).Symbol;
+        const result = (try from_input(":🐸☕")).Symbol;
         try expectEqualStrings("🐸☕", result);
     }
 
