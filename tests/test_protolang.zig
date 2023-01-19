@@ -7,6 +7,7 @@ const Allocator = std.mem.Allocator;
 const testAllocator: Allocator = std.testing.allocator;
 const expectApproxEqAbs = std.testing.expectApproxEqAbs;
 const expectEqual = std.testing.expectEqual;
+const expectEqualStrings = std.testing.expectEqualStrings;
 
 const gale = @import("gale");
 const Runtime = gale.Runtime;
@@ -15,19 +16,23 @@ test "push primitives" {
     var rt = try Runtime.init(testAllocator);
     defer rt.deinit_guard_for_empty_stack();
 
-    // Push three numbers to the stack individually
-    try rt.run_input("1");
-    try rt.run_input("2/i");
-    try rt.run_input("3.14");
+    // Push four numbers to the stack individually
+    try rt.eval("1");
+    try rt.eval("2/i");
+    try rt.eval("3.14");
+    try rt.eval("4");
+
+    // Push a symbol for giggles
+    try rt.eval(":something");
 
     // Now push several more in one library call
-    try rt.run_input("4 5/u 6/i 7.5");
+    try rt.eval("5/u 6/i 7.5");
 
-    const float_signed_unsigned = try rt.stack_pop_trio();
+    var float_signed_unsigned = try rt.stack_pop_trio();
     defer {
-        float_signed_unsigned.near.deinit();
-        float_signed_unsigned.far.deinit();
-        float_signed_unsigned.farther.deinit();
+        rt.release_heaped_object_reference(&float_signed_unsigned.near);
+        rt.release_heaped_object_reference(&float_signed_unsigned.far);
+        rt.release_heaped_object_reference(&float_signed_unsigned.farther);
     }
     try expectApproxEqAbs(
         @as(f64, 7.5),
@@ -35,15 +40,26 @@ test "push primitives" {
         @as(f64, 0.0000001),
     );
     try expectEqual(@as(isize, 6), float_signed_unsigned.far.SignedInt);
-    try expectEqual(@as(usize, 5), float_signed_unsigned.farther.SignedInt);
+    try expectEqual(@as(usize, 5), float_signed_unsigned.farther.UnsignedInt);
 
-    const inferunsigned_float_signed = try rt.stack_pop_trio();
+    var something_symbol = try rt.stack_pop();
     defer {
-        inferunsigned_float_signed.near.deinit();
-        inferunsigned_float_signed.far.deinit();
-        inferunsigned_float_signed.farther.deinit();
+        // TODO: uncomment this once Runtime.get_or_put_symbol is fixed to
+        // increment refcount correctly, this *should* be leaking RAM as-is but
+        // is not, unearthing a whole class of bugs (5 addresses leaking in 1
+        // test in libgale alone)
+        //
+        // rt.release_heaped_object_reference(&something_symbol);
     }
-    try expectEqual(@as(usize, 4), inferunsigned_float_signed.near.UnsignedInt);
+    try expectEqualStrings("something", something_symbol.Symbol.value.?);
+
+    var inferunsigned_float_signed = try rt.stack_pop_trio();
+    defer {
+        rt.release_heaped_object_reference(&inferunsigned_float_signed.near);
+        rt.release_heaped_object_reference(&inferunsigned_float_signed.far);
+        rt.release_heaped_object_reference(&inferunsigned_float_signed.farther);
+    }
+    try expectEqual(@as(isize, 4), inferunsigned_float_signed.near.SignedInt);
     try expectApproxEqAbs(
         @as(f64, 3.14),
         inferunsigned_float_signed.far.Float,
@@ -51,7 +67,7 @@ test "push primitives" {
     );
     try expectEqual(@as(isize, 2), inferunsigned_float_signed.farther.SignedInt);
 
-    const bottom = try rt.stack_pop();
-    defer bottom.deinit();
-    try expectEqual(@as(usize, 1), bottom.SignedInt);
+    var bottom = try rt.stack_pop();
+    defer rt.release_heaped_object_reference(&bottom);
+    try expectEqual(@as(isize, 1), bottom.SignedInt);
 }

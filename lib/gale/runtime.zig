@@ -16,6 +16,7 @@ const CompoundImplementation = _word.CompoundImplementation;
 const HeapLitImplementation = _word.HeapLitImplementation;
 const InternalError = @import("./internal_error.zig").InternalError;
 const Object = _object.Object;
+const ParsedWord = @import("./parsed_word.zig").ParsedWord;
 const PrimitiveImplementation = _word.PrimitiveImplementation;
 const Stack = @import("./stack.zig").Stack;
 const Types = @import("./types.zig");
@@ -166,6 +167,72 @@ pub const Runtime = struct {
         ptr.deinit(self.alloc);
     }
 
+    /// Run a string of input in this Runtime, splitting into words along the
+    /// way. Any number of WORD_SPLITTING_CHARS are used as delimiters to split
+    /// the input into potentially-parseable words, which are then passed to
+    /// `dispatch_word_by_input`.
+    pub fn eval(self: *Self, input: []const u8) !void {
+        var current_word: []const u8 = undefined;
+        var start_idx: usize = 0;
+        var in_word = false;
+
+        chars: for (input) |chr, idx| {
+            // TODO: benchmark whether this should be explicitly unrolled or
+            // just left to the compiler to figure out
+            inline for (WORD_SPLITTING_CHARS) |candidate| {
+                if (chr == candidate) {
+                    if (!in_word) continue :chars;
+
+                    current_word = input[start_idx..idx];
+                    try self.dispatch_word_by_input(current_word);
+                    in_word = false;
+                    continue :chars;
+                }
+            }
+
+            if (!in_word) {
+                start_idx = idx;
+                in_word = true;
+            }
+
+            if (idx == input.len - 1) {
+                current_word = input[start_idx..];
+                try self.dispatch_word_by_input(current_word);
+            }
+        }
+    }
+
+    /// Pass a single pre-whitespace-trimmed word to ParsedWord.from_input and
+    /// either place the literal onto the stack or lookup and run the word (if
+    /// it exists), as appropriate.
+    pub fn dispatch_word_by_input(self: *Self, input: []const u8) !void {
+        switch (try ParsedWord.from_input(input)) {
+            .Simple, .Ref, .String => return InternalError.Unimplemented,
+            .Symbol => |sym| {
+                const interned_sym = try self.get_or_put_symbol(sym);
+                try self.stack_push_symbol(interned_sym.value_ptr);
+            },
+            .NumFloat => |num| try self.stack_push_float(num),
+            .SignedInt => |num| try self.stack_push_sint(num),
+            .UnsignedInt => |num| try self.stack_push_uint(num),
+        }
+    }
+
+    pub fn run_word(self: *Self, word: *Types.HeapedWord) !void {
+        if (word.value) |iword| {
+            switch (iword.impl) {
+                .Compound => return InternalError.Unimplemented, // TODO
+                .HeapLit => |lit| self.stack = try self.stack.do_push(lit.*),
+                .Primitive => |impl| try impl(self),
+            }
+        } else {
+            // TODO: determine if there's a better/more concise error to pass
+            // here, perhaps by somehow triggering this and seeing what states
+            // can even leave us here
+            return InternalError.EmptyWord;
+        }
+    }
+
     /// Retrieve the previously-interned Symbol's Rc
     pub fn get_or_put_symbol(self: *Self, sym: []const u8) !GetOrPutResult(Types.HeapedSymbol) {
         var entry = try self.symbols.getOrPut(sym);
@@ -173,6 +240,9 @@ pub const Runtime = struct {
             const stored = try self.alloc.alloc(u8, sym.len);
             std.mem.copy(u8, stored[0..], sym);
             entry.value_ptr.* = Types.HeapedSymbol.init(stored);
+            // TODO: uncomment this to fix known memory bugs found when
+            // implementing test_protolang 19 Jan 2023
+            // try entry.value_ptr.increment();
         }
         return .{
             .value_ptr = entry.value_ptr,
@@ -241,21 +311,6 @@ pub const Runtime = struct {
         try expectEqual(@as(u8, 0), @enumToInt(rt.private_space.interpreter_mode));
         try rt.priv_space_set_byte(0, 1);
         try expectEqual(@as(u8, 1), @enumToInt(rt.private_space.interpreter_mode));
-    }
-
-    pub fn run_word(self: *Self, word: *Types.HeapedWord) !void {
-        if (word.value) |iword| {
-            switch (iword.impl) {
-                .Compound => return InternalError.Unimplemented, // TODO
-                .HeapLit => |lit| self.stack = try self.stack.do_push(lit.*),
-                .Primitive => |impl| try impl(self),
-            }
-        } else {
-            // TODO: determine if there's a better/more concise error to pass
-            // here, perhaps by somehow triggering this and seeing what states
-            // can even leave us here
-            return InternalError.EmptyWord;
-        }
     }
 
     pub fn stack_peek(self: *Self) !*Object {
