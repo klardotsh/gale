@@ -77,7 +77,7 @@ $ Track
 }
 
 % Genre
-	%? "The category of music a song is considered to fit." ;
+	{{ The category of music a song is considered to fit. }}
 
 	{ These are all understood to be Symbols }
 	%> Rock ;
