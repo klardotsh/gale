@@ -1,0 +1,57 @@
+{ We can define freestanding words for generic shape members.
+  This word is entirely silly, by the way: use Optional/map-or }
+: freestanding-repr ( Optional.None -> String ) "<nothing>" ;
+{ Now that we've defined freestanding-repr for one branch of Optional, we must
+  define it for all other branches }
+: freestanding-repr ( Optional.Some -> String ) Optional/unwrap repr ;
+: console-yeet freestanding-repr println ;
+{{ Prints "<nothing>" to the console }}
+: demo-freestanding-repr-1 Optional/none console-yeet ;
+{{ Prints "Foo" to the console }}
+: demo-freestanding-repr-2 "Foo" Optional/some console-yeet ;
+{{ Prints "1" to the console }}
+: demo-freestanding-repr-3 1 Optional/some console-yeet ;
+
+{ Now let's get a little weirder. What if we want to attach methods
+  specifically to an Optional<String>?
+
+  First, helper methods for later.
+  `extract` is a word from Extractable, which all enum members with constituent
+  data derive from. Note that the only form of type narrowing available is
+  through word signatures, and the net effects to the stack after execution of
+  a word must be known at Build Time, so if an Enum has members holding an
+  UnsignedInt and a String, say, `extract` won't work on the whole Enum: we
+  must define words for each member type. }
+: unfold-to-console ( Result.Error ) extract eprintln ;
+: unfold-to-console ( Result.Ok ) extract println ;
+
+{ Aliasing this shape is required to provide a name for `/` syntax to match to }
+$@ OptionalString String Optional! ;
+
+{ Self is always the implied "near" argument to associated words, so this
+  signature expands to `( String Self -> Result<String String> )` via this
+  implied behavior and type inference. }
+: OptionalString/try-concat ( String )
+	{ Anonymous word syntax with [ ]. Apply this word to Self if it is a Some,
+	  giving us a new Optional<String>. These anonymous words execute in the
+	  context of whatever is calling them, there are no closures. In the case
+	  of Optional/map, in the event of an Optional.None, absolutely nothing
+	  happens and the anonymous word is ignored. In the event of an
+	  Optional.Some, the inner value is unwrapped onto the stack, consuming the
+	  Optional, and the anonymous word is immediately run. Anonymous words can
+	  never consume more stack than will be available to the outer word at the
+	  time of execution, and cannot contain nested anonymous words. }
+	[ ", the world was gonna roll me" /prepend ] Optional/map
+
+	"You can't concatenate nothing with something, silly!"
+	Optional/ok-or
+;
+
+: OptionalString/try-concat-to-console /try-concat unfold-to-console ;
+
+: lyric "Somebody once told me" ;
+
+{{ Prints "You can't concatenate...." to stderr }}
+: demo-attached-alias lyric Optional/none /try-concat-to-console ;
+{{ Prints "Somebody once told me, the world..." to stdout }}
+: demo-attached-alias lyric Optional/some /try-concat-to-console ;
