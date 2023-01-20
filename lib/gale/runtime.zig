@@ -5,12 +5,16 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const testAllocator: Allocator = std.testing.allocator;
+const expectApproxEqAbs = std.testing.expectApproxEqAbs;
 const expectEqual = std.testing.expectEqual;
+const expectEqualStrings = std.testing.expectEqualStrings;
 
 const builtin = @import("builtin");
 
 const _object = @import("./object.zig");
 const _word = @import("./word.zig");
+
+const helpers = @import("./helpers.zig");
 
 const CompoundImplementation = _word.CompoundImplementation;
 const HeapLitImplementation = _word.HeapLitImplementation;
@@ -175,8 +179,19 @@ pub const Runtime = struct {
         var current_word: []const u8 = undefined;
         var start_idx: usize = 0;
         var in_word = false;
+        var in_string = false;
 
         chars: for (input) |chr, idx| {
+            if (in_string and chr != helpers.CHAR_QUOTE_DBL) continue;
+
+            if (chr == helpers.CHAR_QUOTE_DBL) {
+                if (in_word and !in_string) {
+                    return InternalError.InvalidWordName;
+                }
+
+                in_string = !in_string;
+            }
+
             // TODO: benchmark whether this should be explicitly unrolled or
             // just left to the compiler to figure out
             inline for (WORD_SPLITTING_CHARS) |candidate| {
@@ -207,7 +222,11 @@ pub const Runtime = struct {
     /// it exists), as appropriate.
     pub fn dispatch_word_by_input(self: *Self, input: []const u8) !void {
         switch (try ParsedWord.from_input(input)) {
-            .Simple, .Ref, .String => return InternalError.Unimplemented,
+            .Simple, .Ref => return InternalError.Unimplemented,
+            .String => |str| {
+                const interned_str = try self.get_or_put_string(str);
+                try self.stack_push_string(interned_str.value_ptr);
+            },
             .Symbol => |sym| {
                 const interned_sym = try self.get_or_put_symbol(sym);
                 try self.stack_push_symbol(interned_sym.value_ptr);
@@ -231,6 +250,18 @@ pub const Runtime = struct {
             // can even leave us here
             return InternalError.EmptyWord;
         }
+    }
+
+    pub fn get_or_put_string(self: *Self, str: []const u8) !GetOrPutResult(Types.HeapedString) {
+        // TODO: intern this similarly to symbols
+        const stored = try self.alloc.alloc(u8, str.len);
+        std.mem.copy(u8, stored[0..], str);
+        const heaped = try self.alloc.create(Types.HeapedString);
+        heaped.* = Types.HeapedString.init(stored);
+        return .{
+            .value_ptr = heaped,
+            .found_existing = false,
+        };
     }
 
     /// Retrieve the previously-interned Symbol's Rc
@@ -431,6 +462,75 @@ pub const Runtime = struct {
         }
     }
 };
+
+test "Runtime.eval: integration" {
+    var rt = try Runtime.init(testAllocator);
+    defer rt.deinit_guard_for_empty_stack();
+
+    // Push four numbers to the stack individually
+    try rt.eval("1");
+    try rt.eval("2/i");
+    try rt.eval("3.14");
+    try rt.eval("4");
+
+    // Push a symbol for giggles
+    try rt.eval(":something");
+
+    // Push a string too
+    try rt.eval("\"foo and a bit of bar\"");
+
+    // Now push several more numbers in one library call
+    try rt.eval("5/u 6/i 7.5");
+
+    var float_signed_unsigned = try rt.stack_pop_trio();
+    defer {
+        rt.release_heaped_object_reference(&float_signed_unsigned.near);
+        rt.release_heaped_object_reference(&float_signed_unsigned.far);
+        rt.release_heaped_object_reference(&float_signed_unsigned.farther);
+    }
+    try expectApproxEqAbs(
+        @as(f64, 7.5),
+        float_signed_unsigned.near.Float,
+        @as(f64, 0.0000001),
+    );
+    try expectEqual(@as(isize, 6), float_signed_unsigned.far.SignedInt);
+    try expectEqual(@as(usize, 5), float_signed_unsigned.farther.UnsignedInt);
+
+    var foo_str = try rt.stack_pop();
+    defer {
+        rt.release_heaped_object_reference(&foo_str);
+    }
+    try expectEqualStrings("foo and a bit of bar", foo_str.String.value.?);
+
+    var something_symbol = try rt.stack_pop();
+    defer {
+        // TODO: uncomment this once Runtime.get_or_put_symbol is fixed to
+        // increment refcount correctly, this *should* be leaking RAM as-is but
+        // is not, unearthing a whole class of bugs (5 addresses leaking in 1
+        // test in libgale alone)
+        //
+        // rt.release_heaped_object_reference(&something_symbol);
+    }
+    try expectEqualStrings("something", something_symbol.Symbol.value.?);
+
+    var inferunsigned_float_signed = try rt.stack_pop_trio();
+    defer {
+        rt.release_heaped_object_reference(&inferunsigned_float_signed.near);
+        rt.release_heaped_object_reference(&inferunsigned_float_signed.far);
+        rt.release_heaped_object_reference(&inferunsigned_float_signed.farther);
+    }
+    try expectEqual(@as(isize, 4), inferunsigned_float_signed.near.SignedInt);
+    try expectApproxEqAbs(
+        @as(f64, 3.14),
+        inferunsigned_float_signed.far.Float,
+        @as(f64, 0.0000001),
+    );
+    try expectEqual(@as(isize, 2), inferunsigned_float_signed.farther.SignedInt);
+
+    var bottom = try rt.stack_pop();
+    defer rt.release_heaped_object_reference(&bottom);
+    try expectEqual(@as(isize, 1), bottom.SignedInt);
+}
 
 test {
     std.testing.refAllDecls(@This());
