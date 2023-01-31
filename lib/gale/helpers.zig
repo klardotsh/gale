@@ -10,8 +10,12 @@ pub const CHAR_AMPER = '&';
 pub const CHAR_COLON = ':';
 pub const CHAR_COMMA = ',';
 pub const CHAR_DOT = '.';
+pub const CHAR_HASH = '#';
+pub const CHAR_NEWLINE = '\n';
 pub const CHAR_QUOTE_SGL = '\'';
 pub const CHAR_QUOTE_DBL = '"';
+pub const CHAR_SPACE = ' ';
+pub const CHAR_TAB = '\t';
 pub const EMPTY_STRING = "";
 
 pub fn bool_from_human_str(val: []const u8) bool {

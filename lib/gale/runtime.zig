@@ -8,10 +8,12 @@ const testAllocator: Allocator = std.testing.allocator;
 const expectApproxEqAbs = std.testing.expectApproxEqAbs;
 const expectEqual = std.testing.expectEqual;
 const expectEqualStrings = std.testing.expectEqualStrings;
+const expectError = std.testing.expectError;
 
 const builtin = @import("builtin");
 
 const _object = @import("./object.zig");
+const _stack = @import("./stack.zig");
 const _word = @import("./word.zig");
 
 const helpers = @import("./helpers.zig");
@@ -22,7 +24,8 @@ const InternalError = @import("./internal_error.zig").InternalError;
 const Object = _object.Object;
 const ParsedWord = @import("./parsed_word.zig").ParsedWord;
 const PrimitiveImplementation = _word.PrimitiveImplementation;
-const Stack = @import("./stack.zig").Stack;
+const Stack = _stack.Stack;
+const StackManipulationError = _stack.StackManipulationError;
 const Types = @import("./types.zig");
 const Word = _word.Word;
 const WordList = @import("./word_list.zig").WordList;
@@ -53,7 +56,11 @@ pub const Runtime = struct {
     /// tricky-to-debug behaviors like using 0xA0 (non-breaking space) as
     /// identifiers. With great power comes great responsibility. Don't be
     /// silly.
-    const WORD_SPLITTING_CHARS: [3]u8 = .{ ' ', '\t', '\n' };
+    const WORD_SPLITTING_CHARS: [3]u8 = .{
+        helpers.CHAR_NEWLINE,
+        helpers.CHAR_SPACE,
+        helpers.CHAR_TAB,
+    };
 
     /// Speaking of Words: WORD_BUF_LEN is how big of a buffer we're willing to
     /// allocate to store words as they're input. We have to draw a line
@@ -466,6 +473,15 @@ pub const Runtime = struct {
 test "Runtime.eval: integration" {
     var rt = try Runtime.init(testAllocator);
     defer rt.deinit_guard_for_empty_stack();
+
+    // TODO: comments depend on @BEFORE_WORD support, or could become part of
+    // ParsedWord if we want to push it down to barer metal.
+    //
+    // try rt.eval("{{ 1 }}");
+    // try expectError(
+    //     StackManipulationError.Underflow,
+    //     rt.stack_pop(),
+    // );
 
     // Push four numbers to the stack individually
     try rt.eval("1");
