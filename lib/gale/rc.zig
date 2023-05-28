@@ -213,5 +213,5 @@ test "Rc(u8): simple set, increments, decrements, and prune" {
 }
 
 test {
-    std.testing.refAllDecls(@This());
+    std.testing.refAllDeclsRecursive(@This());
 }

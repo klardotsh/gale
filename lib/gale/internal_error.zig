@@ -7,6 +7,7 @@ const std = @import("std");
 pub const InternalError = error{
     AttemptedDestructionOfPopulousRc,
     AttemptedResurrectionOfExhaustedRc, // me too, buddy
+    BoundedShapeWithoutBoundsCheckingWord,
     EmptyWord,
     InvalidWordName,
     TypeError,

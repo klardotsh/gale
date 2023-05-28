@@ -14,9 +14,11 @@ test "gale library test suite" {
     _ = @import("./parsed_word.zig");
     _ = @import("./rc.zig");
     _ = @import("./runtime.zig");
+    _ = @import("./shape.zig");
     _ = @import("./stack.zig");
     _ = @import("./types.zig");
     _ = @import("./word.zig");
     _ = @import("./word_list.zig");
     _ = @import("./word_map.zig");
+    _ = @import("./word_signature.zig");
 }
