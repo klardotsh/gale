@@ -3,9 +3,7 @@
 $ Printable
 	{{ Something that can be made representable as a String }}
 
-	{ Self is always the implied "near" argument to associated words, so we can
-	  leave it out. }
-	$: repr ( <- String ) ;
+	$: repr ( Self <- String ) ;
 
 { ; is actually a :@ alias for ShapeAssembler/; (with signature `( Self <-
   nothing )`), which is implemented as ShapeDefStub/; (used below) and
@@ -140,3 +138,56 @@ $ Song
 	drop { And now let's tear down the Song object }
 ;
 
+{ Alternatively, we could have written main using the symbol-based shape
+  builder words. }
+: main-symbol-based
+	Song do
+		{
+			:@ do Blockable/do ;
+			: Blockable/do ( @1 Self! <- @1 Block! ) ;
+			$ ShapeStub
+				$< :TShape ;
+				$. Blockable ;
+				{ ... among other things ... }
+			;
+			: Shape/block-open ( Self <- Self ShapeStub!
+
+			:@ = Packable/pack, which is implemented for
+			( SongStub String %Song/.artist ),
+			( SongStub String Optional! %Song/.album_artist ), etc.
+
+			%Song is an auto-generated enum instance (of an "anonymous" shape)
+			holding the member types of the Song struct. It contains member
+			words, all starting with a `.`, which will generate a Shape
+			reference to the Shape stored in the struct field in Song by the
+			same name. This is mostly useful because word definitions must be
+			exhaustive across all members of the enum %Song, thus ensuring
+			we've implemented ShapeStub/pack for all fields of Song. This
+			functionality is currently mostly useful to the language itself,
+			but the power is there for end-developers to tinker with and find
+			fun uses for.
+
+			SongStub implements Packable, enabling all this. The "row" is
+			stashed into the SongStub so that the stack is only one element
+			taller when assigning values, meaning comma operators should make
+			use of these constructors reasonably ergonomic.
+		}
+		"Portishead" :artist =
+		Optional/none :album_artist =
+		"Wandering Star" :title =
+
+		{ Nestable, and note also that enums are also Blockable, like
+		  any Shape, though the syntax here is probably less readable than just
+		  calling Optional/some or Optional.Some!. }
+		Optional do Track do 5 :num 7 :total end :Some = end :track =
+		{
+			Alternatively:
+			Track do 5 :num 7 :total end Optional/some :track ^
+		}
+	end
+	{ ^ :@ end Blockable/end, which pops the ShapeStub back out into
+	  correctly-ordered objects on the main stack and calls /construct to
+	  instantiate the underlying shape. This is a build-mode word, and so
+	  verification that all members are present happens before the application
+	  runs. }
+;

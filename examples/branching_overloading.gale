@@ -4,7 +4,9 @@
 { Now that we've defined freestanding-repr for one branch of Optional, we must
   define it for all other branches }
 : freestanding-repr ( Optional.Some -> String ) Optional/unwrap repr ;
+
 : console-yeet freestanding-repr println ;
+
 {{ Prints "<nothing>" to the console }}
 : demo-freestanding-repr-1 Optional/none console-yeet ;
 {{ Prints "Foo" to the console }}
@@ -28,10 +30,11 @@
 { Aliasing this shape is required to provide a name for `/` syntax to match to }
 $@ OptionalString String Optional! ;
 
-{ Self is always the implied "near" argument to associated words, so this
-  signature expands to `( String Self -> Result<String String> )` via this
-  implied behavior and type inference. }
-: OptionalString/try-concat ( String )
+{ This signature expands to `( String Self -> Result<String String> )` via this
+  implied behavior and type inference. The inference engine isn't generally
+  smart enough to figure out that a String is needed here (yet?), so we have to
+  help it out. }
+: OptionalString/try-concat ( String Self )
 	{ Anonymous word syntax with [ ]. Apply this word to Self if it is a Some,
 	  giving us a new Optional<String>. These anonymous words execute in the
 	  context of whatever is calling them, there are no closures. In the case
