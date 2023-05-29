@@ -59,6 +59,49 @@ pub const Shape = struct {
     evolution_id: usize = 0,
     evolutions_spawned: AtomicUsize = AtomicUsize.init(0),
 
+    pub const Boundedness = enum(u1) {
+        Bounded,
+        Unbounded,
+    };
+
+    // These MUST be kept in sync with the Bounded/Unbounded enums in
+    // ShapeContents below! This is enforced with the comptime block below.
+    pub const Primitives = enum(u4) {
+        Boolean,
+        CharSlice,
+        Float,
+        SignedInt,
+        UnsignedInt,
+    };
+
+    comptime {
+        std.debug.assert(@enumToInt(Primitives.Boolean) == @enumToInt(ShapeContents.BoundedPrimitive.Boolean));
+        std.debug.assert(@enumToInt(Primitives.CharSlice) == @enumToInt(ShapeContents.BoundedPrimitive.CharSlice));
+        std.debug.assert(@enumToInt(Primitives.Float) == @enumToInt(ShapeContents.BoundedPrimitive.Float));
+        std.debug.assert(@enumToInt(Primitives.SignedInt) == @enumToInt(ShapeContents.BoundedPrimitive.SignedInt));
+        std.debug.assert(@enumToInt(Primitives.UnsignedInt) == @enumToInt(ShapeContents.BoundedPrimitive.UnsignedInt));
+    }
+
+    /// Convenience wrapper around creating a WordSignature with Contents of a
+    /// primitive variety, a process which otherwise takes several lines of
+    /// tagged union instantiation.
+    pub fn new_containing_primitive(boundedness: Boundedness, primitive: Primitives) Self {
+        return switch (boundedness) {
+            .Bounded => bounded: {
+                const cast_primitive = @intToEnum(ShapeContents.BoundedPrimitive, @enumToInt(primitive));
+                const primitive_contents = ShapeContents.PrimitiveContents{ .Bounded = cast_primitive };
+                const contents = ShapeContents{ .Primitive = primitive_contents };
+                break :bounded Self{ .contents = contents };
+            },
+            .Unbounded => unbounded: {
+                const cast_primitive = @intToEnum(ShapeContents.UnboundedPrimitive, @enumToInt(primitive));
+                const primitive_contents = ShapeContents.PrimitiveContents{ .Unbounded = cast_primitive };
+                const contents = ShapeContents{ .Primitive = primitive_contents };
+                break :unbounded Self{ .contents = contents };
+            },
+        };
+    }
+
     /// Evolve this Shape into an independent Shape laid out identically in
     /// memory which will not fulfill Word Signatures expecting the root
     /// Shape (and vice-versa). This is analogous to the "newtype" paradigm
@@ -165,22 +208,26 @@ pub const Shape = struct {
         return switch (self.contents) {
             .Empty => other.contents == .Empty and self.evolved_from == other.evolved_from and self.evolution_id == other.evolution_id,
             .Generic => @panic("unimplemented"), // TODO
-            .Primitive => |self_val| other.contents == .Primitive and switch (self_val) {
-                .Bounded => |sval| {
-                    const comparator = switch (other.contents.Primitive) {
-                        .Bounded => @enumToInt(other.contents.Primitive.Bounded),
-                        .Unbounded => @enumToInt(other.contents.Primitive.Unbounded),
-                    };
-                    if (comparator == @enumToInt(sval)) return null;
-                    return false;
-                },
-                .Unbounded => |sval| switch (other.contents.Primitive) {
-                    .Unbounded => |oval| sval == oval,
-                    // The usecase for self being unbounded but other being
-                    // bounded is yet-unknown but the code is fairly trivial
-                    // to write so we'll support it... for now?
-                    .Bounded => |oval| @enumToInt(sval) == @enumToInt(oval),
-                },
+            .Primitive => |self_val| other.contents == .Primitive and prim: {
+                if (self.evolved_from != other.evolved_from or self.evolution_id != other.evolution_id) break :prim false;
+
+                break :prim switch (self_val) {
+                    .Bounded => |sval| bounded: {
+                        const comparator = switch (other.contents.Primitive) {
+                            .Bounded => @enumToInt(other.contents.Primitive.Bounded),
+                            .Unbounded => @enumToInt(other.contents.Primitive.Unbounded),
+                        };
+                        if (comparator == @enumToInt(sval)) return null;
+                        break :bounded false;
+                    },
+                    .Unbounded => |sval| switch (other.contents.Primitive) {
+                        .Unbounded => |oval| sval == oval,
+                        // The usecase for self being unbounded but other being
+                        // bounded is yet-unknown but the code is fairly trivial
+                        // to write so we'll support it... for now?
+                        .Bounded => |oval| @enumToInt(sval) == @enumToInt(oval),
+                    },
+                };
             },
         };
     }
@@ -192,36 +239,10 @@ pub const MemberWord = struct {
 };
 
 pub const ShapeContents = union(enum) {
-    Empty,
-    /// Shapes are purely metadata for primitive root types: the underlying
-    /// value isn't "boxed" into a shape struct, instead, Objects with a
-    /// null shape pointer are assumed to be the respective root shape
-    /// for the underlying primitive type in memory. In other words, a
-    /// pair of {null, 8u} is known to be an UnsignedInt type on the Gale
-    /// side, and only one UnsignedInt shape struct will ever exist in
-    /// memory (cached in the Runtime)
-    Primitive: union(enum) {
-        // These MUST be sorted IDENTICALLY to the Unbounded enum below!!
-        const Bounded = enum(u4) {
-            Boolean,
-            CharSlice,
-            Float,
-            SignedInt,
-            UnsignedInt,
-        };
-
-        // These MUST be sorted IDENTICALLY to the Bounded enum above!!
-        const Unbounded = enum(u4) {
-            Boolean,
-            CharSlice,
-            Float,
-            SignedInt,
-            UnsignedInt,
-        };
-
+    const PrimitiveContents = union(enum) {
         /// These are the most general cases: *any* boolean value, *any*
         /// string, *any* uint, etc.
-        Unbounded: Unbounded,
+        Unbounded: UnboundedPrimitive,
 
         /// These are special cases that aren't yet implemented (TODO: update
         /// this comment when they are...): a word can specify that it accepts
@@ -236,26 +257,52 @@ pub const ShapeContents = union(enum) {
         /// Bounded shapes *must* fulfill what is at runtime known as the
         /// BoundsCheckable shape, which includes an in-bounds? word with
         /// signature ( {Unbounded Analogue Shape} <- Boolean )
-        Bounded: Bounded,
+        Bounded: BoundedPrimitive,
 
         // Why, you might ask, did I just represent 10 states as 2x5 enums rather
         // than a 1x10? Because it makes checking just a *bit* easier to read
         // later: rather than checking if something is a BoundedA || BoundedB ||
         // etc, I can check which family they belong to first, and then match
         // the inner "type".
+    };
 
-        comptime {
-            // Since we depend on these integer values matching as part of
-            // `Shape.compatible_with`, let's paranoically ensure we're not
-            // going to trigger some unsafe, undefined (or incorrectly-defined)
-            // behavior later...
-            std.debug.assert(@enumToInt(Unbounded.Boolean) == @enumToInt(Bounded.Boolean));
-            std.debug.assert(@enumToInt(Unbounded.CharSlice) == @enumToInt(Bounded.CharSlice));
-            std.debug.assert(@enumToInt(Unbounded.Float) == @enumToInt(Bounded.Float));
-            std.debug.assert(@enumToInt(Unbounded.SignedInt) == @enumToInt(Bounded.SignedInt));
-            std.debug.assert(@enumToInt(Unbounded.UnsignedInt) == @enumToInt(Bounded.UnsignedInt));
-        }
-    },
+    const BoundedPrimitive = enum(u4) {
+        Boolean,
+        CharSlice,
+        Float,
+        SignedInt,
+        UnsignedInt,
+    };
+
+    const UnboundedPrimitive = enum(u4) {
+        Boolean,
+        CharSlice,
+        Float,
+        SignedInt,
+        UnsignedInt,
+    };
+
+    comptime {
+        // Since we depend on these integer values matching as part of
+        // `Shape.compatible_with`, let's paranoically ensure we're not
+        // going to trigger some unsafe, undefined (or incorrectly-defined)
+        // behavior later...
+        std.debug.assert(@enumToInt(UnboundedPrimitive.Boolean) == @enumToInt(BoundedPrimitive.Boolean));
+        std.debug.assert(@enumToInt(UnboundedPrimitive.CharSlice) == @enumToInt(BoundedPrimitive.CharSlice));
+        std.debug.assert(@enumToInt(UnboundedPrimitive.Float) == @enumToInt(BoundedPrimitive.Float));
+        std.debug.assert(@enumToInt(UnboundedPrimitive.SignedInt) == @enumToInt(BoundedPrimitive.SignedInt));
+        std.debug.assert(@enumToInt(UnboundedPrimitive.UnsignedInt) == @enumToInt(BoundedPrimitive.UnsignedInt));
+    }
+
+    Empty,
+    /// Shapes are purely metadata for primitive root types: the underlying
+    /// value isn't "boxed" into a shape struct, instead, Objects with a
+    /// null shape pointer are assumed to be the respective root shape
+    /// for the underlying primitive type in memory. In other words, a
+    /// pair of {null, 8u} is known to be an UnsignedInt type on the Gale
+    /// side, and only one UnsignedInt shape struct will ever exist in
+    /// memory (cached in the Runtime)
+    Primitive: PrimitiveContents,
     Generic: Generic,
 };
 
