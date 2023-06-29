@@ -104,9 +104,8 @@ pub const WordSignature = union(enum) {
         return switch (self.*) {
             .SideEffectary => unreachable, // by way of std.meta.eql above
             .Nullary => self.nullaries_compatible(other),
-            .NullaryTerminal => @panic("unimplemented"), // TODO
-            .PurelyConsuming => self.consuming_compatible(other),
-            .ConsumingTerminal => @panic("unimplemented"), // TODO
+            .NullaryTerminal => SCR.Compatible,
+            .PurelyConsuming, .ConsumingTerminal => self.consuming_compatible(other),
             .PurelyAdditive => self.additive_compatible(other),
             .Mutative => self.mutative_compatible(other),
         };
@@ -155,7 +154,7 @@ pub const WordSignature = union(enum) {
                 .Indeterminate => {
                     switch (arg.contents) {
                         .Empty => unreachable,
-                        .Primitive => @panic("unimplemented"),
+                        .Primitive => @panic("unimplemented"), // TODO
                         .CatchAll => |ca| {
                             if (degenericized_shapes[ca]) |ds| {
                                 if (ds != other_shapes[idx]) {
