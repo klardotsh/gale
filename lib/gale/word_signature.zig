@@ -14,7 +14,8 @@ const Types = @import("./types.zig");
 const _shape = @import("./shape.zig");
 const Shape = _shape.Shape;
 
-const HIGHEST_CATCHALL = std.math.maxInt(_shape.CATCHALL_HOLDING_TYPE);
+const CATCHALL_HOLDING_TYPE = _shape.CATCHALL_HOLDING_TYPE;
+const HIGHEST_CATCHALL = std.math.maxInt(CATCHALL_HOLDING_TYPE);
 
 /// An encoding of what a Word will do to the Stack.
 pub const WordSignature = union(enum) {
@@ -78,6 +79,7 @@ pub const WordSignature = union(enum) {
             right: ?UnderlyingShapesIncompatible = null,
         },
         DisparateShapeCount: DisparateShapeCountSidedness,
+        CatchAllMultipleResolutionCandidates: CATCHALL_HOLDING_TYPE,
     };
 
     pub const UnderlyingShapesIncompatible = [MAX_INCOMPATIBILIY_INDICIES_REPORTED]?UnderlyingShapeIncompatibility;
@@ -115,20 +117,29 @@ pub const WordSignature = union(enum) {
         Right,
     };
 
+    const IncompatibilityReport = struct {
+        incompatibilities: ?SIR,
+        generics_resolved: ?[HIGHEST_CATCHALL]?*Shape,
+    };
+
     // TODO: Better docstring
     /// Slices MUST be the same length or you will get OOB panics!
     fn detect_incompatibilities(
         self_shapes: []*Shape,
         other_shapes: []*Shape,
         side: IncompatibilitySidedness,
-    ) ?SCR {
+    ) IncompatibilityReport {
         if (self_shapes.len != other_shapes.len) {
-            return SCR{ .Incompatible = SIR{ .DisparateShapeCount = switch (side) {
-                .Left => .{ .left = true },
-                .Right => .{ .right = true },
-            } } };
+            return IncompatibilityReport{
+                .generics_resolved = null,
+                .incompatibilities = SIR{ .DisparateShapeCount = switch (side) {
+                    .Left => .{ .left = true },
+                    .Right => .{ .right = true },
+                } },
+            };
         }
 
+        var any_generics_resolved = false;
         var degenericized_shapes: [HIGHEST_CATCHALL]?*Shape = .{null} ** HIGHEST_CATCHALL;
         var indicies_with_errors: UnderlyingShapesIncompatible = .{null} ** MAX_INCOMPATIBILIY_INDICIES_REPORTED;
         var err_idx: usize = 0;
@@ -158,6 +169,7 @@ pub const WordSignature = union(enum) {
                                 }
                             } else {
                                 degenericized_shapes[ca] = other_shapes[idx];
+                                any_generics_resolved = true;
                             }
                         },
                     }
@@ -165,76 +177,95 @@ pub const WordSignature = union(enum) {
             }
         }
 
-        if (err_idx > 0) {
-            return SCR{
-                .Incompatible = SIR{
-                    .UnderlyingShapesIncompatible = switch (side) {
-                        .Left => .{ .left = indicies_with_errors },
-                        .Right => .{ .right = indicies_with_errors },
-                    },
+        return IncompatibilityReport{
+            .generics_resolved = if (any_generics_resolved) degenericized_shapes else null,
+            .incompatibilities = if (err_idx == 0) null else SIR{
+                .UnderlyingShapesIncompatible = switch (side) {
+                    .Left => .{ .left = indicies_with_errors },
+                    .Right => .{ .right = indicies_with_errors },
                 },
-            };
-        }
-
-        return null;
+            },
+        };
     }
 
     fn nullaries_compatible(self: *Self, other: *Self) SCR {
-        return detect_incompatibilities(
+        const report = detect_incompatibilities(
             self.Nullary,
             other.Nullary,
             .Right,
-        ) orelse SCR.Compatible;
+        );
+
+        return if (report.incompatibilities) |ic| SCR{ .Incompatible = ic } else SCR.Compatible;
     }
 
     fn consuming_compatible(self: *Self, other: *Self) SCR {
-        return detect_incompatibilities(
+        const report = detect_incompatibilities(
             self.PurelyConsuming,
             other.PurelyConsuming,
             .Left,
-        ) orelse SCR.Compatible;
+        );
+
+        return if (report.incompatibilities) |ic| SCR{ .Incompatible = ic } else SCR.Compatible;
+    }
+
+    fn dual_sided_contextual_compatibility(left: IncompatibilityReport, right: IncompatibilityReport) SCR {
+        if (left.incompatibilities) |lic| {
+            if (right.incompatibilities) |ric| {
+                return SCR{
+                    .Incompatible = SIR{ .UnderlyingShapesIncompatible = .{
+                        .left = lic.UnderlyingShapesIncompatible.left,
+                        .right = ric.UnderlyingShapesIncompatible.right,
+                    } },
+                };
+            }
+            return SCR{ .Incompatible = lic };
+        }
+
+        if (right.incompatibilities) |ric| return SCR{ .Incompatible = ric };
+
+        if (left.generics_resolved) |lg| {
+            if (right.generics_resolved) |rg| {
+                for (lg) |gen, idx| {
+                    if (gen != rg[idx]) {
+                        return SCR{ .Incompatible = SIR{
+                            .CatchAllMultipleResolutionCandidates = @truncate(CATCHALL_HOLDING_TYPE, idx),
+                        } };
+                    }
+                }
+            }
+        }
+
+        return SCR.Compatible;
     }
 
     fn additive_compatible(self: *Self, other: *Self) SCR {
-        // TODO: Determine whether we care that the entire left side must be
-        // compatible before the right side will even be checked. It's a less
-        // ideal UX, but is "easier" and "simpler".
-
-        // TODO: CatchAll checking needs to follow both sides: a @1 in expects
-        // needs to match the type of @1 in gives; currently each side is
-        // checked in isolation which is completely incorrect.
-        return detect_incompatibilities(
-            self.PurelyAdditive.expects,
-            other.PurelyAdditive.expects,
-            .Left,
-        ) orelse
+        return dual_sided_contextual_compatibility(
             detect_incompatibilities(
-            self.PurelyAdditive.gives,
-            other.PurelyAdditive.gives,
-            .Right,
-        ) orelse
-            SCR.Compatible;
+                self.PurelyAdditive.expects,
+                other.PurelyAdditive.expects,
+                .Left,
+            ),
+            detect_incompatibilities(
+                self.PurelyAdditive.gives,
+                other.PurelyAdditive.gives,
+                .Right,
+            ),
+        );
     }
 
     fn mutative_compatible(self: *Self, other: *Self) SCR {
-        // TODO: Determine whether we care that the entire left side must be
-        // compatible before the right side will even be checked. It's a less
-        // ideal UX, but is "easier" and "simpler".
-
-        // TODO: CatchAll checking needs to follow both sides: a @1 in before
-        // needs to match the type of @1 in after; currently each side is
-        // checked in isolation which is completely incorrect.
-        return detect_incompatibilities(
-            self.Mutative.before,
-            other.Mutative.before,
-            .Left,
-        ) orelse
+        return dual_sided_contextual_compatibility(
             detect_incompatibilities(
-            self.Mutative.after,
-            other.Mutative.after,
-            .Right,
-        ) orelse
-            SCR.Compatible;
+                self.Mutative.before,
+                other.Mutative.before,
+                .Left,
+            ),
+            detect_incompatibilities(
+                self.Mutative.after,
+                other.Mutative.after,
+                .Right,
+            ),
+        );
     }
 
     // NOTE: These tests only test word *signature* compatibility. For tests
@@ -698,6 +729,39 @@ pub const WordSignature = union(enum) {
         // TODO: test *why* these words aren't compatible
         try expect(!word1.compatible_with(&word2).as_bool_lossy());
         try expect(!word2.compatible_with(&word1).as_bool_lossy());
+    }
+
+    test "Mutative: ( @1 -> @1 ) and ( Boolean -> UnsignedInt ) are incompatible" {
+        const word1_before = try testAllocator.alloc(*Shape, 1);
+        defer testAllocator.free(word1_before);
+        const word2_before = try testAllocator.alloc(*Shape, 1);
+        defer testAllocator.free(word2_before);
+        const word1_after = try testAllocator.alloc(*Shape, 1);
+        defer testAllocator.free(word1_after);
+        const word2_after = try testAllocator.alloc(*Shape, 1);
+        defer testAllocator.free(word2_after);
+
+        const catchall_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(catchall_shape);
+        catchall_shape.* = Shape.new_containing_catchall(1);
+
+        const boolean_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(boolean_shape);
+        boolean_shape.* = Shape.new_containing_primitive(.Unbounded, .Boolean);
+        const unsigned_int_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(unsigned_int_shape);
+        unsigned_int_shape.* = Shape.new_containing_primitive(.Unbounded, .UnsignedInt);
+
+        word1_before[0] = catchall_shape;
+        word2_before[0] = boolean_shape;
+        word1_after[0] = catchall_shape;
+        word2_after[0] = unsigned_int_shape;
+
+        var word1 = Self{ .Mutative = .{ .before = word1_before, .after = word1_after } };
+        var word2 = Self{ .Mutative = .{ .before = word2_before, .after = word2_after } };
+
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
     }
 };
 
