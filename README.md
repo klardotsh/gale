@@ -34,7 +34,8 @@ but for now, it's the best I can offer you. Coming soon :)
 
 Gale's canonical implementation and standard library is released under the
 [Zero-Clause BSD License](https://tldrlegal.com/license/bsd-0-clause-license),
-distributed alongside this source in a file called COPYING.
+distributed alongside this source in a file called `COPYING`, and also found
+at the top of each source file.
 
 Further, while not a legally binding mandate, I ask that you have fun with it,
 build cool stuff with it, don't exploit your fellow humans or the world at
