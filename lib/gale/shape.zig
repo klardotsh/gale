@@ -20,6 +20,8 @@ const NUM_INLINED_SHAPES_IN_GENERICS: usize = 2;
 // TODO: Should this ever be localized or configurable in build.zig?
 const ANONYMOUS_SHAPE_FILLER_NAME = "<anonymous shape>";
 
+pub const CATCHALL_HOLDING_TYPE = u8;
+
 // TODO: move to a common file somewhere
 const AtomicUsize = std.atomic.Atomic(usize);
 
@@ -85,7 +87,14 @@ pub const Shape = struct {
         std.debug.assert(@enumToInt(Primitives.UnsignedInt) == @enumToInt(ShapeContents.BoundedPrimitive.UnsignedInt));
     }
 
-    /// Convenience wrapper around creating a WordSignature with Contents of a
+    /// Convenience wrapper around creating a Shape with Contents of a
+    /// CatchAll variety, a process which otherwise takes several lines
+    /// of tagged union instantiation.
+    pub fn new_containing_catchall(value: CATCHALL_HOLDING_TYPE) Self {
+        return Self{ .contents = ShapeContents{ .CatchAll = value } };
+    }
+
+    /// Convenience wrapper around creating a Shape with Contents of a
     /// primitive variety, a process which otherwise takes several lines of
     /// tagged union instantiation.
     pub fn new_containing_primitive(boundedness: Boundedness, primitive: Primitives) Self {
@@ -206,6 +215,8 @@ pub const Shape = struct {
         DisparateEvolutionBases,
         DisparateEvolutions,
         DisparateUnderlyingPrimitives,
+        // Not used in this file, but synthesized by WordSignature.detect_incompatibilities
+        CatchAllMultipleResolutionCandidates,
     };
 
     pub const ShapeCompatibilityResult = union(enum) {
@@ -386,7 +397,7 @@ pub const ShapeContents = union(enum) {
     /// These are limited to 256 somewhat arbitrarily, but like, for the love
     /// of all that is good in the world, why would you possibly need more than
     /// 256 of these?
-    CatchAll: u8,
+    CatchAll: CATCHALL_HOLDING_TYPE,
 };
 
 pub const GenericWithinStruct = union(enum) {

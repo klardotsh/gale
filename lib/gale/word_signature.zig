@@ -11,7 +11,10 @@ const expectError = std.testing.expectError;
 
 const InternalError = @import("./internal_error.zig").InternalError;
 const Types = @import("./types.zig");
-const Shape = @import("./shape.zig").Shape;
+const _shape = @import("./shape.zig");
+const Shape = _shape.Shape;
+
+const HIGHEST_CATCHALL = std.math.maxInt(_shape.CATCHALL_HOLDING_TYPE);
 
 /// An encoding of what a Word will do to the Stack.
 pub const WordSignature = union(enum) {
@@ -127,6 +130,7 @@ pub const WordSignature = union(enum) {
             } } };
         }
 
+        var degenericized_shapes: [HIGHEST_CATCHALL]?*Shape = .{null} ** HIGHEST_CATCHALL;
         var indicies_with_errors: UnderlyingShapesIncompatible = .{null} ** MAX_INCOMPATIBILIY_INDICIES_REPORTED;
         var err_idx: usize = 0;
         for (self_shapes) |arg, idx| {
@@ -138,7 +142,27 @@ pub const WordSignature = union(enum) {
 
                     if (err_idx == MAX_INCOMPATIBILIY_INDICIES_REPORTED) break;
                 },
-                .Indeterminate => @panic("unimplemented"), // TODO
+                .Indeterminate => {
+                    switch (arg.contents) {
+                        .Empty => unreachable,
+                        .Primitive => @panic("unimplemented"),
+                        .CatchAll => |ca| {
+                            if (degenericized_shapes[ca]) |ds| {
+                                if (ds != other_shapes[idx]) {
+                                    indicies_with_errors[err_idx] = .{
+                                        .index = idx,
+                                        .reason = Shape.ShapeIncompatibilityReason.CatchAllMultipleResolutionCandidates,
+                                    };
+                                    err_idx += 1;
+
+                                    if (err_idx == MAX_INCOMPATIBILIY_INDICIES_REPORTED) break;
+                                }
+                            } else {
+                                degenericized_shapes[ca] = other_shapes[idx];
+                            }
+                        },
+                    }
+                },
             }
         }
 
@@ -176,6 +200,10 @@ pub const WordSignature = union(enum) {
         // TODO: Determine whether we care that the entire left side must be
         // compatible before the right side will even be checked. It's a less
         // ideal UX, but is "easier" and "simpler".
+
+        // TODO: CatchAll checking needs to follow both sides: a @1 in expects
+        // needs to match the type of @1 in gives; currently each side is
+        // checked in isolation which is completely incorrect.
         return detect_incompatibilities(
             self.PurelyAdditive.expects,
             other.PurelyAdditive.expects,
@@ -193,6 +221,10 @@ pub const WordSignature = union(enum) {
         // TODO: Determine whether we care that the entire left side must be
         // compatible before the right side will even be checked. It's a less
         // ideal UX, but is "easier" and "simpler".
+
+        // TODO: CatchAll checking needs to follow both sides: a @1 in before
+        // needs to match the type of @1 in after; currently each side is
+        // checked in isolation which is completely incorrect.
         return detect_incompatibilities(
             self.Mutative.before,
             other.Mutative.before,
@@ -398,23 +430,107 @@ pub const WordSignature = union(enum) {
         try expect(!word1.compatible_with(&word2).as_bool_lossy());
     }
 
-    // test "PurelyConsuming (generics): ( @1 -> ) and ( String -> ) are compatible, but the inverse is logically impossible" {
-    //     const word1_takes = try testAllocator.alloc(*Shape, 1);
-    //     defer testAllocator.free(word1_takes);
-    //     const word2_takes = try testAllocator.alloc(*Shape, 1);
-    //     defer testAllocator.free(word2_takes);
+    test "PurelyConsuming (generics): ( @1 -> ) and ( Boolean -> ) are compatible" {
+        const word1_takes = try testAllocator.alloc(*Shape, 1);
+        defer testAllocator.free(word1_takes);
+        const word2_takes = try testAllocator.alloc(*Shape, 1);
+        defer testAllocator.free(word2_takes);
 
-    //     const boolean_shape = try testAllocator.create(Shape);
-    //     defer testAllocator.destroy(boolean_shape);
-    //     boolean_shape.* = Shape.new_containing_primitive(.Unbounded, .Boolean);
-    //     word1_takes[0] = boolean_shape;
-    //     word2_takes[0] = boolean_shape;
+        const catchall_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(catchall_shape);
+        catchall_shape.* = Shape.new_containing_catchall(1);
 
-    //     var word1 = Self{ .PurelyConsuming = word1_takes };
-    //     var word2 = Self{ .PurelyConsuming = word2_takes };
+        const boolean_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(boolean_shape);
+        boolean_shape.* = Shape.new_containing_primitive(.Unbounded, .Boolean);
 
-    //     try expect(word1.compatible_with(&word2));
-    // }
+        word1_takes[0] = catchall_shape;
+        word2_takes[0] = boolean_shape;
+
+        var word1 = Self{ .PurelyConsuming = word1_takes };
+        var word2 = Self{ .PurelyConsuming = word2_takes };
+
+        try expect(word1.compatible_with(&word2).as_bool_lossy());
+    }
+
+    test "PurelyConsuming (generics): ( @1 @1 -> ) and ( Boolean Boolean -> ) are compatible" {
+        const word1_takes = try testAllocator.alloc(*Shape, 2);
+        defer testAllocator.free(word1_takes);
+        const word2_takes = try testAllocator.alloc(*Shape, 2);
+        defer testAllocator.free(word2_takes);
+
+        const catchall_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(catchall_shape);
+        catchall_shape.* = Shape.new_containing_catchall(1);
+
+        const boolean_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(boolean_shape);
+        boolean_shape.* = Shape.new_containing_primitive(.Unbounded, .Boolean);
+
+        word1_takes[0] = catchall_shape;
+        word1_takes[1] = catchall_shape;
+        word2_takes[0] = boolean_shape;
+        word2_takes[1] = boolean_shape;
+
+        var word1 = Self{ .PurelyConsuming = word1_takes };
+        var word2 = Self{ .PurelyConsuming = word2_takes };
+
+        try expect(word1.compatible_with(&word2).as_bool_lossy());
+    }
+
+    test "PurelyConsuming (generics): ( String -> ) and ( @1 -> ) are incompatible" {
+        const word1_takes = try testAllocator.alloc(*Shape, 1);
+        defer testAllocator.free(word1_takes);
+        const word2_takes = try testAllocator.alloc(*Shape, 1);
+        defer testAllocator.free(word2_takes);
+
+        const catchall_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(catchall_shape);
+        catchall_shape.* = Shape.new_containing_catchall(1);
+
+        const boolean_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(boolean_shape);
+        boolean_shape.* = Shape.new_containing_primitive(.Unbounded, .Boolean);
+
+        word1_takes[0] = boolean_shape;
+        word2_takes[0] = catchall_shape;
+
+        var word1 = Self{ .PurelyConsuming = word1_takes };
+        var word2 = Self{ .PurelyConsuming = word2_takes };
+
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
+    }
+
+    test "PurelyConsuming (generics): ( @1 @1 -> ) and ( Boolean UnsignedInt -> ) are incompatible" {
+        const word1_takes = try testAllocator.alloc(*Shape, 2);
+        defer testAllocator.free(word1_takes);
+        const word2_takes = try testAllocator.alloc(*Shape, 2);
+        defer testAllocator.free(word2_takes);
+
+        const catchall_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(catchall_shape);
+        catchall_shape.* = Shape.new_containing_catchall(1);
+
+        const boolean_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(boolean_shape);
+        boolean_shape.* = Shape.new_containing_primitive(.Unbounded, .Boolean);
+
+        const unsigned_int_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(unsigned_int_shape);
+        unsigned_int_shape.* = Shape.new_containing_primitive(.Unbounded, .UnsignedInt);
+
+        word1_takes[0] = catchall_shape;
+        word1_takes[1] = catchall_shape;
+        word2_takes[0] = boolean_shape;
+        word2_takes[1] = unsigned_int_shape;
+
+        var word1 = Self{ .PurelyConsuming = word1_takes };
+        var word2 = Self{ .PurelyConsuming = word2_takes };
+
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
+    }
 
     test "PurelyAdditive: ( <- Boolean ) and ( <- Boolean ) are compatible" {
         const word1_expects = try testAllocator.alloc(*Shape, 0);
