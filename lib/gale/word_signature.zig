@@ -147,7 +147,8 @@ pub const WordSignature = union(enum) {
                         .Empty => unreachable,
                         .Primitive => @panic("unimplemented"),
                         .CatchAll => |ca| {
-                            if (degenericized_shapes[ca]) |ds| {
+                            const ca_dg_idx = ca - 1;
+                            if (degenericized_shapes[ca_dg_idx]) |ds| {
                                 if (ds != other_shapes[idx]) {
                                     indicies_with_errors[err_idx] = .{
                                         .index = idx,
@@ -158,7 +159,7 @@ pub const WordSignature = union(enum) {
                                     if (err_idx == MAX_INCOMPATIBILIY_INDICIES_REPORTED) break;
                                 }
                             } else {
-                                degenericized_shapes[ca] = other_shapes[idx];
+                                degenericized_shapes[ca_dg_idx] = other_shapes[idx];
                             }
                         },
                     }
@@ -471,6 +472,41 @@ pub const WordSignature = union(enum) {
         word1_takes[1] = catchall_shape;
         word2_takes[0] = boolean_shape;
         word2_takes[1] = boolean_shape;
+
+        var word1 = Self{ .PurelyConsuming = word1_takes };
+        var word2 = Self{ .PurelyConsuming = word2_takes };
+
+        try expect(word1.compatible_with(&word2).as_bool_lossy());
+    }
+
+    test "PurelyConsuming (generics): ( @1 @2 @1 -> ) and ( Boolean UnsignedInt Boolean -> ) are compatible" {
+        const word1_takes = try testAllocator.alloc(*Shape, 3);
+        defer testAllocator.free(word1_takes);
+        const word2_takes = try testAllocator.alloc(*Shape, 3);
+        defer testAllocator.free(word2_takes);
+
+        const catchall1_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(catchall1_shape);
+        catchall1_shape.* = Shape.new_containing_catchall(1);
+
+        const catchall2_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(catchall2_shape);
+        catchall2_shape.* = Shape.new_containing_catchall(2);
+
+        const boolean_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(boolean_shape);
+        boolean_shape.* = Shape.new_containing_primitive(.Unbounded, .Boolean);
+
+        const unsigned_int_shape = try testAllocator.create(Shape);
+        defer testAllocator.destroy(unsigned_int_shape);
+        unsigned_int_shape.* = Shape.new_containing_primitive(.Unbounded, .UnsignedInt);
+
+        word1_takes[0] = catchall1_shape;
+        word1_takes[1] = catchall2_shape;
+        word1_takes[2] = catchall1_shape;
+        word2_takes[0] = boolean_shape;
+        word2_takes[1] = unsigned_int_shape;
+        word2_takes[2] = boolean_shape;
 
         var word1 = Self{ .PurelyConsuming = word1_takes };
         var word2 = Self{ .PurelyConsuming = word2_takes };
