@@ -115,7 +115,6 @@ pub const WordSignature = union(enum) {
         Right,
     };
 
-    // TODO: Need a fn pointer for indeterminate determination
     // TODO: Better docstring
     /// Slices MUST be the same length or you will get OOB panics!
     fn detect_incompatibilities(
@@ -147,8 +146,7 @@ pub const WordSignature = union(enum) {
                         .Empty => unreachable,
                         .Primitive => @panic("unimplemented"),
                         .CatchAll => |ca| {
-                            const ca_dg_idx = ca - 1;
-                            if (degenericized_shapes[ca_dg_idx]) |ds| {
+                            if (degenericized_shapes[ca]) |ds| {
                                 if (ds != other_shapes[idx]) {
                                     indicies_with_errors[err_idx] = .{
                                         .index = idx,
@@ -159,7 +157,7 @@ pub const WordSignature = union(enum) {
                                     if (err_idx == MAX_INCOMPATIBILIY_INDICIES_REPORTED) break;
                                 }
                             } else {
-                                degenericized_shapes[ca_dg_idx] = other_shapes[idx];
+                                degenericized_shapes[ca] = other_shapes[idx];
                             }
                         },
                     }
