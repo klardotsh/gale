@@ -12,6 +12,11 @@ const Types = @import("./types.zig");
 pub const Object = union(enum) {
     const Self = @This();
 
+    // TODO: primitive types should carry a preceding nullable pointer to their
+    // respective Shape. For performance, null pointers here will represent
+    // their base Shape, so [null, 8 as usize] is known to be an UnsignedInt,
+    // but [Meters, 8 as usize] is known to be a Meters type of UnsignedInt
+
     Boolean: bool,
     Float: f64,
     /// Opaque represents a blob of memory that is left to userspace to manage
