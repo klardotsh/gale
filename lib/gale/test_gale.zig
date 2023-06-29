@@ -21,4 +21,7 @@ test "gale library test suite" {
     _ = @import("./word_list.zig");
     _ = @import("./word_map.zig");
     _ = @import("./word_signature.zig");
+
+    // TODO: is this file actually needed?
+    _ = @import("./type_system_tests.zig");
 }

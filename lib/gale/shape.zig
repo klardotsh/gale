@@ -23,6 +23,9 @@ const ANONYMOUS_SHAPE_FILLER_NAME = "<anonymous shape>";
 // TODO: move to a common file somewhere
 const AtomicUsize = std.atomic.Atomic(usize);
 
+// TODO: Many of the enums contained within this struct can be sized down to
+// u1/u2/u4s, but only with Zig 0.11+ due to compiler crashes as described in
+//  https://github.com/ziglang/zig/issues/13812 (resolved Dec 2022).
 pub const Shape = struct {
     const Self = @This();
 
@@ -198,36 +201,107 @@ pub const Shape = struct {
         try expectEqual(shape_name.strong_count.value, 2);
     }
 
-    // TODO: return context of *why* the shapes are incompatible
+    pub const ShapeIncompatibilityReason = enum(u4) {
+        Incomparable,
+        DisparateEvolutionBases,
+        DisparateEvolutions,
+        DisparateUnderlyingPrimitives,
+    };
+
+    pub const ShapeCompatibilityResult = union(enum) {
+        Compatible,
+        Incompatible: ShapeIncompatibilityReason,
+        Indeterminate,
+    };
+
+    const SCR = ShapeCompatibilityResult;
+
     /// Determine, if possible statically, whether two shapes are compatible,
     /// using `self` as the reference (in other words: "is `other` able to
     /// fulfill my constraints?"). Null values are indeterminate statically
     /// and generally speaking need to fall back to runtime determination via
-    /// BoundsCheckable (using in-bounds?).
-    pub fn compatible_with(self: *Self, other: *Self) ?bool {
+    /// BoundsCheckable (using in-bounds?), or at least require further context
+    /// not knowable at the Shape level (eg. for CatchAll shapes, which require
+    /// knowledge of an entire WordSignature to make sense).
+    pub fn compatible_with(self: *Self, other: *Self) SCR {
         return switch (self.contents) {
-            .Empty => other.contents == .Empty and self.evolved_from == other.evolved_from and self.evolution_id == other.evolution_id,
-            .Generic => @panic("unimplemented"), // TODO
-            .Primitive => |self_val| other.contents == .Primitive and prim: {
-                if (self.evolved_from != other.evolved_from or self.evolution_id != other.evolution_id) break :prim false;
+            .Empty => self.detect_incomparability(other) orelse
+                self.detect_evolutionary_incompatibility(other) orelse
+                SCR.Compatible,
+            .CatchAll => self.catchalls_compatible(other),
+            .Primitive => self.detect_incomparability(other) orelse
+                self.detect_evolutionary_incompatibility(other) orelse
+                self.primitives_compatible(other),
+        };
+    }
 
-                break :prim switch (self_val) {
-                    .Bounded => |sval| bounded: {
-                        const comparator = switch (other.contents.Primitive) {
-                            .Bounded => @enumToInt(other.contents.Primitive.Bounded),
-                            .Unbounded => @enumToInt(other.contents.Primitive.Unbounded),
-                        };
-                        if (comparator == @enumToInt(sval)) return null;
-                        break :bounded false;
-                    },
-                    .Unbounded => |sval| switch (other.contents.Primitive) {
-                        .Unbounded => |oval| sval == oval,
-                        // The usecase for self being unbounded but other being
-                        // bounded is yet-unknown but the code is fairly trivial
-                        // to write so we'll support it... for now?
-                        .Bounded => |oval| @enumToInt(sval) == @enumToInt(oval),
-                    },
+    inline fn detect_evolutionary_incompatibility(self: *Self, other: *Self) ?SCR {
+        if (!std.meta.eql(self.evolved_from, other.evolved_from)) return SCR{ .Incompatible = .DisparateEvolutionBases };
+        if (self.evolution_id != other.evolution_id) return SCR{ .Incompatible = .DisparateEvolutions };
+
+        return null;
+    }
+
+    inline fn detect_incomparability(self: *Self, other: *Self) ?SCR {
+        const self_kind = std.meta.activeTag(self.contents);
+        const other_kind = std.meta.activeTag(other.contents);
+        if (self_kind != other_kind) return SCR{ .Incompatible = .Incomparable };
+        return null;
+    }
+
+    inline fn catchalls_compatible(self: *Self, other: *Self) SCR {
+        const self_val = self.contents.CatchAll;
+        return switch (other.contents) {
+            // @1 == @1, but @1 and @2 are not necessarily incompatible:
+            // consider ( @1 -> @1 ) and ( @2 -> @2 ). These are identical
+            // logically, despite being written differently. Thus, we can
+            // never statically know that two CatchAlls are *in*compatible,
+            // only that they are or *might* be. The rest must be figured
+            // out by the word signature checker, which has the full
+            // context to know whether @1 could be @2.
+            //
+            // TODO: Does this actually mean that CatchAlls aren't Shapes
+            // at all? They already are an extreme misfit within the enum,
+            // maybe what's currently a CatchAll is actually an Evolved
+            // form of an UnsignedInt which should be captured and mangled
+            // as necessary by the WordSignature checker, never reaching
+            // this altitude.
+            .CatchAll => |other_val| if (self_val == other_val) SCR.Compatible else SCR.Indeterminate,
+            // ( @1 -> @1 ) and ( Boolean -> Boolean ) are compatible, but
+            // there's no possible way to know that at this altitude where
+            // we're comparing just one shape from each signature. Punt
+            // this entire decision process up a level in the call tree.
+            else => SCR.Indeterminate,
+        };
+    }
+
+    inline fn primitives_compatible(self: *Self, other: *Self) SCR {
+        const self_val = self.contents.Primitive;
+        const other_val = other.contents.Primitive;
+
+        return switch (self_val) {
+            .Bounded => |sval| bounded: {
+                const comparator = switch (other_val) {
+                    .Bounded => @enumToInt(other_val.Bounded),
+                    .Unbounded => @enumToInt(other_val.Unbounded),
                 };
+
+                if (comparator == @enumToInt(sval)) break :bounded SCR.Indeterminate;
+
+                break :bounded SCR{ .Incompatible = .DisparateUnderlyingPrimitives };
+            },
+            .Unbounded => |sval| unbounded: {
+                const compatible = switch (other_val) {
+                    .Unbounded => |oval| sval == oval,
+                    // The usecase for self being unbounded but other being
+                    // bounded is yet-unknown but the code is fairly trivial
+                    // to write so we'll support it... for now?
+                    .Bounded => |oval| @enumToInt(sval) == @enumToInt(oval),
+                };
+
+                if (compatible) break :unbounded SCR.Compatible;
+
+                break :unbounded SCR{ .Incompatible = .DisparateUnderlyingPrimitives };
             },
         };
     }
@@ -303,10 +377,19 @@ pub const ShapeContents = union(enum) {
     /// side, and only one UnsignedInt shape struct will ever exist in
     /// memory (cached in the Runtime)
     Primitive: PrimitiveContents,
-    Generic: Generic,
+
+    /// A CatchAll Shape is used only in Trusted Words' signatures, as it
+    /// indicates an acceptance of any input. Such a Shape has no other
+    /// purpose in the language, and will almost certainly Not Do What You
+    /// Want It To in any other context.
+    ///
+    /// These are limited to 256 somewhat arbitrarily, but like, for the love
+    /// of all that is good in the world, why would you possibly need more than
+    /// 256 of these?
+    CatchAll: u8,
 };
 
-pub const Generic = union(enum) {
+pub const GenericWithinStruct = union(enum) {
     /// Small generics are inlined for quicker lookups.
     ///
     /// Null pointers in .shapes are ambiguous (thus the addition of .slots):

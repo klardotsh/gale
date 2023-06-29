@@ -43,92 +43,167 @@ pub const WordSignature = union(enum) {
         after: []*Shape,
     },
 
+    /// Only this many incompatibilities on the "left" or "right" sides of
+    /// a WordSignature will be enumerated, to save memory. This allows
+    /// striking a balance between reducing the number of "round trips"
+    /// a developer needs to make between their linter and their source
+    /// file when fixing a signature, and memory usage (since our report
+    /// arrays must be size-bounded to avoid allocating a heaped array).
+    pub const MAX_INCOMPATIBILIY_INDICIES_REPORTED = 5;
+
+    const SCR = SignatureCompatibilityResult;
+    const SIR = SignatureIncompatibilityReason;
+
+    pub const SignatureCompatibilityResult = union(enum(u1)) {
+        Compatible,
+        Incompatible: SignatureIncompatibilityReason,
+
+        /// Downcast into a boolean, losing the SignatureIncompatibilityReason
+        /// in the process. This is primarily useful in tests for context-less
+        /// quick-failing operations, and should almost never be used in any
+        /// context that could be visible to an end user, as valuable debugging
+        /// information gets lost.
+        pub fn as_bool_lossy(self: *const @This()) bool {
+            return self.* == @This().Compatible;
+        }
+    };
+
+    pub const SignatureIncompatibilityReason = union(enum) {
+        Incomparable,
+        UnderlyingShapesIncompatible: struct {
+            left: ?UnderlyingShapesIncompatible = null,
+            right: ?UnderlyingShapesIncompatible = null,
+        },
+        DisparateShapeCount: DisparateShapeCountSidedness,
+    };
+
+    pub const UnderlyingShapesIncompatible = [MAX_INCOMPATIBILIY_INDICIES_REPORTED]?UnderlyingShapeIncompatibility;
+
+    pub const UnderlyingShapeIncompatibility = struct {
+        index: usize,
+        reason: Shape.ShapeIncompatibilityReason,
+    };
+
+    pub const DisparateShapeCountSidedness = struct {
+        left: bool = false,
+        right: bool = false,
+    };
+
     /// Answering the question, "can this word be used here?", for example when
     /// passing a word as an argument to another word, or for fulfilling shape
     /// contracts.
-    pub fn compatible_with(self: *Self, other: *Self) bool {
-        if (self == other) return true;
+    pub fn compatible_with(self: *Self, other: *Self) SCR {
+        if (self == other or std.meta.eql(self.*, other.*)) return SCR.Compatible;
+        if (std.meta.activeTag(self.*) != std.meta.activeTag(other.*)) return SCR{ .Incompatible = .Incomparable };
 
         return switch (self.*) {
-            .SideEffectary => other.* == .SideEffectary,
-            .Nullary => other.* == .Nullary and self.nullaries_compatible(other),
+            .SideEffectary => unreachable, // by way of std.meta.eql above
+            .Nullary => self.nullaries_compatible(other),
             .NullaryTerminal => @panic("unimplemented"), // TODO
-            .PurelyConsuming => other.* == .PurelyConsuming and self.consuming_compatible(other),
+            .PurelyConsuming => self.consuming_compatible(other),
             .ConsumingTerminal => @panic("unimplemented"), // TODO
-            .PurelyAdditive => other.* == .PurelyAdditive and self.additive_compatible(other),
-            .Mutative => other.* == .Mutative and self.mutative_compatible(other),
+            .PurelyAdditive => self.additive_compatible(other),
+            .Mutative => self.mutative_compatible(other),
         };
     }
 
-    // TODO: return context of which shape failed rather than just a boolean,
-    // which provides zero debugging information and would be infuriating to
-    // actually work with.
-    inline fn nullaries_compatible(self: *Self, other: *Self) bool {
-        if (self.Nullary.len != other.Nullary.len) return false;
+    const IncompatibilitySidedness = enum {
+        Left,
+        Right,
+    };
 
-        for (self.Nullary) |arg, idx| {
-            return arg.compatible_with(other.Nullary[idx]) orelse false;
+    // TODO: Need a fn pointer for indeterminate determination
+    // TODO: Better docstring
+    /// Slices MUST be the same length or you will get OOB panics!
+    fn detect_incompatibilities(
+        self_shapes: []*Shape,
+        other_shapes: []*Shape,
+        side: IncompatibilitySidedness,
+    ) ?SCR {
+        if (self_shapes.len != other_shapes.len) {
+            return SCR{ .Incompatible = SIR{ .DisparateShapeCount = switch (side) {
+                .Left => .{ .left = true },
+                .Right => .{ .right = true },
+            } } };
         }
 
-        return true;
+        var indicies_with_errors: UnderlyingShapesIncompatible = .{null} ** MAX_INCOMPATIBILIY_INDICIES_REPORTED;
+        var err_idx: usize = 0;
+        for (self_shapes) |arg, idx| {
+            switch (arg.compatible_with(other_shapes[idx])) {
+                .Compatible => continue,
+                .Incompatible => |reason| {
+                    indicies_with_errors[err_idx] = .{ .index = idx, .reason = reason };
+                    err_idx += 1;
+
+                    if (err_idx == MAX_INCOMPATIBILIY_INDICIES_REPORTED) break;
+                },
+                .Indeterminate => @panic("unimplemented"), // TODO
+            }
+        }
+
+        if (err_idx > 0) {
+            return SCR{
+                .Incompatible = SIR{
+                    .UnderlyingShapesIncompatible = switch (side) {
+                        .Left => .{ .left = indicies_with_errors },
+                        .Right => .{ .right = indicies_with_errors },
+                    },
+                },
+            };
+        }
+
+        return null;
     }
 
-    // TODO: return context of which shape failed rather than just a boolean,
-    // which provides zero debugging information and would be infuriating to
-    // actually work with.
-    inline fn consuming_compatible(self: *Self, other: *Self) bool {
-        if (self.PurelyConsuming.len != other.PurelyConsuming.len) return false;
-
-        for (self.PurelyConsuming) |arg, idx| {
-            return arg.compatible_with(other.PurelyConsuming[idx]) orelse false;
-        }
-
-        return true;
+    fn nullaries_compatible(self: *Self, other: *Self) SCR {
+        return detect_incompatibilities(
+            self.Nullary,
+            other.Nullary,
+            .Right,
+        ) orelse SCR.Compatible;
     }
 
-    // TODO: return context of which shape failed rather than just a boolean,
-    // which provides zero debugging information and would be infuriating to
-    // actually work with.
-    inline fn additive_compatible(self: *Self, other: *Self) bool {
-        if (self.PurelyAdditive.expects.len != other.PurelyAdditive.expects.len or
-            self.PurelyAdditive.gives.len != other.PurelyAdditive.gives.len)
-        {
-            return false;
-        }
-
-        for (self.PurelyAdditive.expects) |arg, idx| {
-            if (arg.compatible_with(other.PurelyAdditive.expects[idx]) orelse false) continue;
-            return false;
-        }
-
-        for (self.PurelyAdditive.gives) |arg, idx| {
-            if (arg.compatible_with(other.PurelyAdditive.gives[idx]) orelse false) continue;
-            return false;
-        }
-
-        return true;
+    fn consuming_compatible(self: *Self, other: *Self) SCR {
+        return detect_incompatibilities(
+            self.PurelyConsuming,
+            other.PurelyConsuming,
+            .Left,
+        ) orelse SCR.Compatible;
     }
 
-    // TODO: return context of which shape failed rather than just a boolean,
-    // which provides zero debugging information and would be infuriating to
-    // actually work with.
-    inline fn mutative_compatible(self: *Self, other: *Self) bool {
-        if (self.Mutative.before.len != other.Mutative.before.len or
-            self.Mutative.after.len != other.Mutative.after.len)
-        {
-            return false;
-        }
+    fn additive_compatible(self: *Self, other: *Self) SCR {
+        // TODO: Determine whether we care that the entire left side must be
+        // compatible before the right side will even be checked. It's a less
+        // ideal UX, but is "easier" and "simpler".
+        return detect_incompatibilities(
+            self.PurelyAdditive.expects,
+            other.PurelyAdditive.expects,
+            .Left,
+        ) orelse
+            detect_incompatibilities(
+            self.PurelyAdditive.gives,
+            other.PurelyAdditive.gives,
+            .Right,
+        ) orelse
+            SCR.Compatible;
+    }
 
-        for (self.Mutative.before) |arg, idx| {
-            if (arg.compatible_with(other.Mutative.before[idx]) orelse false) continue;
-            return false;
-        }
-
-        for (self.Mutative.after) |arg, idx| {
-            if (arg.compatible_with(other.Mutative.after[idx]) orelse false) continue;
-        }
-
-        return true;
+    fn mutative_compatible(self: *Self, other: *Self) SCR {
+        // TODO: Determine whether we care that the entire left side must be
+        // compatible before the right side will even be checked. It's a less
+        // ideal UX, but is "easier" and "simpler".
+        return detect_incompatibilities(
+            self.Mutative.before,
+            other.Mutative.before,
+            .Left,
+        ) orelse
+            detect_incompatibilities(
+            self.Mutative.after,
+            other.Mutative.after,
+            .Right,
+        ) orelse
+            SCR.Compatible;
     }
 
     // NOTE: These tests only test word *signature* compatibility. For tests
@@ -139,7 +214,7 @@ pub const WordSignature = union(enum) {
     test "SideEffectary: ( -> ) and ( -> ) are compatible" {
         var word1: Self = Self.SideEffectary;
         var word2: Self = Self.SideEffectary;
-        try expect(word1.compatible_with(&word2));
+        try expect(word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "Nullary: ( -> Boolean ) and ( -> Boolean ) are compatible" {
@@ -157,7 +232,7 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .Nullary = word1_gives };
         var word2 = Self{ .Nullary = word2_gives };
 
-        try expect(word1.compatible_with(&word2));
+        try expect(word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "Nullary: ( -> Boolean ) and ( -> UnsignedInt ) are incompatible" {
@@ -178,7 +253,8 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .Nullary = word1_gives };
         var word2 = Self{ .Nullary = word2_gives };
 
-        try expect(!word1.compatible_with(&word2));
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "Nullary: ( -> Boolean ) and ( -> Boolean Boolean ) are incompatible" {
@@ -197,7 +273,8 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .Nullary = word1_gives };
         var word2 = Self{ .Nullary = word2_gives };
 
-        try expect(!word1.compatible_with(&word2));
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "Nullary/SideEffectary: ( -> Boolean ) and ( -> ) are incompatible" {
@@ -214,12 +291,14 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .Nullary = word1_gives };
         var word2 = Self{ .Nullary = word2_gives };
 
-        try expect(!word1.compatible_with(&word2));
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
 
         // This is technically the more correct (and slightly less resource
         // intensive) way to represent ( -> ) anyway
         word2 = Self.SideEffectary;
-        try expect(!word1.compatible_with(&word2));
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "PurelyConsuming: ( Boolean -> ) and ( Boolean -> ) are compatible" {
@@ -237,7 +316,7 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .PurelyConsuming = word1_takes };
         var word2 = Self{ .PurelyConsuming = word2_takes };
 
-        try expect(word1.compatible_with(&word2));
+        try expect(word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "PurelyConsuming: ( Boolean -> ) and ( UnsignedInt -> ) are incompatible" {
@@ -258,7 +337,8 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .PurelyConsuming = word1_takes };
         var word2 = Self{ .PurelyConsuming = word2_takes };
 
-        try expect(!word1.compatible_with(&word2));
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "PurelyConsuming: ( Boolean -> ) and ( Boolean Boolean -> ) are incompatible" {
@@ -277,7 +357,8 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .PurelyConsuming = word1_takes };
         var word2 = Self{ .PurelyConsuming = word2_takes };
 
-        try expect(!word1.compatible_with(&word2));
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "PurelyConsuming/Nullary: ( Boolean -> ) and  ( -> Boolean ) are incompatible" {
@@ -295,7 +376,8 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .PurelyConsuming = word1_takes };
         var word2 = Self{ .Nullary = word2_gives };
 
-        try expect(!word1.compatible_with(&word2));
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "PurelyConsuming/SideEffectary: ( Boolean -> ) and ( -> ) are incompatible" {
@@ -312,7 +394,8 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .PurelyConsuming = word1_takes };
         var word2: Self = Self.SideEffectary;
 
-        try expect(!word1.compatible_with(&word2));
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
     }
 
     // test "PurelyConsuming (generics): ( @1 -> ) and ( String -> ) are compatible, but the inverse is logically impossible" {
@@ -352,7 +435,7 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .PurelyAdditive = .{ .expects = word1_expects, .gives = word1_gives } };
         var word2 = Self{ .PurelyAdditive = .{ .expects = word2_expects, .gives = word2_gives } };
 
-        try expect(word1.compatible_with(&word2));
+        try expect(word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "PurelyAdditive: ( UnsignedInt <- Boolean ) and ( UnsignedInt <- Boolean ) are compatible" {
@@ -379,7 +462,7 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .PurelyAdditive = .{ .expects = word1_expects, .gives = word1_gives } };
         var word2 = Self{ .PurelyAdditive = .{ .expects = word2_expects, .gives = word2_gives } };
 
-        try expect(word1.compatible_with(&word2));
+        try expect(word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "PurelyAdditive: ( <- Boolean ) and ( <- UnsignedInt ) are incompatible" {
@@ -404,7 +487,8 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .PurelyAdditive = .{ .expects = word1_expects, .gives = word1_gives } };
         var word2 = Self{ .PurelyAdditive = .{ .expects = word2_expects, .gives = word2_gives } };
 
-        try expect(!word1.compatible_with(&word2));
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "Mutative: ( Boolean -> UnsignedInt ) and ( Boolean -> UnsignedInt ) are compatible" {
@@ -432,7 +516,7 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .Mutative = .{ .before = word1_before, .after = word1_after } };
         var word2 = Self{ .Mutative = .{ .before = word2_before, .after = word2_after } };
 
-        try expect(word1.compatible_with(&word2));
+        try expect(word1.compatible_with(&word2).as_bool_lossy());
     }
 
     test "Mutative: ( Boolean Boolean -> UnsignedInt ) and ( Boolean -> UnsignedInt ) (and vice-versa) are incompatible" {
@@ -461,8 +545,9 @@ pub const WordSignature = union(enum) {
         var word1 = Self{ .Mutative = .{ .before = word1_before, .after = word1_after } };
         var word2 = Self{ .Mutative = .{ .before = word2_before, .after = word2_after } };
 
-        try expect(!word1.compatible_with(&word2));
-        try expect(!word2.compatible_with(&word1));
+        // TODO: test *why* these words aren't compatible
+        try expect(!word1.compatible_with(&word2).as_bool_lossy());
+        try expect(!word2.compatible_with(&word1).as_bool_lossy());
     }
 };
 
