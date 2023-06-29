@@ -35,7 +35,7 @@ const foo = [_]u8{0} ** 8;
 
 // Fixed: magic constant now has a name, and overrides could theoretically be
 // plumbed without digging into the code around foo itself.
-const NUMBER_OF_FOOS = 8; // in reality there's 5, plus one. IYKYK, RIP.
+const NUMBER_OF_FOOS = 8; // in reality there's 6, plus one. IYKYK, RIP.
 // ...
 const foo = [_]u8{0} ** NUMBER_OF_FOOS;
 ```
