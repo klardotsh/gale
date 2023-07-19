@@ -4,7 +4,7 @@
 		Returns a new String object based on the original, destroying the
 	   	original in the process.
 	}}
-	"bar" /append
+	"bar" append
 	,drop
 ;
 
@@ -14,11 +14,11 @@
 
 : mangle-oops1
 	( String -> String )
-	"bar" /append ,drop ;
-	{             ^ Not allowed! #1 is always implied unless overridden, and so
-	                we are obligated to leave the same string object on the stack.
-					String/append is ( String #1! <- String #2! ) (non-destructive),
-					drop is ( @1 -> ) }
+	"bar" append ,drop ;
+	{            ^ Not allowed! #1 is always implied unless overridden, and so
+	               we are obligated to leave the same string object on the stack.
+                   String/append is ( String #1! <- String #2! ) (non-destructive),
+                   drop is ( @1 -> ) }
 
 : mangle-oops2
 	( String #1! <- String #2! )

@@ -1,0 +1,45 @@
+{ Resolution will check bounded candidates before falling back to an unbounded;
+  this unbounded fallback is required (there's no possible way to exhaustiveness
+  check primitives: if you know all the possible values, you should be using an
+  enum Shape anyway!) }
+
+{ [_] attempts to infer the type... since we know eq?!! is
+  ( @1 #1! @1 #2! -> @1 #2! Boolean ) and this anonymous word is not stack-
+  balanced (requires one more @1==UnsignedInt on the stack to execute without
+  underflow), [_] can be made (using the future inference engine that doesn't
+  yet exist) to understand it needs to create a bounded UnsignedInt (where
+  /in-bounds? then calls this anonymous word).
+  
+  The exact underlying semantics of how bounded/unbounded types work in Zig-space
+  are yet-undecided, though I'm quickly reaching the point where I need to figure
+  it out... }
+{ This desugars to: ( [ 42 eq?! ] [_] -> Boolean ) }
+: is-number-i-like? ( 42 [eq] -> Boolean ) true ;
+{ Desugars: ( [ 9000 lt?! ] [_] -> Boolean ) }
+: is-number-i-like? ( 9000 [lt] -> Boolean ) true ;
+: is-number-i-like? ( UnsignedInt -> Boolean ) false ;
+
+: is-my-name? ( "klardotsh" [eq] -> Boolean ) true ;
+: is-my-name? ( [ "Josh" "Klar" eq-either? ] [_] -> Boolean ) true ;
+: is-my-name? ( String -> Boolean ) false ;
+
+{ Bounded Structs are a bit of a fun one to solve for... }
+
+$ Foo
+    $> bar UnsignedInt ;
+    $> baz String ;
+;
+
+{ Matching just one field is relatively easy... }
+{ Desugars to: ( [ .bar 42 eq?! ] [Foo] <- ) }
+: do-something ( 42 [Foo=>bar] <- ) "the answer to everything" println ;
+
+{ Matching two fields there's no syntax sugar for, good luck! }
+{ Sometimes it's nice to give names to complex things... }
+: is-special-something? ( Foo <- Boolean )
+  .bar 420 eq?
+  ,.baz "loljk" eq?
+  and!
+;
+: do-something ( is-special-something? [Foo] <- ) .baz println ;
+: do-something ( Foo <- ) "useless Foo, please fight it" eprintln ;

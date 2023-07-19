@@ -1,8 +1,7 @@
 { This is provided by the standard library, but is a useful reference to
   understand this file. }
+{{ Something that can be made representable as a String }}
 $ Printable
-	{{ Something that can be made representable as a String }}
-
 	$: repr ( Self <- String ) ;
 
 { ; is actually a :@ alias for ShapeAssembler/; (with signature `( Self <-
@@ -25,9 +24,8 @@ $ Printable
   : Printable/repr "%?" make-formatting-word ;
 }
 
+{{ A recorded piece of music, perhaps in a collection of other recordings. }}
 $ Track
-	{{ A recorded piece of music, perhaps in a collection of other recordings. }}
-
 	{ This is an explicit opt-in to fulfil a Shape: the runtime won't let us pass
 	  Tracks into anything that expects Printables until we've fulfilled its
 	  contract. More on that later. }
@@ -74,9 +72,8 @@ $ Track
   : Track/repr /.total, /.num, ,/format ;
 }
 
+{{ The category of music a song is considered to fit. }}
 % Genre
-	{{ The category of music a song is considered to fit. }}
-
 	{ These are all understood to be Symbols }
 	%> Rock ;
 	%> Metal ;
@@ -89,9 +86,8 @@ $ Track
 	}
 ;
 
+{{ A recorded piece of music and its metadata. }}
 $ Song
-	{{ A recorded piece of music and its metadata. }}
-
 	$> artist String ;
 	$> album_artist String Optional! ;
 	$> title String ;
