@@ -12,29 +12,14 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 const std = @import("std");
+const Allocator = std.mem.Allocator;
+const testAllocator: Allocator = std.testing.allocator;
+const expect = std.testing.expect;
+const expectEqual = std.testing.expectEqual;
+const expectEqualStrings = std.testing.expectEqualStrings;
+const expectError = std.testing.expectError;
 
+const _shape = @import("./shape.zig");
+const InternalError = @import("./internal_error.zig").InternalError;
 const Types = @import("./types.zig");
-const WordList = @import("./word_list.zig").WordList;
-
-const SymbolContext = struct {
-    const Self = @This();
-
-    pub fn hash(_: Self, s: *Types.HeapedSymbol) u64 {
-        return std.hash_map.hashString(s.value.?);
-    }
-    pub fn eql(_: Self, a: *Types.HeapedSymbol, b: *Types.HeapedSymbol) bool {
-        return std.hash_map.eqlString(a.value.?, b.value.?);
-    }
-};
-
-// TODO: Docs.
-pub const WordMap = std.HashMap(
-    *Types.HeapedSymbol,
-    WordList,
-    SymbolContext,
-    std.hash_map.default_max_load_percentage,
-);
-
-test {
-    std.testing.refAllDecls(@This());
-}
+const WordSignature = @import("./word_signature.zig");

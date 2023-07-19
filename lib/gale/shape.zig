@@ -41,7 +41,7 @@ pub const Shape = struct {
     const Self = @This();
 
     given_name: ?*Types.HeapedSymbol = null,
-    member_words: ?[]MemberWord = null,
+    receiver_words: ?[]MemberWord = null,
     contents: ShapeContents,
 
     /// Shape Evolution is how we implement the "newtype" concept: say I have
@@ -59,7 +59,7 @@ pub const Shape = struct {
     /// for this purpose (say, "aliasing", which is *also* something you can
     /// do to a shape, but this has nothing to do with our "newtype" concept).
     ///
-    /// The evolved shape will retain `member_words` (making this a reasonably
+    /// The evolved shape will retain `receiver_words` (making this a reasonably
     /// lightweight way to non-destructively extend or override an existing
     /// Shape's contract requirements), and all "Self Words" defined on the
     /// root will be "inherited" to this evolved shape (with Self redefined).
@@ -86,6 +86,8 @@ pub const Shape = struct {
         Float,
         SignedInt,
         UnsignedInt,
+        Word,
+        WordSignature,
     };
 
     comptime {
@@ -94,6 +96,8 @@ pub const Shape = struct {
         std.debug.assert(@enumToInt(Primitives.Float) == @enumToInt(ShapeContents.BoundedPrimitive.Float));
         std.debug.assert(@enumToInt(Primitives.SignedInt) == @enumToInt(ShapeContents.BoundedPrimitive.SignedInt));
         std.debug.assert(@enumToInt(Primitives.UnsignedInt) == @enumToInt(ShapeContents.BoundedPrimitive.UnsignedInt));
+        std.debug.assert(@enumToInt(Primitives.Word) == @enumToInt(ShapeContents.BoundedPrimitive.Word));
+        std.debug.assert(@enumToInt(Primitives.WordSignature) == @enumToInt(ShapeContents.BoundedPrimitive.WordSignature));
     }
 
     /// Convenience wrapper around creating a Shape with Contents of a
@@ -138,7 +142,7 @@ pub const Shape = struct {
 
         return Self{
             .given_name = null,
-            .member_words = self.member_words,
+            .receiver_words = self.receiver_words,
             .contents = self.contents,
             .evolved_from = self,
             .evolution_id = evolution_id,
@@ -366,6 +370,8 @@ pub const ShapeContents = union(enum) {
         Float,
         SignedInt,
         UnsignedInt,
+        Word,
+        WordSignature,
     };
 
     const UnboundedPrimitive = enum(u4) {
@@ -374,6 +380,8 @@ pub const ShapeContents = union(enum) {
         Float,
         SignedInt,
         UnsignedInt,
+        Word,
+        WordSignature,
     };
 
     comptime {
@@ -386,6 +394,8 @@ pub const ShapeContents = union(enum) {
         std.debug.assert(@enumToInt(UnboundedPrimitive.Float) == @enumToInt(BoundedPrimitive.Float));
         std.debug.assert(@enumToInt(UnboundedPrimitive.SignedInt) == @enumToInt(BoundedPrimitive.SignedInt));
         std.debug.assert(@enumToInt(UnboundedPrimitive.UnsignedInt) == @enumToInt(BoundedPrimitive.UnsignedInt));
+        std.debug.assert(@enumToInt(UnboundedPrimitive.Word) == @enumToInt(BoundedPrimitive.Word));
+        std.debug.assert(@enumToInt(UnboundedPrimitive.WordSignature) == @enumToInt(BoundedPrimitive.WordSignature));
     }
 
     Empty,

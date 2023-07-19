@@ -34,6 +34,10 @@ pub const WordSignature = union(enum) {
     SideEffectary,
     /// ( <-/-> Boolean ), subset of PurelyAdditive
     Nullary: []*Shape,
+    /// A special case of Nullary that will only ever place one Object onto the
+    /// Stack.
+    // Why offer this? It saves a slice allocation and a second pointer jump.
+    NullarySingle: *Shape,
     /// ( -> !!! ), a special case of Nullary, where it can never return
     /// (eg. panic/exit)
     NullaryTerminal,
@@ -113,6 +117,7 @@ pub const WordSignature = union(enum) {
         return switch (self.*) {
             .SideEffectary => unreachable, // by way of std.meta.eql above
             .Nullary => self.nullaries_compatible(other),
+            .NullarySingle => self.nullaries_single_compatible(other),
             .NullaryTerminal => SCR.Compatible,
             .PurelyConsuming, .ConsumingTerminal => self.consuming_compatible(other),
             .PurelyAdditive => self.additive_compatible(other),
@@ -200,6 +205,18 @@ pub const WordSignature = union(enum) {
         const report = detect_incompatibilities(
             self.Nullary,
             other.Nullary,
+            .Right,
+        );
+
+        return if (report.incompatibilities) |ic| SCR{ .Incompatible = ic } else SCR.Compatible;
+    }
+
+    fn nullaries_single_compatible(self: *Self, other: *Self) SCR {
+        var self_storage: [1]*Shape = .{self.NullarySingle};
+        var other_storage: [1]*Shape = .{other.NullarySingle};
+        const report = detect_incompatibilities(
+            &self_storage,
+            &other_storage,
             .Right,
         );
 

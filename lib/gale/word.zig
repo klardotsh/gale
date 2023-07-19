@@ -16,6 +16,7 @@ const std = @import("std");
 const Object = @import("./object.zig").Object;
 const Runtime = @import("./runtime.zig").Runtime;
 const Types = @import("./types.zig");
+const WordSignature = @import("./word_signature.zig").WordSignature;
 
 // TODO: This should almost certainly not be anyerror.
 // TODO: handle stack juggling
@@ -25,14 +26,6 @@ pub const CompoundImplementation = []*Types.HeapedWord;
 pub const HeapLitImplementation = *Object;
 pub const PrimitiveImplementation = *const PrimitiveWord;
 pub const WordImplementation = union(enum) {
-    // I can see a world where this should return something other than void
-    // to allow for optimizations later... probably an enum/bitfield of
-    // what, if any, changes were made to the stack or its objects?
-    //
-    // Note that by the function signature alone we can infer that, while
-    // gale pretends to be an immutable-by-default language at the glass,
-    // it's still a Good Old Fashioned Mutable Ball Of Bit Spaghetti under
-    // the hood for performance reasons.
     Primitive: PrimitiveImplementation,
     Compound: CompoundImplementation,
     HeapLit: HeapLitImplementation,
@@ -46,6 +39,11 @@ pub const Flags = packed struct {
 pub const Word = struct {
     const Self = @This();
 
+    pub const SignatureState = union(enum) {
+        Declared: *WordSignature,
+        Inferred: *WordSignature,
+    };
+
     // Those finding they need more tag space should compile their own
     // project-specific gale build changing the constant as appropriate. Unlike
     // many languages where mucking about with the internals is faux-pas, in
@@ -56,6 +54,10 @@ pub const Word = struct {
     pub const TAG_ARRAY_SIZE = MAX_GLOBAL_TAGS / 8;
 
     flags: Flags,
+
+    /// Null state generally represents a word in construction; finding a null
+    /// .signature in the wild is fairly certainly an implementation bug.
+    signature: ?SignatureState,
 
     // This is thinking ahead for functionality I want to be able to provide:
     // while gale is in no way a "pure functional" language like Haskell, and
@@ -87,24 +89,34 @@ pub const Word = struct {
 
     impl: WordImplementation,
 
-    pub fn new_untagged(impl: WordImplementation) Self {
+    pub fn new_untagged(impl: WordImplementation, sig: ?SignatureState) Self {
         return Self{
             .flags = .{ .hidden = false },
             .tags = [_]u8{0} ** TAG_ARRAY_SIZE,
             .impl = impl,
+            .signature = sig,
         };
     }
 
-    pub fn new_compound_untagged(impl: CompoundImplementation) Self {
-        return new_untagged(.{ .Compound = impl });
+    pub fn new_compound_untagged(
+        impl: CompoundImplementation,
+        sig: ?SignatureState,
+    ) Self {
+        return new_untagged(.{ .Compound = impl }, sig);
     }
 
-    pub fn new_heaplit_untagged(impl: HeapLitImplementation) Self {
-        return new_untagged(.{ .HeapLit = impl });
+    pub fn new_heaplit_untagged(
+        impl: HeapLitImplementation,
+        sig: ?SignatureState,
+    ) Self {
+        return new_untagged(.{ .HeapLit = impl }, sig);
     }
 
-    pub fn new_primitive_untagged(impl: PrimitiveImplementation) Self {
-        return new_untagged(.{ .Primitive = impl });
+    pub fn new_primitive_untagged(
+        impl: PrimitiveImplementation,
+        sig: ?SignatureState,
+    ) Self {
+        return new_untagged(.{ .Primitive = impl }, sig);
     }
 
     pub fn deinit(self: *Self, alloc: std.mem.Allocator) void {

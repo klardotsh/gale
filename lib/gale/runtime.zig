@@ -26,6 +26,7 @@ const _stack = @import("./stack.zig");
 const _word = @import("./word.zig");
 
 const helpers = @import("./helpers.zig");
+const well_known_entities = @import("./well_known_entities.zig");
 
 const CompoundImplementation = _word.CompoundImplementation;
 const HeapLitImplementation = _word.HeapLitImplementation;
@@ -33,12 +34,18 @@ const InternalError = @import("./internal_error.zig").InternalError;
 const Object = _object.Object;
 const ParsedWord = @import("./parsed_word.zig").ParsedWord;
 const PrimitiveImplementation = _word.PrimitiveImplementation;
+const Shape = @import("./shape.zig").Shape;
 const Stack = _stack.Stack;
 const StackManipulationError = _stack.StackManipulationError;
 const Types = @import("./types.zig");
 const Word = _word.Word;
 const WordList = @import("./word_list.zig").WordList;
 const WordMap = @import("./word_map.zig").WordMap;
+const WordSignature = @import("./word_signature.zig").WordSignature;
+const WellKnownShape = well_known_entities.WellKnownShape;
+const WellKnownShapeStorage = well_known_entities.WellKnownShapeStorage;
+const WellKnownSignature = well_known_entities.WellKnownSignature;
+const WellKnownSignatureStorage = well_known_entities.WellKnownSignatureStorage;
 
 pub const Runtime = struct {
     const Self = @This();
@@ -86,10 +93,35 @@ pub const Runtime = struct {
 
     // TODO: configurable in build.zig
     const SYMBOL_POOL_DEFAULT_SIZE = 4096;
+
+    // TODO: configurable in build.zig
+    const SIGNATURE_POOL_DEFAULT_SIZE = 8192;
+
     /// All symbols are interned by their raw "string" contents and stored
     /// behind a typical garbage collection structure (Rc([]u8)) for later
     /// pulling onto a stack.
     const SymbolPool = std.StringHashMap(Types.HeapedSymbol);
+
+    // TODO: use HashSet if https://github.com/ziglang/zig/issues/6919 ever
+    // moves
+    const WordSignaturePool = std.hash_map.HashMap(
+        WordSignature,
+        void,
+        struct {
+            pub const eql = std.hash_map.getAutoEqlFn(WordSignature, @This());
+            pub fn hash(ctx: @This(), key: WordSignature) u64 {
+                _ = ctx;
+                if (comptime std.meta.trait.hasUniqueRepresentation(WordSignature)) {
+                    return std.hash.Wyhash.hash(0, std.mem.asBytes(&key));
+                } else {
+                    var hasher = std.hash.Wyhash.init(0);
+                    std.hash.autoHashStrat(&hasher, key, .DeepRecursive);
+                    return hasher.final();
+                }
+            }
+        },
+        std.hash_map.default_max_load_percentage,
+    );
 
     fn GetOrPutResult(comptime T: type) type {
         return struct {
@@ -103,6 +135,9 @@ pub const Runtime = struct {
     private_space: PrivateSpace,
     stack: *Stack,
     symbols: SymbolPool,
+    signatures: WordSignaturePool,
+    well_known_shapes: WellKnownShapeStorage,
+    well_known_signatures: WellKnownSignatureStorage,
 
     pub fn init(alloc: Allocator) !Self {
         var dictionary = WordMap.init(alloc);
@@ -111,13 +146,23 @@ pub const Runtime = struct {
         var symbol_pool = SymbolPool.init(alloc);
         try symbol_pool.ensureTotalCapacity(SYMBOL_POOL_DEFAULT_SIZE);
 
-        return .{
+        var signature_pool = WordSignaturePool.init(alloc);
+        try signature_pool.ensureTotalCapacity(SIGNATURE_POOL_DEFAULT_SIZE);
+
+        var rt = Self{
             .alloc = alloc,
             .dictionary = dictionary,
             .private_space = PrivateSpace.init(),
             .stack = try Stack.init(alloc, null),
             .symbols = symbol_pool,
+            .signatures = signature_pool,
+            .well_known_shapes = well_known_entities.shape_storage(),
+            .well_known_signatures = well_known_entities.signature_storage(),
         };
+
+        try well_known_entities.populate(&rt);
+
+        return rt;
     }
 
     pub fn deinit(self: *Self) void {
@@ -154,6 +199,9 @@ pub const Runtime = struct {
         }
         self.symbols.clearAndFree();
         self.symbols.deinit();
+
+        self.signatures.clearAndFree();
+        self.signatures.deinit();
     }
 
     /// Deinitialize this Runtime, panicking if anything was left on the stack.
@@ -254,6 +302,8 @@ pub const Runtime = struct {
     }
 
     pub fn run_word(self: *Self, word: *Types.HeapedWord) !void {
+        // TODO: Stack compatibility check against the WordSignature.
+
         if (word.value) |iword| {
             switch (iword.impl) {
                 .Compound => return InternalError.Unimplemented, // TODO
@@ -297,6 +347,28 @@ pub const Runtime = struct {
         };
     }
 
+    /// Take a WordSignature by value and, if it is new to this Runtime, store
+    /// it. Return a GetOrPutResult which will contain a pointer to the stored
+    /// WordSignature. Each unique signature will be stored a maximum of one
+    /// time in this Runtime.
+    ///
+    /// Can fail by way of allocation errors only.
+    pub fn get_or_put_word_signature(self: *Self, sig: WordSignature) !GetOrPutResult(WordSignature) {
+        var entry = try self.signatures.getOrPut(sig);
+        return .{
+            .value_ptr = entry.key_ptr,
+            .found_existing = entry.found_existing,
+        };
+    }
+
+    pub fn get_well_known_shape(self: *Self, req: WellKnownShape) *Shape {
+        return &self.well_known_shapes[@enumToInt(req)];
+    }
+
+    pub fn get_well_known_word_signature(self: *Self, req: WellKnownSignature) *WordSignature {
+        return self.well_known_signatures[@enumToInt(req)];
+    }
+
     /// Takes a bare Word struct, wraps it in a refcounter, and returns a
     /// pointer to the resultant memory. Does not wrap it in an Object for
     /// direct placement on a Stack.
@@ -307,18 +379,30 @@ pub const Runtime = struct {
     }
 
     /// Heap-wraps a compound word definition.
-    pub fn word_from_compound_impl(self: *Self, impl: CompoundImplementation) !*Types.HeapedWord {
-        return try self.send_word_to_heap(Word.new_compound_untagged(impl));
+    pub fn word_from_compound_impl(
+        self: *Self,
+        impl: CompoundImplementation,
+        sig: ?Word.SignatureState,
+    ) !*Types.HeapedWord {
+        return try self.send_word_to_heap(Word.new_compound_untagged(impl, sig));
     }
 
     /// Heap-wraps a heaplit word definition. How meta.
-    pub fn word_from_heaplit_impl(self: *Self, impl: HeapLitImplementation) !*Types.HeapedWord {
-        return try self.send_word_to_heap(Word.new_heaplit_untagged(impl));
+    pub fn word_from_heaplit_impl(
+        self: *Self,
+        impl: HeapLitImplementation,
+        sig: ?Word.SignatureState,
+    ) !*Types.HeapedWord {
+        return try self.send_word_to_heap(Word.new_heaplit_untagged(impl, sig));
     }
 
     /// Heap-wraps a primitive word definition.
-    pub fn word_from_primitive_impl(self: *Self, impl: PrimitiveImplementation) !*Types.HeapedWord {
-        return try self.send_word_to_heap(Word.new_primitive_untagged(impl));
+    pub fn word_from_primitive_impl(
+        self: *Self,
+        impl: PrimitiveImplementation,
+        sig: ?Word.SignatureState,
+    ) !*Types.HeapedWord {
+        return try self.send_word_to_heap(Word.new_primitive_untagged(impl, sig));
     }
 
     // Right now, Zig doesn't have a way to narrow `targets` type from anytype,
@@ -334,7 +418,12 @@ pub const Runtime = struct {
         const compound_storage = try self.alloc.alloc(*Types.HeapedWord, targets.len);
         inline for (targets) |target, idx| compound_storage[idx] = target;
 
-        var heap_for_word = try self.word_from_compound_impl(compound_storage);
+        // TODO WARNING: For now, this always makes invalid words (without a
+        // signature). Need to figure out the correct way to plumb signatures
+        // here given that the runtime will be using a builder pattern to
+        // attach them.
+        var heap_for_word = try self.word_from_compound_impl(compound_storage, null);
+
         // TODO should this increment actually be stashed away in a dictionary
         // helper method somewhere? should there be a
         // Runtime.unstacked_word_from_compound_impl that handles the increment
