@@ -79,8 +79,9 @@ pub const Shape = struct {
     };
 
     // These MUST be kept in sync with the Bounded/Unbounded enums in
-    // ShapeContents below! This is enforced with the comptime block below.
+    // ShapeContents below! This is enforced with the comptime block.
     pub const Primitives = enum(u4) {
+        Array,
         Boolean,
         CharSlice,
         Float,
@@ -88,17 +89,18 @@ pub const Shape = struct {
         UnsignedInt,
         Word,
         WordSignature,
-    };
 
-    comptime {
-        std.debug.assert(@enumToInt(Primitives.Boolean) == @enumToInt(ShapeContents.BoundedPrimitive.Boolean));
-        std.debug.assert(@enumToInt(Primitives.CharSlice) == @enumToInt(ShapeContents.BoundedPrimitive.CharSlice));
-        std.debug.assert(@enumToInt(Primitives.Float) == @enumToInt(ShapeContents.BoundedPrimitive.Float));
-        std.debug.assert(@enumToInt(Primitives.SignedInt) == @enumToInt(ShapeContents.BoundedPrimitive.SignedInt));
-        std.debug.assert(@enumToInt(Primitives.UnsignedInt) == @enumToInt(ShapeContents.BoundedPrimitive.UnsignedInt));
-        std.debug.assert(@enumToInt(Primitives.Word) == @enumToInt(ShapeContents.BoundedPrimitive.Word));
-        std.debug.assert(@enumToInt(Primitives.WordSignature) == @enumToInt(ShapeContents.BoundedPrimitive.WordSignature));
-    }
+        comptime {
+            std.debug.assert(@enumToInt(Primitives.Array) == @enumToInt(ShapeContents.BoundedPrimitive.Array));
+            std.debug.assert(@enumToInt(Primitives.Boolean) == @enumToInt(ShapeContents.BoundedPrimitive.Boolean));
+            std.debug.assert(@enumToInt(Primitives.CharSlice) == @enumToInt(ShapeContents.BoundedPrimitive.CharSlice));
+            std.debug.assert(@enumToInt(Primitives.Float) == @enumToInt(ShapeContents.BoundedPrimitive.Float));
+            std.debug.assert(@enumToInt(Primitives.SignedInt) == @enumToInt(ShapeContents.BoundedPrimitive.SignedInt));
+            std.debug.assert(@enumToInt(Primitives.UnsignedInt) == @enumToInt(ShapeContents.BoundedPrimitive.UnsignedInt));
+            std.debug.assert(@enumToInt(Primitives.Word) == @enumToInt(ShapeContents.BoundedPrimitive.Word));
+            std.debug.assert(@enumToInt(Primitives.WordSignature) == @enumToInt(ShapeContents.BoundedPrimitive.WordSignature));
+        }
+    };
 
     /// Convenience wrapper around creating a Shape with Contents of a
     /// CatchAll variety, a process which otherwise takes several lines
@@ -365,6 +367,7 @@ pub const ShapeContents = union(enum) {
     };
 
     const BoundedPrimitive = enum(u4) {
+        Array,
         Boolean,
         CharSlice,
         Float,
@@ -375,6 +378,7 @@ pub const ShapeContents = union(enum) {
     };
 
     const UnboundedPrimitive = enum(u4) {
+        Array,
         Boolean,
         CharSlice,
         Float,
@@ -389,6 +393,7 @@ pub const ShapeContents = union(enum) {
         // `Shape.compatible_with`, let's paranoically ensure we're not
         // going to trigger some unsafe, undefined (or incorrectly-defined)
         // behavior later...
+        std.debug.assert(@enumToInt(UnboundedPrimitive.Array) == @enumToInt(BoundedPrimitive.Array));
         std.debug.assert(@enumToInt(UnboundedPrimitive.Boolean) == @enumToInt(BoundedPrimitive.Boolean));
         std.debug.assert(@enumToInt(UnboundedPrimitive.CharSlice) == @enumToInt(BoundedPrimitive.CharSlice));
         std.debug.assert(@enumToInt(UnboundedPrimitive.Float) == @enumToInt(BoundedPrimitive.Float));

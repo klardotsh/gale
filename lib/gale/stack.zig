@@ -470,6 +470,11 @@ pub const Stack = struct {
         return target;
     }
 
+    /// Push a managed array pointer onto this Stack as an Object.
+    pub inline fn do_push_array(self: *Self, item: *Types.HeapedArray) !*Self {
+        return try self.do_push(Object{ .Array = item });
+    }
+
     /// Push a Zig boolean value onto this Stack as an Object.
     pub inline fn do_push_bool(self: *Self, item: bool) !*Self {
         return try self.do_push(Object{ .Boolean = item });

@@ -22,6 +22,9 @@ test {
     std.testing.refAllDecls(@This());
 }
 
+pub const ObjectArray = std.ArrayList(Object);
+
+pub const HeapedArray = Rc(ObjectArray);
 pub const HeapedOpaque = Rc([]u8);
 pub const HeapedString = Rc([]u8);
 pub const HeapedSymbol = Rc([]u8);

@@ -510,6 +510,10 @@ pub const Runtime = struct {
         };
     }
 
+    pub fn stack_push_array(self: *Self, value: *Types.HeapedArray) !void {
+        self.stack = try self.stack.do_push_array(value);
+    }
+
     pub fn stack_push_bool(self: *Self, value: bool) !void {
         self.stack = try self.stack.do_push_bool(value);
     }

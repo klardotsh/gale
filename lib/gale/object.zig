@@ -26,6 +26,7 @@ pub const Object = union(enum) {
     // their base Shape, so [null, 8 as usize] is known to be an UnsignedInt,
     // but [Meters, 8 as usize] is known to be a Meters type of UnsignedInt
 
+    Array: *Types.HeapedArray,
     Boolean: bool,
     Float: f64,
     /// Opaque represents a blob of memory that is left to userspace to manage
@@ -39,6 +40,24 @@ pub const Object = union(enum) {
 
     pub fn deinit(self: *Self, alloc: Allocator) void {
         switch (self.*) {
+            .Array => |inner| {
+                // First, we need to deref and kill all the objects stored
+                // in this array, garbage collecting the inner contents as
+                // necessary.
+                //
+                // Using ? here because if we have an Rc with no contents at
+                // this point, something has gone horribly, horribly wrong, and
+                // panicking the thread is appropriate.
+                for (inner.value.?.items) |_it| {
+                    var it = _it;
+                    it.deinit(alloc);
+                }
+
+                // Now we can toss this Object and the ArrayList stored within.
+                // Passing alloc here is necessary by type signature only; it
+                // won't be used (since ArrayList is a ManagedStruct).
+                _ = inner.decrement_and_prune(.DeinitInner, alloc);
+            },
             .Boolean, .Float, .SignedInt, .UnsignedInt => {},
             .String, .Symbol => |inner| {
                 _ = inner.decrement_and_prune(.FreeInnerDestroySelf, alloc);
@@ -58,6 +77,7 @@ pub const Object = union(enum) {
     /// ergonomics.
     pub fn ref(self: Self) !Self {
         switch (self) {
+            .Array => |rc| try rc.increment(),
             .Boolean, .Float, .SignedInt, .UnsignedInt => {},
             .String => |rc| try rc.increment(),
             .Symbol => |rc| try rc.increment(),

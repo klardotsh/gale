@@ -33,7 +33,16 @@ pub fn Rc(comptime T: type) type {
                 .Slice => .SlicePointer,
                 else => @compileError(no_valid_innerkind_msg),
             },
-            .Struct => .Struct,
+            .Struct => |container| strct: {
+                // TODO: See if this is the only differentiator worth caring
+                // about, or if we should also factor things like the name of
+                // the field in. Or maybe we need a wrapper type rather than
+                // metaprogramming magic, who knows.
+                for (container.fields) |field| if (field.field_type == Allocator) {
+                    break :strct .ManagedStruct;
+                };
+                break :strct .Struct;
+            },
             else => @compileError(no_valid_innerkind_msg),
         };
 
@@ -50,6 +59,7 @@ pub fn Rc(comptime T: type) type {
                 DeinitInnerWithAlloc,
                 DeinitInnerWithAllocDestroySelf,
             },
+            .ManagedStruct => enum { DeinitInner },
             else => @compileError("No valid PruneModes exist for value's type: " ++ @typeName(T)),
         };
 
@@ -187,6 +197,9 @@ pub fn Rc(comptime T: type) type {
                         inner.deinit(alloc);
                         alloc.destroy(self);
                     },
+                },
+                .ManagedStruct => switch (prune_mode) {
+                    .DeinitInner => inner.deinit(),
                 },
                 else => unreachable,
             };

@@ -91,7 +91,11 @@ pub fn LIT(runtime: *Runtime) !void {
     // already know the word's return value?
     const banished = try runtime.stack_pop_to_heap();
     const word = try runtime.word_from_heaplit_impl(banished, switch (banished.*) {
-        .Opaque => @panic("unimplemented"), // TODO
+        // TODO, maybe this should be unreachable, since opaques are meant more
+        // for things like FFI storage rather than raw, Gale-side bit access.
+        .Opaque => @panic("unimplemented"),
+
+        .Array => .{ .Declared = runtime.get_well_known_word_signature(.NullarySingleUnboundedArray) },
         .Boolean => .{ .Declared = runtime.get_well_known_word_signature(.NullarySingleUnboundedBoolean) },
         .Float => .{ .Declared = runtime.get_well_known_word_signature(.NullarySingleUnboundedFloat) },
         .SignedInt => .{ .Declared = runtime.get_well_known_word_signature(.NullarySingleUnboundedSignedInt) },

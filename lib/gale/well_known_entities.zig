@@ -25,7 +25,8 @@ pub const WellKnownSignatureStorage = [std.meta.fields(WellKnownSignature).len]*
 /// A well-known Shape ships as part of the Runtime because it reflects a
 /// language primitive, rather than anything created in userspace.
 pub const WellKnownShape = enum(u8) {
-    UnboundedBoolean = 0,
+    UnboundedArray = 0,
+    UnboundedBoolean,
     UnboundedString,
     UnboundedSymbol,
     UnboundedUnsignedInt,
@@ -36,7 +37,8 @@ pub const WellKnownShape = enum(u8) {
 };
 
 pub const WellKnownSignature = enum(u8) {
-    NullarySingleUnboundedBoolean = 0,
+    NullarySingleUnboundedArray = 0,
+    NullarySingleUnboundedBoolean,
     NullarySingleUnboundedString,
     NullarySingleUnboundedSymbol,
     NullarySingleUnboundedUnsignedInt,
@@ -65,6 +67,13 @@ pub fn signature_storage() WellKnownSignatureStorage {
 pub fn populate(rt: *Runtime) !void {
     for (rt.well_known_shapes) |*it, idx| {
         switch (@intToEnum(WellKnownShape, idx)) {
+            .UnboundedArray => {
+                it.* = Shape.new_containing_primitive(.Unbounded, .Array);
+                var stored = try rt.signatures.getOrPut(WordSignature{ .NullarySingle = it });
+                stored.value_ptr.* = {};
+                rt.well_known_signatures[@enumToInt(WellKnownSignature.NullarySingleUnboundedArray)] =
+                    stored.key_ptr;
+            },
             .UnboundedBoolean => {
                 it.* = Shape.new_containing_primitive(.Unbounded, .Boolean);
                 var stored = try rt.signatures.getOrPut(WordSignature{ .NullarySingle = it });
