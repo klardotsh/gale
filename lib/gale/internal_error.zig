@@ -21,7 +21,6 @@ pub const InternalError = error{
     InvalidWordName,
     TypeError,
     Unimplemented,
-    UnknownSlashedSuffix,
     ValueError, // TODO: rename???
 };
 

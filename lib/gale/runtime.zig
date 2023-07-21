@@ -576,18 +576,9 @@ test "Runtime.eval: integration" {
     var rt = try Runtime.init(testAllocator);
     defer rt.deinit_guard_for_empty_stack();
 
-    // TODO: comments depend on @BEFORE_WORD support, or could become part of
-    // ParsedWord if we want to push it down to barer metal.
-    //
-    // try rt.eval("{{ 1 }}");
-    // try expectError(
-    //     StackManipulationError.Underflow,
-    //     rt.stack_pop(),
-    // );
-
     // Push four numbers to the stack individually
-    try rt.eval("1");
-    try rt.eval("2/i");
+    try rt.eval("-1");
+    try rt.eval("+2");
     try rt.eval("3.14");
     try rt.eval("4");
 
@@ -598,7 +589,7 @@ test "Runtime.eval: integration" {
     try rt.eval("\"foo and a bit of bar\"");
 
     // Now push several more numbers in one library call
-    try rt.eval("5/u 6/i 7.5");
+    try rt.eval("5 +6 7.5");
 
     var float_signed_unsigned = try rt.stack_pop_trio();
     defer {
@@ -637,7 +628,7 @@ test "Runtime.eval: integration" {
         rt.release_heaped_object_reference(&inferunsigned_float_signed.far);
         rt.release_heaped_object_reference(&inferunsigned_float_signed.farther);
     }
-    try expectEqual(@as(isize, 4), inferunsigned_float_signed.near.SignedInt);
+    try expectEqual(@as(usize, 4), inferunsigned_float_signed.near.UnsignedInt);
     try expectApproxEqAbs(
         @as(f64, 3.14),
         inferunsigned_float_signed.far.Float,
@@ -647,7 +638,7 @@ test "Runtime.eval: integration" {
 
     var bottom = try rt.stack_pop();
     defer rt.release_heaped_object_reference(&bottom);
-    try expectEqual(@as(isize, 1), bottom.SignedInt);
+    try expectEqual(@as(isize, -1), bottom.SignedInt);
 }
 
 test {

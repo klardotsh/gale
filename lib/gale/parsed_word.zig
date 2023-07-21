@@ -163,21 +163,16 @@ pub const ParsedWord = union(enum) {
             }
         }
 
-        if (input.len > 1 and input[input.len - 2] == '/') {
-            const unsuffixed = input[0 .. input.len - 2];
-            switch (input[input.len - 1]) {
-                'u' => if (std.fmt.parseInt(usize, unsuffixed, 10) catch null) |parsed| {
-                    return ParsedWord{ .UnsignedInt = parsed };
-                },
-                'i' => if (parseInputAsSignedInt(unsuffixed)) |parsed| {
-                    return parsed;
-                },
-                else => return InternalError.UnknownSlashedSuffix,
+        if (input.len > 1) {
+            const first_char = input[0];
+            if ((first_char == '+' or first_char == '-') and
+                (input[1] >= '0' and input[1] <= '9'))
+            {
+                const start_idx: usize = if (first_char == '-') 0 else 1;
+                if (std.fmt.parseInt(isize, input[start_idx..], 10) catch null) |parsed| {
+                    return ParsedWord{ .SignedInt = parsed };
+                }
             }
-        }
-
-        if (std.fmt.parseInt(isize, input, 10) catch null) |parsed| {
-            return ParsedWord{ .SignedInt = parsed };
         }
 
         if (std.fmt.parseInt(usize, input, 10) catch null) |parsed| {
@@ -274,17 +269,12 @@ pub const ParsedWord = union(enum) {
     }
 
     test "parses ints: bare" {
-        try expectEqual(@as(isize, 420), (try from_input("420")).SignedInt);
-        try expectEqual(@as(isize, -1337), (try from_input("-1337")).SignedInt);
+        try expectEqual(@as(usize, 420), (try from_input("420")).UnsignedInt);
     }
 
-    test "parses ints: suffixes" {
-        try expectEqual(@as(isize, 420), (try from_input("420/i")).SignedInt);
-        try expectEqual(@as(usize, 420), (try from_input("420/u")).UnsignedInt);
-    }
-
-    test "parses ints: unhandled suffixes" {
-        try expectError(InternalError.UnknownSlashedSuffix, from_input("12345/z"));
+    test "parses ints: prefixes" {
+        try expectEqual(@as(isize, -420), (try from_input("-420")).SignedInt);
+        try expectEqual(@as(isize, 420), (try from_input("+420")).SignedInt);
     }
 
     test "parses simple word incantations" {
