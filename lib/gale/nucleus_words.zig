@@ -41,7 +41,8 @@ pub fn EQ(runtime: *Runtime) !void {
     const peek = try runtime.stack_peek_pair();
 
     if (peek.far) |bottom| {
-        try runtime.stack_push_bool(try peek.near.eq(bottom));
+        _ = try peek.near.assert_same_kind_as(bottom);
+        try runtime.stack_push_bool(true);
         return;
     }
 
