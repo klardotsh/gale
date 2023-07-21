@@ -75,9 +75,9 @@ $ Track
 {{ The category of music a song is considered to fit. }}
 % Genre
 	{ These are all understood to be Symbols }
-	%> Rock ;
-	%> Metal ;
-	%> Electronic ;
+	%_ Rock ;
+	%_ Metal ;
+	%_ Electronic ;
 
 	{ But they can take exactly one member argument. Assume we had subgenre
 	  enums defined:
@@ -88,11 +88,11 @@ $ Track
 
 {{ A recorded piece of music and its metadata. }}
 $ Song
-	$> artist String ;
-	$> album_artist String Optional! ;
-	$> title String ;
-	$> track Track Optional! ;
-	$> genres Genre List! ;
+	$. artist String ;
+	$. album_artist String Optional! ;
+	$. title String ;
+	$. track Track Optional! ;
+	$. genres Genre List! ;
 ;
 
 :@ Song/format "%s by %s" make-formatter ;

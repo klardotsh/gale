@@ -1,0 +1,12 @@
+{ None is an intrinsic provided by the runtime, representing the lack of a
+  value. }
+{{ Used to represent the presence of a value, in contrast to the intrinsic None,
+   which represents the lack thereof. }}
+$> Some @1 ;
+$= Maybe Some None or ;
+
+{{ Used to represent a success state, wrapping an inner value (the data). }}
+$> Ok @1 ;
+{{ Used to represent a failure state, wrapping an inner value (the error). }}
+$> Err @1 ;
+$= Result Ok Err or ;
