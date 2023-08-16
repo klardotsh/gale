@@ -5,6 +5,14 @@ disregard such advice (thanks for taking the leap of faith!), and to start
 laying the groundwork for some future where, maybe, things are in a better
 state to contribute to. It also helps remind *myself* of some things...
 
+## On Theming
+
+Gale is a term most frequently associated with weather at sea, but sea stuff has
+already been beaten to death by another (quite popular) open source ecosystem,
+so note that Gale tools are named after meteorological phenomena: think wind,
+clouds, rain, snow, etc. and less parts of boats or sea creatures or waves or
+whatever.
+
 ## Style Guides
 
 See [the universal style guide for Gale](STYLE_GUIDE.universal.md) and [the Zig
@@ -47,6 +55,13 @@ reality that has organically grown in the codebase, but it's a start.
 - GPG and/or SSH signatures for commits are strongly encouraged (see, for
   example [this article about signing with SSH
   keys](https://blog.dbrgn.ch/2021/11/16/git-ssh-signatures/)).
+- Commits (except those authored by `@klardotsh` and signed with his keys) must
+  be `Signed-off-by` for acceptance to the tree, indicating the author of the
+  commit has read, acknowledged, and agrees to the [Developer Certificate of
+  Origin](https://developercertificate.org/). For a bit of a layman's
+  explanation of the DCO and how it interacts with `git commit -s` and
+  `Signed-off-by`, see [Drew DeVault's blog post on the
+  subject](https://drewdevault.com/2021/04/12/DCO.html).
 
 ### Commit Messages
 
@@ -69,3 +84,33 @@ Co-authored-by: My Shadow <shadow@example.com>
 Examples of sections might include `docs:` or `devxp:` or `perf:`, or some
 section of the codebase, like `word_signature:`. Often, subsections may be
 useful, for example: `std/fs: Add docstrings throughout.`.
+
+
+### Non-Text Files
+
+Non-text files ("binaries") must **never** be checked into Git directly, as
+they bloat the clone size of the repo _forever_, not just for the time that
+the version of the file is reachable in the directory tree (since Git stores
+objects permanently to allow local checkouts of prior commits, every revision
+to, say, an image, must be cloned). Use [Git LFS](https://git-lfs.com/) for non-
+text files. Prefer LFS over scripts that download binaries to the developer's
+workstation "at runtime", unless licensing or other restrictions mandate that
+the files can't be redistributed via LFS.
+
+A great way to avoid checking non-text files in *anywhere* is to only preserve
+the plain-text sources that are used to generate said binaries. For source
+code, this is already an unwritten expectation within most projects ("hey, maybe
+don't check in that unsigned binary you built on a box in your basement?"), but
+where this becomes crucial is in imagery: I find this is most often the cause of
+bloated Git repos. Anything that can be stored SVG-based vector imagery *should
+be*, but anything inherently rasterized (say, screenshots) will have to live
+in LFS.
+
+> It should be noted that the canonical repo for Gale
+> is hosted on Sourcehut, which [as of 2023 still does not support Git
+> LFS](https://lists.sr.ht/~sircmpwn/sr.ht-discuss/%3CCAG+K25NORsCEpUQ%3DMP_iD5yEwn1v259g2jqr4ykjdX6RCZxoXw%40mail.gmail.com%3E)
+> despite years of indicating intent. Currently, there's also no binary files
+> in the tree. I'll deal with this problem whenever it becomes relevant:
+> potentially by finding a dedicated LFS host and configuring the repo to use
+> it, or potentially by finding a new Git host (again: there was already one
+> quiet migration from GitHub to Sourcehut).
